@@ -1,0 +1,52 @@
+﻿@page "/workouts"
+@page "/"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@using healthspan_fe_wasm_pwa.Shared
+
+<PageTitle>Workouts</PageTitle>
+
+<MudText Typo="Typo.h3" GutterBottom="true">Workouts</MudText>
+
+@if (workouts == null)
+{
+    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="workouts" Hover="true" SortLabel="Sort By" Elevation="0" Dense="true" Breakpoint="Breakpoint.None">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<GetWorkoutResource, object>(x=>x.Date)">Date</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<GetWorkoutResource, object>(x=>x.Type)">Type</MudTableSortLabel></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Date">@context.Date.ToShortDateString()</MudTd>
+            <MudTd DataLabel="Type">@context.Type</MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[]{50, 100}" />
+        </PagerContent>
+    </MudTable>
+}
+<MudFab @onclick="GoToCreateWorkout" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" style="float: right;"/>
+
+@code {
+    private GetWorkoutResource[]? workouts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("/workouts");
+    }
+
+    public class GetWorkoutResource
+    {
+        public Guid Id { get; set; }
+        public DateTime Date { get; set; }
+        public string? Type { get; set; }
+        public Guid? UserId { get; set; }
+    }
+    private void GoToCreateWorkout()
+    {
+        NavigationManager.NavigateTo("/workouts/create");
+    }
+}

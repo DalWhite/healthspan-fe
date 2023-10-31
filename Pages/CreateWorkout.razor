@@ -1,0 +1,105 @@
+@page "/workouts/create"
+@inject HttpClient Http
+
+<MudText Typo="Typo.h3">Create a workout</MudText>
+<MudDatePicker Label="Workout date" Editable="true" @bind-Date="workout.Date" Placeholder="Select Date" />
+<MudTextField @bind-Value="workout.Type" Label="Ej. Pull, strength, hypertrophy" Variant="Variant.Text"></MudTextField>
+<br>
+
+<MudButton @onclick="AddWorkout" Variant="Variant.Filled" Color="Color.Primary" style="float: right;" >Create Workout</MudButton>
+
+<br>
+<br>
+
+<MudText Typo="Typo.h4">Exercises</MudText>
+
+@if (exercisesAdded.Any())
+{
+    <MudTable Items="@exercisesAdded" Hover="true" Breakpoint="Breakpoint.None" Dense="true">
+        <HeaderContent>
+            <MudTh>Type</MudTh>
+            <MudTh>Series</MudTh>
+            <MudTh>Reps</MudTh>
+            <MudTh>Weight</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Type">@exerciseTypes.First(et => et.Id == @context.TypeId).Name</MudTd>
+                <MudTd DataLabel="Series">@context.Series</MudTd>
+                <MudTd DataLabel="Reps">@context.Repetitions</MudTd>
+                <MudTd DataLabel="Weight">@context.Weight</MudTd>
+            </RowTemplate>
+        </MudTable>
+    <br>
+}
+
+<MudContainer>
+    <MudSelect Label="Exercise" Variant="Variant.Text" @bind-Value="typeToAdd" >
+        @if (exerciseTypes != null)
+        {
+            @foreach (var exerciseType in exerciseTypes)
+            {
+                <MudSelectItem Value="@exerciseType">@exerciseType.Name</MudSelectItem>
+            }
+        }
+    </MudSelect>
+    <MudTextField @bind-Value="exercise.Series" Label="Series" Variant="Variant.Text"></MudTextField>
+    <MudTextField @bind-Value="exercise.Repetitions" Label="Reps" Variant="Variant.Text"></MudTextField>
+    <MudTextField @bind-Value="exercise.Weight" Label="Weight" Variant="Variant.Text"></MudTextField>
+</MudContainer>
+
+
+<MudFab @onclick="AddExerciseToTheForm" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+    style="float: right;" Size="Size.Small" />
+
+
+@code {
+    private List<AddExerciseResource> exercisesAdded = new();
+    DateTime? date = DateTime.Today;
+    private Guid workoutId;
+    private GetExerciseTypeResource[]? exerciseTypes;
+    public AddExerciseResource? exercise { get; set; } = new();
+    public AddWorkoutResource? workout { get; set; } = new();
+    public GetExerciseTypeResource typeToAdd { get; set; }
+
+    private async Task AddExerciseToTheForm()
+    {
+        exercise.WorkoutId = workoutId;
+        exercise.TypeId = typeToAdd.Id;
+
+        var response = await Http.PostAsJsonAsync("/Exercises", exercise);
+
+        if (response.IsSuccessStatusCode)
+        {
+            exercisesAdded.Add(exercise);
+        }
+        exercise = new();
+    }
+    private async Task AddWorkout()
+    {
+        workout.UserId = new Guid();
+
+        var response = await Http.PostAsJsonAsync("/Workouts", workout);
+        var result = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
+        workoutId = result.Id;
+
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+    }
+    public record AddExerciseResource
+    {
+        public Guid? WorkoutId { get; set; }
+        public Guid? TypeId { get; set; }
+        public int Series { get; set; }
+        public int Repetitions { get; set; }
+        public int Weight { get; set; }
+    }
+
+    public class AddWorkoutResource
+    {
+        public DateTime? Date { get; set; }
+        public Guid? UserId { get; set; }
+        public string Type { get; set; }
+    }
+}
