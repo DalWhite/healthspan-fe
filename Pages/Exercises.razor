@@ -1,0 +1,53 @@
+﻿@page "/exercises"
+@inject HttpClient Http
+@using healthspan_fe_wasm_pwa.Shared
+
+<PageTitle>Exercises</PageTitle>
+
+<MudText Typo="Typo.h3" GutterBottom="true">Exercises</MudText>
+
+@if (exercises == null)
+{
+    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="exercises" Hover="true" SortLabel="Sort By" Elevation="0" Breakpoint="Breakpoint.None" Dense="true">
+        <HeaderContent>
+            <MudTh>Workout Date</MudTh>
+            <MudTh>Type</MudTh>
+            <MudTh>Series</MudTh>
+            <MudTh>Reps</MudTh>
+            <MudTh>Weight</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Date">@context.Workout.Date.ToShortDateString()</MudTd>
+            <MudTd DataLabel="Type">@context.Type.Name</MudTd>
+            <MudTd DataLabel="Series">@context.Series</MudTd>
+            <MudTd DataLabel="Reps">@context.Repetitions</MudTd>
+            <MudTd DataLabel="Weight">@context.Weight</MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[]{50, 100}" />
+            </PagerContent>
+        </MudTable>
+}
+
+@code {
+    private GetExerciseResource[]? exercises;
+
+    protected override async Task OnInitializedAsync()
+    {
+        exercises = await Http.GetFromJsonAsync<GetExerciseResource[]>("/Exercises");
+    }
+
+    public class GetExerciseResource
+    {
+        public Guid? Id { get; set; }
+        public int? Series { get; set; }
+        public int? Repetitions { get; set; }
+        public int? Weight { get; set; }
+        public GetExerciseTypeResource? Type { get; set; }
+        public GetWorkoutResource Workout { get; set; }
+    }
+}

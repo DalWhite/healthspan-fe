@@ -1,0 +1,31 @@
+﻿@page "/exercises/types/create"
+@inject HttpClient Http
+@using healthspan_fe_wasm_pwa.Shared
+@inject NavigationManager NavigationManager
+
+<PageTitle>ExerciseTypesCreate</PageTitle>
+
+<MudText Typo="Typo.h3" GutterBottom="true">Create Exercise Types</MudText>
+<MudTextField @bind-Value="_addTypeResource.Name" Label="Name" Variant="Variant.Text"></MudTextField>
+<MudTextField @bind-Value="_addTypeResource.Description" Label="Description" Variant="Variant.Text"></MudTextField>
+<MudTextField @bind-Value="_addTypeResource.MuscleGroup" Label="Muscle Group" Variant="Variant.Text"></MudTextField>
+
+<MudButton @onclick="AddExerciseType" Variant="Variant.Filled" Color="Color.Primary" style="float: right;" >Create</MudButton>
+
+@code {
+    private bool typeAdded = false;
+    private AddExerciseTypeResource? _addTypeResource = new();
+    protected override async Task OnInitializedAsync()
+    {
+    }
+
+    private async Task AddExerciseType()
+    {
+        var response = await Http.PostAsJsonAsync("/ExerciseTypes", _addTypeResource);
+        if (response.IsSuccessStatusCode)
+        {
+            typeAdded = true;
+        }
+        NavigationManager.NavigateTo("/exercises/types");
+    }
+}

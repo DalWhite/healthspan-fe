@@ -1,0 +1,44 @@
+﻿@page "/exercises/types"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@using healthspan_fe_wasm_pwa.Shared
+
+<PageTitle>ExerciseTypes</PageTitle>
+
+<MudText Typo="Typo.h3" GutterBottom="true">ExerciseTypes</MudText>
+
+@if (_exerciseTypes == null)
+{
+    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="_exerciseTypes" Hover="true" SortLabel="Sort By" Elevation="0" Dense="true" Breakpoint="Breakpoint.None">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Description</MudTh>
+            <MudTh>Muscle Group</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Description">@context.Description</MudTd>
+            <MudTd DataLabel="Muscle Group">@context.MuscleGroup</MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[]{50, 100}" />
+            </PagerContent>
+        </MudTable>
+}
+<MudFab @onclick="GoToCreateExerciseType" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" style="float: right;"/>
+@code {
+    private GetExerciseTypeResource[]? _exerciseTypes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+    }
+    private void GoToCreateExerciseType()
+    {
+        NavigationManager.NavigateTo("/exercises/types/create");
+    }
+}
