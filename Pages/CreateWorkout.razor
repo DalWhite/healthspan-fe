@@ -6,10 +6,15 @@
 <MudTextField @bind-Value="workout.Type" Label="Ej. Pull, strength, hypertrophy" Variant="Variant.Text"></MudTextField>
 <br>
 
-<MudButton @onclick="AddWorkout" Variant="Variant.Filled" Color="Color.Primary" style="float: right;" >Create Workout</MudButton>
+<MudButton @onclick="AddWorkout" Variant="Variant.Filled" Color="Color.Primary" style="float: right;">Create Workout
+</MudButton>
 
 <br>
 <br>
+@if (workoutCreated)
+{
+    <MudAlert Severity="Severity.Success">Workout created</MudAlert>
+}
 
 <MudText Typo="Typo.h4">Exercises</MudText>
 
@@ -24,16 +29,16 @@
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="Type">@exerciseTypes.First(et => et.Id == @context.TypeId).Name</MudTd>
-                <MudTd DataLabel="Series">@context.Series</MudTd>
-                <MudTd DataLabel="Reps">@context.Repetitions</MudTd>
-                <MudTd DataLabel="Weight">@context.Weight</MudTd>
-            </RowTemplate>
-        </MudTable>
+            <MudTd DataLabel="Series">@context.Series</MudTd>
+            <MudTd DataLabel="Reps">@context.Repetitions</MudTd>
+            <MudTd DataLabel="Weight">@context.Weight</MudTd>
+        </RowTemplate>
+    </MudTable>
     <br>
 }
 
 <MudContainer>
-    <MudSelect Label="Exercise" Variant="Variant.Text" @bind-Value="typeToAdd" >
+    <MudSelect Label="Exercise" Variant="Variant.Text" @bind-Value="typeToAdd">
         @if (exerciseTypes != null)
         {
             @foreach (var exerciseType in exerciseTypes)
@@ -54,12 +59,12 @@
 
 @code {
     private List<AddExerciseResource> exercisesAdded = new();
-    DateTime? date = DateTime.Today;
     private Guid workoutId;
     private GetExerciseTypeResource[]? exerciseTypes;
     public AddExerciseResource? exercise { get; set; } = new();
     public AddWorkoutResource? workout { get; set; } = new();
     public GetExerciseTypeResource typeToAdd { get; set; }
+    private bool workoutCreated = false;
 
     private async Task AddExerciseToTheForm()
     {
@@ -82,9 +87,19 @@
         var result = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
         workoutId = result.Id;
 
+        if (response.IsSuccessStatusCode)
+        {
+            workoutCreated = true;
+            StateHasChanged();
+        }
+        await Task.Delay(3000);
+        workoutCreated = false;
+        StateHasChanged();
+
     }
     protected override async Task OnInitializedAsync()
     {
+        workout.Date = DateTime.Now;
         exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
     }
     public record AddExerciseResource

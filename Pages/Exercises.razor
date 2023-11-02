@@ -19,13 +19,19 @@ else
             <MudTh>Series</MudTh>
             <MudTh>Reps</MudTh>
             <MudTh>Weight</MudTh>
+            <MudTh>1RM</MudTh>
+            <MudTh>Volume</MudTh>
+            <MudTh>Intensity</MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="Date">@context.Workout.Date.ToShortDateString()</MudTd>
-            <MudTd DataLabel="Type">@context.Type.Name</MudTd>
-            <MudTd DataLabel="Series">@context.Series</MudTd>
-            <MudTd DataLabel="Reps">@context.Repetitions</MudTd>
-            <MudTd DataLabel="Weight">@context.Weight</MudTd>
+            <MudTd DataLabel="Date">@context.Workout?.Date.ToShortDateString()</MudTd>
+                <MudTd DataLabel="Type">@context.Type?.Name</MudTd>
+                <MudTd DataLabel="Series">@context.Series</MudTd>
+                <MudTd DataLabel="Reps">@context.Repetitions</MudTd>
+                <MudTd DataLabel="Weight">@context.Weight</MudTd>
+                <MudTd DataLabel="1RM">@context.MaxRepetition</MudTd>
+                <MudTd DataLabel="Volume">@context.Volume</MudTd>
+                <MudTd DataLabel="Intensity">@context.Intensity</MudTd>
             </RowTemplate>
             <PagerContent>
                 <MudTablePager PageSizeOptions="new int[]{50, 100}" />
@@ -47,7 +53,10 @@ else
         public int? Series { get; set; }
         public int? Repetitions { get; set; }
         public int? Weight { get; set; }
+        public double? MaxRepetition { get; set;}
+        public int? Volume { get; set;}
+        public double? Intensity { get; set;}
         public GetExerciseTypeResource? Type { get; set; }
-        public GetWorkoutResource Workout { get; set; }
+        public GetWorkoutResource? Workout { get; set; }
     }
 }
