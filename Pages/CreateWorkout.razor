@@ -1,7 +1,7 @@
 @page "/workouts/create"
 @inject HttpClient Http
+@inject NavigationManager NavigationManager
 
-<MudText Typo="Typo.h3">Create a workout</MudText>
 <MudDatePicker Label="Workout date" Editable="true" @bind-Date="workout.Date" Placeholder="Select Date" />
 <MudTextField @bind-Value="workout.Type" Label="Ej. Pull, strength, hypertrophy" Variant="Variant.Text"></MudTextField>
 <br>
@@ -101,6 +101,10 @@
     {
         workout.Date = DateTime.Now;
         exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+    }
+    private void GoToCreateExerciseType()
+    {
+        NavigationManager.NavigateTo("/exercises/types");
     }
     public record AddExerciseResource
     {
