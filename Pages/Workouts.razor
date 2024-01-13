@@ -12,10 +12,22 @@
 }
 else
 {
-    <MudTable Items="workouts" Hover="true" SortLabel="Sort By" Elevation="0" Dense="true" Breakpoint="Breakpoint.None">
+    <MudTable Items="workouts" Hover="true" SortLabel="Sort By" Elevation="0" Dense="true" Breakpoint="Breakpoint.None"
+        Filter="new Func<GetWorkoutResource,bool>(FilterFunc1)">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Exercise Types</MudText>
+            <MudSpacer />
+            <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start"
+                AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
         <HeaderContent>
-            <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<GetWorkoutResource, object>(x=>x.Date)">Date</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortBy="new Func<GetWorkoutResource, object>(x=>x.Type)">Type</MudTableSortLabel></MudTh>
+            <MudTh>
+                <MudTableSortLabel InitialDirection="SortDirection.Ascending"
+                    SortBy="new Func<GetWorkoutResource, object>(x=>x.Date)">Date</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetWorkoutResource, object>(x=>x.Type)">Type</MudTableSortLabel>
+            </MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="Date">@context.Date.ToShortDateString()</MudTd>
@@ -26,10 +38,12 @@ else
         </PagerContent>
     </MudTable>
 }
-<MudFab @onclick="GoToCreateWorkout" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" style="float: right;"/>
+<MudFab @onclick="GoToCreateWorkout" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+    style="float: right;" />
 
 @code {
     private GetWorkoutResource[]? workouts;
+    private string searchString1 = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -46,5 +60,22 @@ else
     private void GoToCreateWorkout()
     {
         NavigationManager.NavigateTo("/workouts/create");
+    }
+    private bool FilterFunc1(GetWorkoutResource element) => FilterFunc(element, searchString1);
+
+    private bool FilterFunc(GetWorkoutResource element, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (string.IsNullOrWhiteSpace(element.Type))
+            return false;
+        string dateString = element.Date.ToString("dd/MM/yyyy");
+
+        if (dateString.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (element.Type.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
     }
 }

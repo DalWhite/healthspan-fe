@@ -37,24 +37,7 @@
     <br>
 }
 
-<MudContainer>
-    <MudSelect Label="Exercise" Variant="Variant.Text" @bind-Value="typeToAdd">
-        @if (exerciseTypes != null)
-        {
-            @foreach (var exerciseType in exerciseTypes)
-            {
-                <MudSelectItem Value="@exerciseType">@exerciseType.Name</MudSelectItem>
-            }
-        }
-    </MudSelect>
-    <MudTextField @bind-Value="exercise.Series" Label="Series" Variant="Variant.Text"></MudTextField>
-    <MudTextField @bind-Value="exercise.Repetitions" Label="Reps" Variant="Variant.Text"></MudTextField>
-    <MudTextField @bind-Value="exercise.Weight" Label="Weight" Variant="Variant.Text"></MudTextField>
-</MudContainer>
-
-
-<MudFab @onclick="AddExerciseToTheForm" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-    style="float: right;" Size="Size.Small" />
+<ExerciseCreationForm ExerciseTypes="@exerciseTypes" WorkoutId="@workoutId" OnExerciseAdded="HandleExerciseAdded"></ExerciseCreationForm>
 
 
 @code {
@@ -106,14 +89,11 @@
     {
         NavigationManager.NavigateTo("/exercises/types");
     }
-    public record AddExerciseResource
+    private async Task HandleExerciseAdded(AddExerciseResource exercise)
     {
-        public Guid? WorkoutId { get; set; }
-        public Guid? TypeId { get; set; }
-        public int Series { get; set; }
-        public int Repetitions { get; set; }
-        public int Weight { get; set; }
+        exercisesAdded.Add(exercise);
     }
+    
 
     public class AddWorkoutResource
     {

@@ -1,0 +1,29 @@
+@page "/exercises/create"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Exercise</PageTitle>
+
+<MudPaper Class="pa-4">
+    <MudContainer>
+        <MudText Typo="Typo.h5">Add New Exercise</MudText>
+        <ExerciseCreationForm ExerciseTypes="@exerciseTypes" WorkoutId="@workoutId" OnExerciseAdded="HandleExerciseAdded" />
+    </MudContainer>
+</MudPaper>
+
+@code {
+    private GetExerciseTypeResource[] exerciseTypes;
+    private Guid workoutId;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+        workoutId = Guid.Empty;
+    }
+
+    private void HandleExerciseAdded(AddExerciseResource exercise)
+    {
+        Snackbar.Add("Exercise added successfully!", Severity.Success);
+    }
+}

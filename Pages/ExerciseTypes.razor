@@ -11,24 +11,37 @@
 }
 else
 {
-    <MudTable Items="_exerciseTypes" Hover="true" SortLabel="Sort By" Elevation="0" Dense="true" Breakpoint="Breakpoint.None">
-        <HeaderContent>
-            <MudTh>Name</MudTh>
-            <MudTh>Description</MudTh>
-            <MudTh>Muscle Group</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Name">@context.Name</MudTd>
-            <MudTd DataLabel="Description">@context.Description</MudTd>
-            <MudTd DataLabel="Muscle Group">@context.MuscleGroup</MudTd>
-            </RowTemplate>
-            <PagerContent>
-                <MudTablePager PageSizeOptions="new int[]{50, 100}" />
-            </PagerContent>
-        </MudTable>
+    <MudTable Items="_exerciseTypes" Hover="true" SortLabel="Sort By" Elevation="0" Dense="true" Breakpoint="Breakpoint.None" Filter="new Func<GetExerciseTypeResource,bool>(FilterFunc1)">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Exercise Types</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>
+            <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x.Name)">Name</MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x.Description)">Description</MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x.MuscleGroup)">Muscle Group</MudTableSortLabel>
+        </MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Description">@context.Description</MudTd>
+        <MudTd DataLabel="Muscle Group">@context.MuscleGroup</MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new int[]{50, 100}" />
+    </PagerContent>
+</MudTable>
+
 }
 <MudFab @onclick="GoToCreateExerciseType" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" style="float: right;"/>
 @code {
+    private string searchString1 = "";
     private GetExerciseTypeResource[]? _exerciseTypes;
 
     protected override async Task OnInitializedAsync()
@@ -38,5 +51,19 @@ else
     private void GoToCreateExerciseType()
     {
         NavigationManager.NavigateTo("/exercises/types/create");
+    }
+    private bool FilterFunc1(GetExerciseTypeResource element) => FilterFunc(element, searchString1);
+
+    private bool FilterFunc(GetExerciseTypeResource element, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (element.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (element.Description.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (element.MuscleGroup.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
     }
 }
