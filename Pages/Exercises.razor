@@ -1,10 +1,9 @@
 ﻿@page "/exercises"
 @inject HttpClient Http
+@inject NavigationManager NavigationManager
 @using healthspan_fe_wasm_pwa.Shared
 
 <PageTitle>Exercises</PageTitle>
-
-<MudText Typo="Typo.h3" GutterBottom="true">Exercises</MudText>
 
 @if (exercises == null)
 {
@@ -12,29 +11,65 @@
 }
 else
 {
-    <MudTable Items="exercises" Hover="true" SortLabel="Sort By" Elevation="0" Breakpoint="Breakpoint.None" Dense="true">
+    <MudTable Items="exercises" Hover="true" SortLabel="Sort By" Elevation="0" Breakpoint="Breakpoint.None" Dense="true"
+        Filter="new Func<GetExerciseResource,bool>(FilterFunc1)">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Exercise Types</MudText>
+            <MudSpacer />
+            <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start"
+                AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+            <MudFab @onclick="GoToCreateExercise" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" 
+            Size="Size.Small" />
+        </ToolBarContent>
         <HeaderContent>
-            <MudTh>Workout Date</MudTh>
-            <MudTh>Type</MudTh>
-            <MudTh>Series</MudTh>
-            <MudTh>Reps</MudTh>
-            <MudTh>Weight</MudTh>
+            <MudTh>
+                <MudTableSortLabel InitialDirection="SortDirection.Ascending"
+                    SortBy="new Func<GetExerciseResource, object>(x=>x.Workout.Date)">Workout Date</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Type.Name)">Type</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Series)">Series</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Repetitions)">Repetitions
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Weight)">Weight</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.MaxRepetition)">1RM
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Volume)">Volume</MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Intensity)">Intensity
+                </MudTableSortLabel>
+            </MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="Date">@context.Workout.Date.ToShortDateString()</MudTd>
-            <MudTd DataLabel="Type">@context.Type.Name</MudTd>
+            <MudTd DataLabel="Date">@context.Workout?.Date.ToShortDateString()</MudTd>
+            <MudTd DataLabel="Type">@context.Type?.Name</MudTd>
             <MudTd DataLabel="Series">@context.Series</MudTd>
             <MudTd DataLabel="Reps">@context.Repetitions</MudTd>
             <MudTd DataLabel="Weight">@context.Weight</MudTd>
-            </RowTemplate>
-            <PagerContent>
-                <MudTablePager PageSizeOptions="new int[]{50, 100}" />
-            </PagerContent>
-        </MudTable>
+            <MudTd DataLabel="1RM">@context.MaxRepetition</MudTd>
+            <MudTd DataLabel="Volume">@context.Volume</MudTd>
+            <MudTd DataLabel="Intensity">@context.Intensity</MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[]{50, 100}" />
+        </PagerContent>
+    </MudTable>
 }
 
 @code {
     private GetExerciseResource[]? exercises;
+    private string searchString1 = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -47,7 +82,34 @@ else
         public int? Series { get; set; }
         public int? Repetitions { get; set; }
         public int? Weight { get; set; }
+        public double? MaxRepetition { get; set; }
+        public int? Volume { get; set; }
+        public double? Intensity { get; set; }
         public GetExerciseTypeResource? Type { get; set; }
-        public GetWorkoutResource Workout { get; set; }
+        public GetWorkoutResource? Workout { get; set; }
+    }
+
+    private bool FilterFunc1(GetExerciseResource element) => FilterFunc(element, searchString1);
+
+    private bool FilterFunc(GetExerciseResource element, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        string dateString = element.Workout.Date.ToString("dd/MM/yyyy");
+
+        if (dateString.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (element.Type.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (element.Type.Description.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (element.Type.MuscleGroup.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+    private void GoToCreateExercise()
+    {
+        NavigationManager.NavigateTo("/exercises/create"); // Adjust the URL as needed
     }
 }

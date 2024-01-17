@@ -1,0 +1,54 @@
+@inject HttpClient Http
+
+<MudContainer>
+    <MudSelect Label="Exercise" Variant="Variant.Text" @bind-Value="typeToAdd">
+        @if (ExerciseTypes != null)
+        {
+            @foreach (var exerciseType in ExerciseTypes)
+            {
+                <MudSelectItem Value="@exerciseType">@exerciseType.Name</MudSelectItem>
+            }
+        }
+    </MudSelect>
+    <MudTextField @bind-Value="exercise.Series" Label="Series" Variant="Variant.Text"></MudTextField>
+    <MudTextField @bind-Value="exercise.Repetitions" Label="Reps" Variant="Variant.Text"></MudTextField>
+    <MudTextField @bind-Value="exercise.Weight" Label="Weight" Variant="Variant.Text"></MudTextField>
+</MudContainer>
+
+<MudFab @onclick="AddExerciseToTheForm" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+    style="float: right;" Size="Size.Small" />
+
+@code {
+    [Parameter] public EventCallback<AddExerciseResource> OnExerciseAdded { get; set; }
+    [Parameter] public GetExerciseTypeResource[] ExerciseTypes { get; set; }
+    [Parameter] public Guid WorkoutId { get; set; }
+
+    private AddExerciseResource exercise = new();
+    private GetExerciseTypeResource typeToAdd;
+
+    private async Task AddExerciseToTheForm()
+    {
+        if (WorkoutId == Guid.Empty)
+        {
+            WorkoutId = await GetLastWorkoutId();
+        }
+        exercise.WorkoutId = WorkoutId;
+        exercise.TypeId = typeToAdd.Id;
+
+        var response = await Http.PostAsJsonAsync("/Exercises", exercise);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await OnExerciseAdded.InvokeAsync(exercise);
+        }
+
+        exercise = new();
+    }
+    private async Task<Guid> GetLastWorkoutId()
+    {
+        var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("/workouts");
+        
+        var latestWorkout = workouts.OrderByDescending(w => w.Date).FirstOrDefault();
+        return latestWorkout.Id;
+    }
+}
