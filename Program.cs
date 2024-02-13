@@ -4,20 +4,21 @@ using healthspan_fe_wasm_pwa;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using BlazorWasmAuth.Identity;
+using Blazored.LocalStorage;
+using System.Net.Http.Headers;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddScoped<JwtHandler>();
+builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddAuthorizationCore();
-builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthenticationStateProvider>();
-builder.Services.AddScoped(sp => (IAccountManagement)sp.GetRequiredService<AuthenticationStateProvider>());
+
+builder.Services.AddScoped<IAccountManagement, JwtAuthenticationStateProvider>();
+builder.Services.AddScoped<JwtAuthenticationStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<JwtAuthenticationStateProvider>());
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5152") });
-builder.Services.AddHttpClient("Auth",opt => opt.BaseAddress = new Uri("http://localhost:5152"))
-    .AddHttpMessageHandler<JwtHandler>();
-    
 builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();

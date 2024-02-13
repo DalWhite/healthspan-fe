@@ -4,35 +4,39 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-        <MudLayout>
-            <MudAppBar Elevation="1">
-                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                    OnClick="@ToggleDrawer" />
-            </MudAppBar>
-            <MudDrawer @bind-Open="@open" Elevation="1">
-                <MudDrawerHeader>
-                    <MudText Typo="Typo.h6">Heatlhspan</MudText>
-                </MudDrawerHeader>
-                <NavMenu />
-            </MudDrawer>
-            <MudMainContent Class="pt-16 px-16">
-                <MudContainer Class="mt-6">
-                    @Body
-                </MudContainer>
-            </MudMainContent>
-        </MudLayout>
-<AuthorizeView>
-    <Authorized>
-        Logged in as @context.User.Identity?.Name. <a href="logout"><span class="bi bi-door-closed-fill"
-                aria-hidden="true" style="vertical-align:middle"></span> Logout</a>
-    </Authorized>
-    <NotAuthorized>
-        <a href="login"><span class="bi bi-door-open" aria-hidden="true" style="vertical-align:middle"></span> Login</a>
-        <a href="register"><span class="bi bi-pencil-square" aria-hidden="true" style="vertical-align:middle"></span>
-            Register</a>
-    </NotAuthorized>
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+            OnClick="@ToggleDrawer" />
+    </MudAppBar>
+    <MudDrawer @bind-Open="@open" Elevation="1">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6">Heatlhspan</MudText>
 
-</AuthorizeView>
+            <AuthorizeView>
+                <Authorized>
+                    Logged in as @context.User.Identity?.Name. <a href="logout"><span class="bi bi-door-closed-fill"
+                            aria-hidden="true" style="vertical-align:middle"></span> Logout</a>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="login"><span class="bi bi-door-open" aria-hidden="true"
+                            style="vertical-align:middle"></span> Login</a>
+                    <a href="register"><span class="bi bi-pencil-square" aria-hidden="true"
+                            style="vertical-align:middle"></span>
+                        Register</a>
+                </NotAuthorized>
+
+            </AuthorizeView>
+        </MudDrawerHeader>
+        <NavMenu />
+    </MudDrawer>
+    <MudMainContent Class="pt-16 px-16">
+        <MudContainer Class="mt-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
 @code {
     bool open = false;
 
