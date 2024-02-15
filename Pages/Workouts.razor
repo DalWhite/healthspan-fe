@@ -1,5 +1,4 @@
 ﻿@page "/workouts"
-@page "/"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @using healthspan_fe_wasm_pwa.Shared
@@ -47,7 +46,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("/workouts");
+        workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("workouts");
     }
 
     public class GetWorkoutResource

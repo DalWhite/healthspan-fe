@@ -64,7 +64,6 @@
     }
     private async Task AddWorkout()
     {
-        workout.UserId = new Guid();
 
         var response = await Http.PostAsJsonAsync("/Workouts", workout);
         var result = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
@@ -98,7 +97,6 @@
     public class AddWorkoutResource
     {
         public DateTime? Date { get; set; }
-        public Guid? UserId { get; set; }
         public string Type { get; set; }
     }
 }

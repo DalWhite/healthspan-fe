@@ -1,0 +1,127 @@
+@layout LoginLayout
+
+@page "/register"
+@using BlazorWasmAuth.Identity
+@inject IAccountManagement Acct
+
+<PageTitle>Register</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
+    <MudText Typo="Typo.h3" GutterBottom="true">Register</MudText>
+
+    <AuthorizeView>
+        <Authorized>
+            <MudAlert Severity="Severity.Success">You're already logged in as @context.User.Identity?.Name.</MudAlert>
+        </Authorized>
+        <NotAuthorized>
+            @if (success)
+            {
+                <MudAlert Severity="Severity.Success">
+                    You successfully registered. Now you can <MudLink Href="login">login</MudLink>.
+                </MudAlert>
+            }
+            else
+            {
+                if (errors)
+                {
+                    foreach (var error in errorList)
+                    {
+                        <MudAlert Severity="Severity.Error">@error</MudAlert>
+                    }
+                }
+                <MudForm>
+                    <MudTextField Label="Email" Required="true" Placeholder="Enter your email address"
+                        Variant="Variant.Outlined" @bind-Value="email" InputType="InputType.Email" />
+                    <MudTextField Label="Password" Required="true" Placeholder="Enter your password"
+                        Variant="Variant.Outlined" InputType="@PasswordInput" Adornment="Adornment.End"
+                        AdornmentIcon="@PasswordInputIcon" @bind-Value="password" Class="mt-2"
+                        OnAdornmentClick="@ButtonTestclick" />
+                    <MudTextField Label="Retype password" Required="true" Placeholder="Re-enter your password"
+                        Variant="Variant.Outlined" InputType="@PasswordInput" Adornment="Adornment.End"
+                        AdornmentIcon="@PasswordInputIcon" @bind-Value="confirmPassword" Class="mt-2"
+                        OnAdornmentClick="@ButtonTestclick" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="DoRegisterAsync" Class="mt-4">
+                        Register</MudButton>
+                </MudForm>
+            }
+        </NotAuthorized>
+    </AuthorizeView>
+</MudContainer>
+
+
+@code {
+    private bool success, errors;
+    private string email = string.Empty;
+    private string password = string.Empty;
+    private string confirmPassword = string.Empty;
+    private string[] errorList = [];
+    bool isShow;
+    InputType PasswordInput = InputType.Password;
+    string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+
+    void ButtonTestclick()
+    {
+        @if (isShow)
+        {
+            isShow = false;
+            PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+            PasswordInput = InputType.Password;
+        }
+        else
+        {
+            isShow = true;
+            PasswordInputIcon = Icons.Material.Filled.Visibility;
+            PasswordInput = InputType.Text;
+        }
+    }
+    public async Task DoRegisterAsync()
+    {
+        success = errors = false;
+        errorList = [];
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            errors = true;
+            errorList = ["Email is required."];
+
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            errors = true;
+            errorList = ["Password is required."];
+
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(confirmPassword))
+        {
+            errors = true;
+            errorList = ["Please confirm your password."];
+
+            return;
+        }
+
+        if (password != confirmPassword)
+        {
+            errors = true;
+            errorList = ["Passwords don't match."];
+
+            return;
+        }
+
+        var result = await Acct.RegisterAsync(email!, password!);
+
+        if (result.Succeeded)
+        {
+            success = true;
+            email = password = confirmPassword = string.Empty;
+        }
+        else
+        {
+            errors = true;
+            errorList = result.ErrorList;
+        }
+    }
+}
