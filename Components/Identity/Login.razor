@@ -1,81 +1,93 @@
+@layout LoginLayout
+
 @page "/login"
 @using BlazorWasmAuth.Identity
 @inject IAccountManagement Acct
+@inject NavigationManager Navigation
+
+@using MudBlazor
 
 <PageTitle>Login</PageTitle>
 
-<h1>Login</h1>
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
+    <MudText Typo="Typo.h3" GutterBottom="true">Login</MudText>
 
-<AuthorizeView>
-    <Authorized>
-        <div class="alert alert-success">You're logged in as @context.User.Identity?.Name.</div>
-    </Authorized>
-    <NotAuthorized>
-        @if (errors)
-        {
-            @foreach (var error in errorList)
+    <AuthorizeView>
+        <Authorized>
+            <MudAlert Severity="Severity.Success">You're logged in as @context.User.Identity?.Name.</MudAlert>
+        </Authorized>
+        <NotAuthorized>
+            @if (errors)
             {
-                <div class="alert alert-danger">@error</div>
+                @foreach (var error in errorList)
+                {
+                    <MudAlert Severity="Severity.Error">@error</MudAlert>
+                }
             }
-        }
-        <div class="flex-outer">
-            <div>
-                <label for="email">
-                    Email:
-                </label>
-                <input required id="email" name="emailInput" placeholder="Enter your email address" type="email" @bind-value="email" />
-            </div>
-            <div>
-                <label for="password">
-                    Password:
-                </label>
-                <input required id="password" name="passwordInput" placeholder="Enter your password" type="password" @bind-value="password" />
-            </div>
-            <div>
-                <button class="btn btn-primary" @onclick="DoLoginAsync">Login</button>
-            </div>
-        </div>
-    </NotAuthorized>
-</AuthorizeView>
+
+            <MudForm>
+                <MudTextField Label="Email" Required="true" Placeholder="Enter your email address"
+                    Variant="Variant.Outlined" @bind-Value="email" />
+                <MudTextField Label="Password" Required="true" Placeholder="Enter your password"
+                    Variant="Variant.Outlined" InputType="@PasswordInput" Adornment="Adornment.End"
+                    AdornmentIcon="@PasswordInputIcon" @bind-Value="password" Class="mt-2"
+                    OnAdornmentClick="ButtonTestclick" />
+                <div style="display: flex; justify-content: flex-end;">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="DoLoginAsync">Login</MudButton>
+                    <MudButton Variant="Variant.Text" OnClick="@(() => Navigation.NavigateTo("register"))" Class="ml-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Edit" Style="vertical-align: middle;" /> Register
+                    </MudButton>
+                </div>
+            </MudForm>
+        </NotAuthorized>
+    </AuthorizeView>
+</MudContainer>
 
 @code {
     private bool success, errors;
     private string email = string.Empty;
     private string password = string.Empty;
     private string[] errorList = [];
+    bool isShow;
+    InputType PasswordInput = InputType.Password;
+    string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+
+    void ButtonTestclick()
+    {
+        isShow = !isShow;
+        PasswordInputIcon = isShow ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff;
+        PasswordInput = isShow ? InputType.Text : InputType.Password;
+    }
 
     public async Task DoLoginAsync()
     {
         success = errors = false;
-        errorList = [];
+        errorList = Array.Empty<string>();
 
         if (string.IsNullOrWhiteSpace(email))
         {
             errors = true;
-            errorList = ["Email is required."];
-
+            errorList = new[] { "Email is required." };
             return;
         }
 
         if (string.IsNullOrWhiteSpace(password))
         {
             errors = true;
-            errorList = ["Password is required."];
-
+            errorList = new[] { "Password is required." };
             return;
         }
 
-        var result = await Acct.LoginAsync(email!, password!);
+        var result = await Acct.LoginAsync(email, password);
 
         if (result.Succeeded)
         {
-            success = true;
-            email = password = string.Empty;
+            Navigation.NavigateTo("/");
         }
         else
         {
             errors = true;
-            errorList = result.ErrorList;
+            errorList = result.ErrorList.ToArray();
         }
     }
 }

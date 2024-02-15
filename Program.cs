@@ -18,7 +18,7 @@ builder.Services.AddScoped<IAccountManagement, JwtAuthenticationStateProvider>()
 builder.Services.AddScoped<JwtAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(provider => provider.GetRequiredService<JwtAuthenticationStateProvider>());
 
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5152") });
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7278") });
 builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();

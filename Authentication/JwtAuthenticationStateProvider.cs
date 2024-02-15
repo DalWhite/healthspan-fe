@@ -225,7 +225,10 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
     public async Task LogoutAsync()
     {
+        var savedToken = await _localStorage.GetItemAsync<string>("authToken");
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);      
         await _httpClient.PostAsync("Logout", null);
+        await _localStorage.RemoveItemAsync("authToken");
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
