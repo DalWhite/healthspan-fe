@@ -19,19 +19,19 @@ else
     </ToolBarContent>
     <HeaderContent>
         <MudTh>
-            <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x.Name)">Name</MudTableSortLabel>
+            <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x?.Name ?? string.Empty)">Name</MudTableSortLabel>
         </MudTh>
         <MudTh>
-            <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x.Description)">Description</MudTableSortLabel>
+            <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x?.Description ?? string.Empty)">Description</MudTableSortLabel>
         </MudTh>
         <MudTh>
-            <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x.MuscleGroup)">Muscle Group</MudTableSortLabel>
+            <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x?.ImageRoute ?? string.Empty)">Muscle Group</MudTableSortLabel>
         </MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Name">@context.Name</MudTd>
         <MudTd DataLabel="Description">@context.Description</MudTd>
-        <MudTd DataLabel="Muscle Group">@context.MuscleGroup</MudTd>
+        <MudTd DataLabel="Muscle Group">@context.ImageRoute</MudTd>
     </RowTemplate>
     <PagerContent>
         <MudTablePager PageSizeOptions="new int[]{50, 100}" />
@@ -62,7 +62,7 @@ else
             return true;
         if (element.Description.Contains(searchString, StringComparison.OrdinalIgnoreCase))
             return true;
-        if (element.MuscleGroup.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.ImageRoute.Contains(searchString, StringComparison.OrdinalIgnoreCase))
             return true;
         return false;
     }

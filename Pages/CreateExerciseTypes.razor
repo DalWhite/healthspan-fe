@@ -7,17 +7,44 @@
 
 <MudTextField @bind-Value="_addTypeResource.Name" Label="Name" Variant="Variant.Text"></MudTextField>
 <MudTextField @bind-Value="_addTypeResource.Description" Label="Description" Variant="Variant.Text"></MudTextField>
-<MudTextField @bind-Value="_addTypeResource.MuscleGroup" Label="Muscle Group" Variant="Variant.Text"></MudTextField>
+<MudTextField @bind-Value="_addTypeResource.ImageRoute" Label="Muscle Group" Variant="Variant.Text"></MudTextField>
+
+<MudSelect T="int?" Label="Primary Muscle" @bind-Value="_addTypeResource.PrimaryMuscleId">
+    @foreach (var muscle in Muscles)
+    {
+        <MudSelectItem Value="@muscle.Id"> @muscle.Name </MudSelectItem>
+    }
+</MudSelect>
+
+<MudSelect T="int?" Label="Secondary Muscle" @bind-Value="_addTypeResource.SecondaryMuscleId">
+    @foreach (var muscle in Muscles)
+    {
+        <MudSelectItem Value="@muscle.Id"> @muscle.Name </MudSelectItem>
+    }
+</MudSelect>
 
 <MudButton @onclick="AddExerciseType" Variant="Variant.Filled" Color="Color.Primary" style="float: right;" >Create</MudButton>
 
 @code {
     private bool typeAdded = false;
     private AddExerciseTypeResource? _addTypeResource = new();
-    protected override async Task OnInitializedAsync()
+    private List<Muscle> Muscles = new List<Muscle>
     {
-    }
-
+        new Muscle { Id = 1, Name = "Biceps brachii" },
+        new Muscle { Id = 3, Name = "Serratus anterior" },
+        new Muscle { Id = 4, Name = "Pectoralis major" },
+        new Muscle { Id = 5, Name = "Triceps brachii" },
+        new Muscle { Id = 6, Name = "Rectus abdominis" },
+        new Muscle { Id = 7, Name = "Gastrocnemius" },
+        new Muscle { Id = 8, Name = "Gluteus maximus" },
+        new Muscle { Id = 9, Name = "Trapezius" },
+        new Muscle { Id = 10, Name = "Quadriceps femoris" },
+        new Muscle { Id = 11, Name = "Biceps femoris" },
+        new Muscle { Id = 12, Name = "Latissimus dorsi" },
+        new Muscle { Id = 13, Name = "Brachialis" },
+        new Muscle { Id = 14, Name = "Obliquus externus abdominis" },
+        new Muscle { Id = 15, Name = "Soleus" }
+    };
     private async Task AddExerciseType()
     {
         var response = await Http.PostAsJsonAsync("/ExerciseTypes", _addTypeResource);
@@ -26,5 +53,10 @@
             typeAdded = true;
         }
         NavigationManager.NavigateTo("/exercises/types");
+    }
+    private class Muscle
+    {
+        public int? Id { get; set; }
+        public string? Name { get; set; }
     }
 }
