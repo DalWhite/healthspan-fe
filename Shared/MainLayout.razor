@@ -1,9 +1,9 @@
 ﻿@inherits LayoutComponentBase
-
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @using BlazorWasmAuth.Identity
 @inject IAccountManagement Acct
+@inject TitleService TitleService
 
 <MudThemeProvider />
 <MudDialogProvider />
@@ -13,28 +13,26 @@
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
             OnClick="@ToggleDrawer" />
-        <div class="top-row px-4">
-            <AuthorizeView>
-                <Authorized>
-                    Logged in as @context.User.Identity?.Name
-                    <MudButton OnClick="@Logout" Color="Color.Inherit">Logout</MudButton>
-                </Authorized>
-            </AuthorizeView>
-        </div>
+        <MudText Typo="Typo.h6">
+            @TitleService.Title
+        </MudText>
     </MudAppBar>
-    <MudDrawer @bind-Open="@open" Elevation="1">
+    <MudDrawer @bind-Open="@open" Elevation="1" Class="drawer-responsive">
         <MudDrawerHeader>
-            <MudText Typo="Typo.h6">Heatlhspan</MudText>
-
+            <MudText Typo="Typo.h6">Healthspan</MudText>
         </MudDrawerHeader>
         <NavMenu />
+        <Authorized>
+            <MudButton OnClick="@Logout" Color="Color.Inherit">Logout</MudButton>
+        </Authorized>
     </MudDrawer>
-    <MudMainContent Class="pt-16 px-16">
+    <MudMainContent Class="main-content">
         <MudContainer Class="mt-6">
             @Body
         </MudContainer>
     </MudMainContent>
 </MudLayout>
+
 
 @code {
     bool open = false;
@@ -66,5 +64,15 @@
         }
 
         NavigationManager.NavigateTo("/login", true);
+    }
+
+    protected override void OnInitialized()
+    {
+        TitleService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        TitleService.OnChange -= StateHasChanged;
     }
 }
