@@ -2,6 +2,7 @@
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @using healthspan_fe_wasm_pwa.Shared
+@inject TitleService TitleService
 
 <PageTitle>Workouts</PageTitle>
 
@@ -14,8 +15,6 @@ else
     <MudTable Items="workouts" Hover="true" SortLabel="Sort By" Elevation="0" Dense="true" Breakpoint="Breakpoint.None"
         Filter="new Func<GetWorkoutResource,bool>(FilterFunc1)">
         <ToolBarContent>
-            <MudText Typo="Typo.h6">Exercise Types</MudText>
-            <MudSpacer />
             <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start"
                 AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
         </ToolBarContent>
@@ -47,6 +46,10 @@ else
     protected override async Task OnInitializedAsync()
     {
         workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("workouts");
+    }
+    protected override void OnInitialized()
+    {
+        TitleService.Title = "Workouts";
     }
 
     public class GetWorkoutResource

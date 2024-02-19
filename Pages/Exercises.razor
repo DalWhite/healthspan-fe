@@ -2,6 +2,7 @@
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @using healthspan_fe_wasm_pwa.Shared
+@inject TitleService TitleService
 
 <PageTitle>Exercises</PageTitle>
 
@@ -14,12 +15,8 @@ else
     <MudTable Items="exercises" Hover="true" SortLabel="Sort By" Elevation="0" Breakpoint="Breakpoint.None" Dense="true"
         Filter="new Func<GetExerciseResource,bool>(FilterFunc1)">
         <ToolBarContent>
-            <MudText Typo="Typo.h6">Exercise Types</MudText>
-            <MudSpacer />
             <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start"
                 AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-            <MudFab @onclick="GoToCreateExercise" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" 
-            Size="Size.Small" />
         </ToolBarContent>
         <HeaderContent>
             <MudTh>
@@ -65,6 +62,8 @@ else
             <MudTablePager PageSizeOptions="new int[]{50, 100}" />
         </PagerContent>
     </MudTable>
+            <MudFab @onclick="GoToCreateExercise" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+    style="float: right;" />
 }
 
 @code {
@@ -74,6 +73,10 @@ else
     protected override async Task OnInitializedAsync()
     {
         exercises = await Http.GetFromJsonAsync<GetExerciseResource[]>("/Exercises");
+    }
+    protected override void OnInitialized()
+    {
+        TitleService.Title = "Exercises";
     }
 
     public class GetExerciseResource
@@ -103,7 +106,7 @@ else
             return true;
         if (element.Type.Description.Contains(searchString, StringComparison.OrdinalIgnoreCase))
             return true;
-        if (element.Type.MuscleGroup.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.Type.ImageRoute.Contains(searchString, StringComparison.OrdinalIgnoreCase))
             return true;
 
         return false;

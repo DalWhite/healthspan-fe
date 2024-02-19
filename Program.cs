@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using healthspan_fe_wasm_pwa;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.Components.Authorization;
-using BlazorWasmAuth.Identity;
+using Healthspan.Authentication;
 using Blazored.LocalStorage;
 using System.Net.Http.Headers;
 
@@ -13,6 +13,8 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddAuthorizationCore();
+
+builder.Services.AddScoped<TitleService>();
 
 builder.Services.AddScoped<IAccountManagement, JwtAuthenticationStateProvider>();
 builder.Services.AddScoped<JwtAuthenticationStateProvider>();
