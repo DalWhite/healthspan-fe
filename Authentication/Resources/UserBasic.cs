@@ -1,4 +1,4 @@
-namespace BlazorWasmAuth.Identity.Models;
+namespace Healthspan.Authentication.Models;
 /// <summary>
 /// Basic user information to register and login.
 /// </summary>

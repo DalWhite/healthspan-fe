@@ -1,4 +1,4 @@
-namespace BlazorWasmAuth.Identity.Models;
+namespace Healthspan.Authentication.Models;
 /// <summary>
 /// User info from identity endpoint to establish claims.
 /// </summary>

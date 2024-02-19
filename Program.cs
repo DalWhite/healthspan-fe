@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using healthspan_fe_wasm_pwa;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.Components.Authorization;
-using BlazorWasmAuth.Identity;
+using Healthspan.Authentication;
 using Blazored.LocalStorage;
 using System.Net.Http.Headers;
 

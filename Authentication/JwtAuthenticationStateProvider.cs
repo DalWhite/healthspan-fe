@@ -1,69 +1,36 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
 using System.Text.Json;
-using BlazorWasmAuth.Identity.Models;
+using Healthspan.Authentication.Models;
 using System.Net.Http.Json;
 using Blazored.LocalStorage;
 using System.Net.Http.Headers;
-using Microsoft.AspNetCore.Components.WebAssembly.Http;
 
-namespace BlazorWasmAuth.Identity;
+namespace Healthspan.Authentication;
 
-/// <summary>
-/// Handles state for cookie-based auth.
-/// </summary>
 public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAccountManagement
 {
-    /// <summary>
-    /// Map the JavaScript-formatted properties to C#-formatted classes.
-    /// </summary>
     private readonly JsonSerializerOptions jsonSerializerOptions =
         new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         };
-
-    /// <summary>
-    /// Special auth client.
-    /// </summary>
     private readonly HttpClient _httpClient;
     private readonly ILocalStorageService _localStorage;
-
-    /// <summary>
-    /// Authentication state.
-    /// </summary>
     private bool _authenticated = false;
-
-    /// <summary>
-    /// Default principal for anonymous (not authenticated) users.
-    /// </summary>
     private readonly ClaimsPrincipal Unauthenticated =
         new(new ClaimsIdentity());
-
-    /// <summary>
-    /// Create a new instance of the auth provider.
-    /// </summary>
-    /// <param name="httpClientFactory">Factory to retrieve auth client.</param>
     public JwtAuthenticationStateProvider(HttpClient httpClient, ILocalStorageService localStorage)
     {
         _httpClient = httpClient;
         _localStorage = localStorage;
     }
-
-    /// <summary>
-    /// Register a new user.
-    /// </summary>
-    /// <param name="email">The user's email address.</param>
-    /// <param name="password">The user's password.</param>
-    /// <returns>The result serialized to a <see cref="FormResult"/>.
-    /// </returns>
     public async Task<FormResult> RegisterAsync(string email, string password)
     {
         string[] defaultDetail = ["An unknown error prevented registration from succeeding."];
 
         try
         {
-            // make the request
             var result = await _httpClient.PostAsJsonAsync(
                 "register", new
                 {
@@ -71,13 +38,11 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
                     password
                 });
 
-            // successful?
             if (result.IsSuccessStatusCode)
             {
                 return new FormResult { Succeeded = true };
             }
 
-            // body should contain details about why it failed
             var details = await result.Content.ReadAsStringAsync();
             var problemDetails = JsonDocument.Parse(details);
             var errors = new List<string>();
@@ -98,7 +63,6 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
                 }
             }
 
-            // return the error list
             return new FormResult
             {
                 Succeeded = false,
@@ -107,25 +71,16 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         }
         catch { }
 
-        // unknown error
         return new FormResult
         {
             Succeeded = false,
             ErrorList = defaultDetail
         };
     }
-
-    /// <summary>
-    /// User login.
-    /// </summary>
-    /// <param name="email">The user's email address.</param>
-    /// <param name="password">The user's password.</param>
-    /// <returns>The result of the login request serialized to a <see cref="FormResult"/>.</returns>
     public async Task<FormResult> LoginAsync(string email, string password)
     {
         try
         {
-            // login with cookies
             var result = await _httpClient.PostAsJsonAsync(
                 "login", new
                 {
@@ -133,7 +88,6 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
                     password
                 });
 
-            // success?
             if (result.IsSuccessStatusCode)
             {
                 await ExtractAccessTokenAndStoreInLocalStorage(result);
@@ -144,7 +98,6 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         }
         catch { }
 
-        // unknown error
         return new FormResult
         {
             Succeeded = false,
@@ -162,15 +115,6 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
             await _localStorage.SetItemAsync("refreshToken", tokenObject.refreshToken);
         }
     }
-
-    /// <summary>
-    /// Get authentication state.
-    /// </summary>
-    /// <remarks>
-    /// Called by Blazor anytime and authentication-based decision needs to be made, then cached
-    /// until the changed state notification is raised.
-    /// </remarks>
-    /// <returns>The authentication state asynchronous request.</returns>
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
         var savedToken = await _localStorage.GetItemAsync<string>("authToken");
@@ -181,37 +125,31 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
         _authenticated = false;
 
-        // default to not authenticated
         var user = Unauthenticated;
 
         try
         {
 
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);            
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);
             var userResponse = await _httpClient.GetAsync("manage/info");
 
-            // throw if user info wasn't retrieved
             userResponse.EnsureSuccessStatusCode();
 
-            // user is authenticated,so let's build their authenticated identity
             var userJson = await userResponse.Content.ReadAsStringAsync();
             var userInfo = JsonSerializer.Deserialize<UserInfo>(userJson, jsonSerializerOptions);
 
             if (userInfo != null)
             {
-                // in our system name and email are the same
                 var claims = new List<Claim>
                     {
                         new(ClaimTypes.Name, userInfo.Email),
                         new(ClaimTypes.Email, userInfo.Email)
                     };
 
-                // add any additional claims
                 claims.AddRange(
                     userInfo.Claims.Where(c => c.Key != ClaimTypes.Name && c.Key != ClaimTypes.Email)
                         .Select(c => new Claim(c.Key, c.Value)));
 
-                // set the principal
                 var id = new ClaimsIdentity(claims, nameof(JwtAuthenticationStateProvider));
                 user = new ClaimsPrincipal(id);
                 _authenticated = true;
@@ -219,14 +157,13 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         }
         catch { }
 
-        // return the state
         return new AuthenticationState(user);
     }
 
     public async Task LogoutAsync()
     {
         var savedToken = await _localStorage.GetItemAsync<string>("authToken");
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);      
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);
         await _httpClient.PostAsync("Logout", null);
         await _localStorage.RemoveItemAsync("authToken");
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
