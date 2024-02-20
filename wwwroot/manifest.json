@@ -1,10 +1,10 @@
 {
-  "name": "healthspan_fe_wasm_pwa",
-  "short_name": "healthspan_fe_wasm_pwa",
+  "name": "Healthspan",
+  "short_name": "Healthspan",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#03173d",
+  "theme_color": "#02353b",
   "prefer_related_applications": false,
   "icons": [
     {

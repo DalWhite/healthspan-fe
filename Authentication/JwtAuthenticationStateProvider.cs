@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
 using System.Text.Json;
-using Healthspan.Authentication.Models;
 using System.Net.Http.Json;
 using Blazored.LocalStorage;
 using System.Net.Http.Headers;
+using Healthspan.Authentication.Models;
 
 namespace Healthspan.Authentication;
 
@@ -129,35 +129,49 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
         try
         {
-
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);
-            var userResponse = await _httpClient.GetAsync("manage/info");
-
-            userResponse.EnsureSuccessStatusCode();
-
-            var userJson = await userResponse.Content.ReadAsStringAsync();
-            var userInfo = JsonSerializer.Deserialize<UserInfo>(userJson, jsonSerializerOptions);
-
-            if (userInfo != null)
+            user = await GetUserInfoAndBuildClaimsIdentityUserAndSetAsAuthenticatedIfSuccess(savedToken, user);
+        }
+        catch
+        {
+            var refreshResult = await RefreshToken();
+            if (!refreshResult.Succeeded)
             {
-                var claims = new List<Claim>
+                throw new Exception("refresh failed");
+            }
+
+            savedToken = await _localStorage.GetItemAsync<string>("authToken");
+            user = await GetUserInfoAndBuildClaimsIdentityUserAndSetAsAuthenticatedIfSuccess(savedToken, user);
+        }
+
+        return new AuthenticationState(user);
+    }
+
+    private async Task<ClaimsPrincipal> GetUserInfoAndBuildClaimsIdentityUserAndSetAsAuthenticatedIfSuccess(string? savedToken, ClaimsPrincipal user)
+    {
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);
+        var userResponse = await _httpClient.GetAsync("manage/info");
+        userResponse.EnsureSuccessStatusCode();
+        var userJson = await userResponse.Content.ReadAsStringAsync();
+        var userInfo = JsonSerializer.Deserialize<UserInfo>(userJson, jsonSerializerOptions);
+
+        if (userInfo != null)
+        {
+            var claims = new List<Claim>
                     {
                         new(ClaimTypes.Name, userInfo.Email),
                         new(ClaimTypes.Email, userInfo.Email)
                     };
 
-                claims.AddRange(
-                    userInfo.Claims.Where(c => c.Key != ClaimTypes.Name && c.Key != ClaimTypes.Email)
-                        .Select(c => new Claim(c.Key, c.Value)));
+            claims.AddRange(
+                userInfo.Claims.Where(c => c.Key != ClaimTypes.Name && c.Key != ClaimTypes.Email)
+                    .Select(c => new Claim(c.Key, c.Value)));
 
-                var id = new ClaimsIdentity(claims, nameof(JwtAuthenticationStateProvider));
-                user = new ClaimsPrincipal(id);
-                _authenticated = true;
-            }
+            var id = new ClaimsIdentity(claims, nameof(JwtAuthenticationStateProvider));
+            user = new ClaimsPrincipal(id);
+            _authenticated = true;
         }
-        catch { }
 
-        return new AuthenticationState(user);
+        return user;
     }
 
     public async Task LogoutAsync()
@@ -166,6 +180,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);
         await _httpClient.PostAsync("Logout", null);
         await _localStorage.RemoveItemAsync("authToken");
+        await _localStorage.RemoveItemAsync("refreshToken");
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
@@ -173,6 +188,28 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
     {
         await GetAuthenticationStateAsync();
         return _authenticated;
+    }
+    public async Task<FormResult> RefreshToken()
+    {
+        var refreshToken = await _localStorage.GetItemAsync<string>("refreshToken");
+        var refreshResult = await _httpClient.PostAsJsonAsync(
+            "refresh", new
+            {
+                refreshToken
+            });
+
+        if (!refreshResult.IsSuccessStatusCode)
+        {
+            throw new ApplicationException("Something went wrong during the refresh token action");
+        }
+        var refreshContent = await refreshResult.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<AuthLoginResponse>(refreshContent);
+
+        await _localStorage.SetItemAsync("authToken", result?.accessToken);
+        await _localStorage.SetItemAsync("refreshToken", result?.refreshToken);
+
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result?.accessToken);
+        return new FormResult() { Succeeded = true };
     }
 }
 public class AuthLoginResponse
