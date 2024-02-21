@@ -6,7 +6,7 @@
 @inject TitleService TitleService
 @inject Blazored.LocalStorage.ISyncLocalStorageService localStorage
 
-<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_theme"/>
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_currentTheme"/>
 <MudDialogProvider />
 <MudSnackbarProvider />
 
@@ -46,6 +46,23 @@
     private MudTheme _theme = new();
     private bool _isDarkMode;
     bool open = false;
+
+    private readonly MudTheme _currentTheme = new()
+    {
+        Palette = new PaletteLight
+        {
+            Primary = "#02363a",
+            Secondary = "#035960",
+            AppbarBackground = "#02363a"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#02363a",
+            Secondary = "#035960",
+            AppbarBackground = "#02363a"
+        }
+    };
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
