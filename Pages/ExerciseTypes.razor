@@ -12,10 +12,10 @@
 }
 else
 {
-    <MudTable Items="_exerciseTypes" Hover="true" SortLabel="Sort By" Elevation="0" Dense="true" Breakpoint="Breakpoint.None" Filter="new Func<GetExerciseTypeResource,bool>(FilterFunc1)">
     <ToolBarContent>
         <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
     </ToolBarContent>
+    <MudTable T="GetExerciseTypeResource" Items="_exerciseTypes" Hover="true" SortLabel="Sort By" Elevation="0" Dense="true" Breakpoint="Breakpoint.None" Filter="new Func<GetExerciseTypeResource,bool>(FilterFunc1)" OnRowClick="GoToDetails">
     <HeaderContent>
         <MudTh>
             <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x?.Name ?? string.Empty)">Name</MudTableSortLabel>
@@ -27,12 +27,13 @@ else
         <MudTd DataLabel="Muscle">@GetMuscleNameById(context.PrimaryMuscleId)</MudTd>
     </RowTemplate>
     <PagerContent>
-        <MudTablePager PageSizeOptions="new int[]{50, 100}" />
+        <MudTablePager HideRowsPerPage=true/>
     </PagerContent>
 </MudTable>
 
 }
-<MudFab @onclick="GoToCreateExerciseType" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" style="float: right;"/>
+<MudFab @onclick="GoToCreateExerciseType" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" style="float: right; margin-top: 30px;"/>
+
 @code {
     private string searchString1 = "";
     private GetExerciseTypeResource[]? _exerciseTypes;
@@ -81,5 +82,10 @@ else
         if (element.Description?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
             return true;
         return false;
+    }
+
+    private void GoToDetails(TableRowClickEventArgs<GetExerciseTypeResource> tableRowClickEventArgs)
+    {
+        NavigationManager.NavigateTo($"/exercises/types/{tableRowClickEventArgs.Item.Id}/details");
     }
 }

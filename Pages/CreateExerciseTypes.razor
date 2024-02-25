@@ -7,7 +7,7 @@
 
 <MudTextField @bind-Value="_addTypeResource.Name" Label="Name" Variant="Variant.Text"></MudTextField>
 <MudTextField @bind-Value="_addTypeResource.Description" Label="Description" Variant="Variant.Text"></MudTextField>
-<MudTextField @bind-Value="_addTypeResource.ImageRoute" Label="Muscle Group" Variant="Variant.Text"></MudTextField>
+<MudTextField @bind-Value="_addTypeResource.ImageRoute" Label="ImageUrl" Variant="Variant.Text"></MudTextField>
 
 <MudSelect T="int?" Label="Primary Muscle" @bind-Value="_addTypeResource.PrimaryMuscleId">
     @foreach (var muscle in Muscles)
@@ -23,8 +23,9 @@
     }
 </MudSelect>
 
-<MudButton @onclick="AddExerciseType" Variant="Variant.Filled" Color="Color.Primary" style="float: right;" >Create</MudButton>
-
+<div style="float: right; margin-top: 30px;">
+    <MudButton @onclick="AddExerciseType" Variant="Variant.Filled" Color="Color.Primary" >Create</MudButton>
+</div>
 @code {
     private bool typeAdded = false;
     private AddExerciseTypeResource? _addTypeResource = new();

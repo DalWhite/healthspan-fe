@@ -1,0 +1,167 @@
+@page "/exercises/types/{ExerciseTypeId:int}/details"
+@inject HttpClient Http
+@using ApexCharts
+@inject TitleService TitleService
+
+@if (exercises == null)
+{
+    <MudProgressCircular Color="MudBlazor.Color.Default" Indeterminate="true" />
+}
+else
+{
+    <MudCollapse Expanded="_expanded">
+        <MudStack>
+            @foreach (var exercise in exercises)
+            {
+                <MudPaper Class="pa-3">@exercise.Workout.Date.ToShortDateString() - Series: @exercise.Series -
+                    Reps: @exercise.Repetitions - V: @exercise.Volume Kg - RM: @exercise.MaxRepetition Kg - I: @exercise.Intensity %</MudPaper>
+            }
+        </MudStack>
+    </MudCollapse>
+}
+<MudDivider />
+<MudButton style="float: right; margin-top: 30px;" OnClick="OnExpandCollapseClick" >@(_expanded ? "Collapse" : "Expand")</MudButton>
+<MudGrid>
+    <MudItem xs="12">
+        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">Theoric RM Max: @kpis?.MaxRM Kg on
+            @kpis?.MaxRMDate.ToShortDateString()</MudPaper>
+    </MudItem>
+    <MudItem xs="6">
+        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">Last theoric RM: @kpis?.Current1RM Kg
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6">
+        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">ΔRM in last 3 months:
+            @kpis?.RMDiferentialInLast3Months Kg</MudPaper>
+    </MudItem>
+    <MudItem xs="6">
+        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">Weekly workout frecuency:
+            @kpis?.WeeklyFrequency</MudPaper>
+    </MudItem>
+    <MudItem xs="6">
+        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">Last session PE:
+            @kpis?.PerceibedEffortLastSession</MudPaper>
+    </MudItem>
+    <MudItem xs="12">
+        <div>
+        <MudChart ChartType="MudBlazor.ChartType.Line" ChartSeries="@Series" @bind-SelectedIndex="Index"
+            XAxisLabels="@XAxisLabels" Width="100%" Height="100%" ChartOptions="@Options" />
+        </div>
+    </MudItem>
+
+    <MudItem xs="12" sm="6">
+        <MudChart ChartType="MudBlazor.ChartType.Line" ChartSeries="@SeriesVolume" @bind-SelectedIndex="Index"
+            XAxisLabels="@XAxisLabels" Width="100%" Height="100%" ChartOptions="@OptionsVolume" />
+    </MudItem>
+    <MudItem xs="12" sm="6">
+        <MudChart ChartType="MudBlazor.ChartType.Line" ChartSeries="@SeriesIntensity" @bind-SelectedIndex="Index"
+            XAxisLabels="@XAxisLabels" Width="100%" Height="100%" ChartOptions="@OptionsIntensity" />
+    </MudItem>
+</MudGrid>
+
+@code {
+    bool _expanded = false;
+
+    private void OnExpandCollapseClick()
+    {
+        _expanded = !_expanded;
+    }
+    private GetExerciseResource[]? exercises;
+    [Parameter]
+    public int ExerciseTypeId { get; set; }
+    private int Index = -1;
+    public ChartOptions Options = new ChartOptions()
+        {
+            InterpolationOption = InterpolationOption.NaturalSpline,
+            //YAxisFormat = "# Kg",
+            LineStrokeWidth = 5,
+            ChartPalette = new string[1]{Colors.Blue.Accent3}
+        };
+    public List<ChartSeries> Series = new List<ChartSeries>();
+    public string[] XAxisLabels = { "" };
+    public GetExerciseTypeKpis? kpis;
+
+    public ChartOptions OptionsVolume = new ChartOptions()
+        {
+            InterpolationOption = InterpolationOption.NaturalSpline,
+            //YAxisFormat = "# Kg",
+            LineStrokeWidth = 5,
+            ChartPalette = new string[1]{Colors.Teal.Accent3}
+        };
+    public List<ChartSeries> SeriesVolume = new List<ChartSeries>();
+
+    public ChartOptions OptionsIntensity = new ChartOptions()
+        {
+            InterpolationOption = InterpolationOption.NaturalSpline,
+            //YAxisFormat = "# %",
+            LineStrokeWidth = 5,
+            ChartPalette = new string[1]{Colors.Amber.Accent3}
+        };
+    public List<ChartSeries> SeriesIntensity = new List<ChartSeries>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        exercises = await Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?exerciseTypeId={ExerciseTypeId}");
+        kpis = await Http.GetFromJsonAsync<GetExerciseTypeKpis>($"/Exercises/{ExerciseTypeId}/kpis");
+        var trends = await Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=RM");
+        XAxisLabels = trends.Points.Select(d => d.Time.ToShortDateString()).ToArray();
+
+        Series.Add(new ChartSeries
+            {
+                Name = "RM",
+                Data = trends.Points.Select(d => (double)d.Data).ToArray()
+            });
+
+        var volumeTrends = await
+        Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Volume");
+        SeriesVolume.Add(new ChartSeries
+            {
+                Name = "Volume",
+                Data = volumeTrends.Points.Select(d => (double)d.Data).ToArray()
+            });
+
+        var intensityTrends = await
+        Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Intensity");
+        SeriesIntensity.Add(new ChartSeries
+            {
+                Name = "Intensity",
+                Data = intensityTrends.Points.Select(d => (double)d.Data).ToArray()
+            });
+
+        TitleService.Title = exercises.FirstOrDefault().Type.Name;
+    }
+
+    public class GetExerciseTypeTrends
+    {
+        public List<DataPoint> Points { get; set; }
+    }
+
+    public class DataPoint
+    {
+        public float Data { get; set; }
+        public DateTime Time { get; set; }
+    }
+    public class GetExerciseTypeKpis
+    {
+        public float MaxRM { get; set; }
+        public DateTime MaxRMDate { get; set; }
+        public float Current1RM { get; set; }
+        public int RMDiferentialInLast3Months { get; set; }
+        public int WeeklyFrequency { get; set; }
+        public int PerceibedEffortLastSession { get; set; }
+    }
+
+    public class GetExerciseResource
+    {
+        public Guid? Id { get; set; }
+        public int? Series { get; set; }
+        public int? Repetitions { get; set; }
+        public int? Weight { get; set; }
+        public double? MaxRepetition { get; set; }
+        public int? Volume { get; set; }
+        public double? Intensity { get; set; }
+        public GetExerciseTypeResource? Type { get; set; }
+        public GetWorkoutResource? Workout { get; set; }
+    }
+
+}
