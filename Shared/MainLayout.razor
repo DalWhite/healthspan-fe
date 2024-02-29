@@ -6,7 +6,7 @@
 @inject TitleService TitleService
 @inject Blazored.LocalStorage.ISyncLocalStorageService localStorage
 
-<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_currentTheme"/>
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_currentTheme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
@@ -23,13 +23,15 @@
             <MudText Typo="Typo.h6">Healthspan</MudText>
         </MudDrawerHeader>
         <NavMenu />
-        <MudSwitch @bind-Checked="@_isDarkMode" Size="Size.Small" Color="Color.Primary" Class="ma-4" T="bool" Label="Dark Theme" ValueChanged="HandleValueChanged"/>
-        <MudSpacer/>
+        <MudSwitch @bind-Checked="@_isDarkMode" Size="Size.Small" Color="Color.Primary" Class="ma-4" T="bool"
+            Label="Dark Theme" ValueChanged="HandleValueChanged" />
+        <MudSpacer />
         <AuthorizeView>
             <Authorized>
-                <div class= "d-inline object-bottom ml-6 mb-6">
+                <div class="d-inline object-bottom ml-6 mb-6">
                     <MudAvatar Color="Color.Primary">@context.User?.Identity?.Name[0].ToString().ToUpper()</MudAvatar>
                     <MudButton OnClick="@Logout" Color="Color.Tertiary">Logout</MudButton>
+                <MudText>v0.0.1</MudText>
                 </div>
             </Authorized>
         </AuthorizeView>
@@ -48,20 +50,20 @@
     bool open = false;
 
     private readonly MudTheme _currentTheme = new()
-    {
-        Palette = new PaletteLight
         {
-            Primary = "#ae1d0d",
-            Secondary = "#035960",
-            AppbarBackground = "#02363a"
-        },
-        PaletteDark = new PaletteDark
-        {
-            Primary = "#ae1d0d",
-            Secondary = "#05a0ac",
-            AppbarBackground = "#108b37"
-        }
-    };
+            Palette = new PaletteLight
+            {
+                Primary = "#ae1d0d",
+                Secondary = "#035960",
+                AppbarBackground = "#02363a"
+            },
+            PaletteDark = new PaletteDark
+            {
+                Primary = "#ae1d0d",
+                Secondary = "#05a0ac",
+                AppbarBackground = "#108b37"
+            }
+        };
 
     protected override async Task OnInitializedAsync()
     {
