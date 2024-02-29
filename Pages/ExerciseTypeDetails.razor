@@ -2,6 +2,8 @@
 @inject HttpClient Http
 @using ApexCharts
 @inject TitleService TitleService
+@rendermode RenderMode.InteractiveWebAssembly
+
 
 @if (exercises == null)
 {
@@ -14,13 +16,16 @@ else
             @foreach (var exercise in exercises)
             {
                 <MudPaper Class="pa-3">@exercise.Workout.Date.ToShortDateString() - Series: @exercise.Series -
-                    Reps: @exercise.Repetitions - V: @exercise.Volume Kg - RM: @exercise.MaxRepetition Kg - I: @exercise.Intensity %</MudPaper>
+                    Reps: @exercise.Repetitions - V: @exercise.Volume Kg - RM: @exercise.MaxRepetition Kg - I:
+                    @exercise.Intensity %</MudPaper>
             }
         </MudStack>
     </MudCollapse>
 }
 <MudDivider />
-<MudButton style="float: right; margin-top: 30px;" OnClick="OnExpandCollapseClick" >@(_expanded ? "Collapse" : "Expand")</MudButton>
+<MudButton style="float: right; margin-top: 30px;" OnClick="OnExpandCollapseClick">@(_expanded ? "Collapse" : "Expand")
+</MudButton>
+
 <MudGrid>
     <MudItem xs="12">
         <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">Theoric RM Max: @kpis?.MaxRM Kg on
@@ -44,93 +49,139 @@ else
     </MudItem>
     <MudItem xs="12">
         <div>
-        <MudChart ChartType="MudBlazor.ChartType.Line" ChartSeries="@Series" @bind-SelectedIndex="Index"
-            XAxisLabels="@XAxisLabels" Width="100%" Height="100%" ChartOptions="@Options" />
-        </div>
-    </MudItem>
+            @if (_rmTrends != null && _volumeTrends != null && _intensityTrends != null)
+            {
+                <ApexChart @ref="rmChart" TItem="DataPoint" Title="Evolution" Options="options">
 
-    <MudItem xs="12" sm="6">
-        <MudChart ChartType="MudBlazor.ChartType.Line" ChartSeries="@SeriesVolume" @bind-SelectedIndex="Index"
-            XAxisLabels="@XAxisLabels" Width="100%" Height="100%" ChartOptions="@OptionsVolume" />
-    </MudItem>
-    <MudItem xs="12" sm="6">
-        <MudChart ChartType="MudBlazor.ChartType.Line" ChartSeries="@SeriesIntensity" @bind-SelectedIndex="Index"
-            XAxisLabels="@XAxisLabels" Width="100%" Height="100%" ChartOptions="@OptionsIntensity" />
+                    <ApexPointSeries TItem="DataPoint" Items="_rmTrends" Name="RM" SeriesType="ApexCharts.SeriesType.Line"
+                        XValue='e => e.Time.ToShortDateString()' YAggregate="e => e.Average(e=> e.Data)"/>
+                    <ApexPointSeries TItem="DataPoint" Items="_volumeTrends" Name="Volume" SeriesType="ApexCharts.SeriesType.Line"
+                        XValue='e => e.Time.ToShortDateString()' YAggregate="e => e.Average(e=> e.Data)"/>
+                    <ApexPointSeries TItem="DataPoint" Items="_intensityTrends" Name="Intensity" SeriesType="ApexCharts.SeriesType.Line"
+                        XValue='e => e.Time.ToShortDateString()' YAggregate="e => e.Average(e=> e.Data)" />
+
+                </ApexChart>
+            }
+        </div>
     </MudItem>
 </MudGrid>
 
+
 @code {
+
+    [Parameter]
+    public int ExerciseTypeId { get; set; }
+
+    private ApexChart<DataPoint> rmChart;
+    private ApexChartOptions<DataPoint> options { get; set; } = new();
+    private ApexChartOptions<DataPoint> mobileOptions { get; set; } = new();
+        
+    private List<DataPoint> _rmTrends { get; set; }
+    private List<DataPoint> _volumeTrends { get; set; }
+    private List<DataPoint> _intensityTrends { get; set; }
+
+    private GetExerciseResource[]? exercises;
+    private GetExerciseTypeKpis? kpis;
     bool _expanded = false;
 
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+        InitializeChartOptions();
+        await base.OnInitializedAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        var exercisesTask = Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?exerciseTypeId={ExerciseTypeId}");
+        var kpisTask = Http.GetFromJsonAsync<GetExerciseTypeKpis>($"/Exercises/{ExerciseTypeId}/kpis");
+        var rmTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=RM");
+        var volumeTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Volume");
+        var intensityTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Intensity");
+
+        await Task.WhenAll(new Task[] { rmTrendsTask, volumeTrendsTask, intensityTrendsTask, exercisesTask, kpisTask });
+
+        _rmTrends = rmTrendsTask.Result.Points;
+        _volumeTrends = volumeTrendsTask.Result.Points;
+        _intensityTrends = intensityTrendsTask.Result.Points;
+
+        exercises = exercisesTask.Result;
+        kpis = kpisTask.Result;
+
+        TitleService.Title = exercises.FirstOrDefault().Type.Name;
+
+    }
+    private void InitializeChartOptions()
+    {
+        options.Stroke = new Stroke {Curve = Curve.Smooth};
+        options.Yaxis = new List<YAxis>();
+
+        options.Yaxis.Add(new YAxis
+            {
+                Title = new AxisTitle { Text = "RM" },
+                SeriesName = "RM",
+                DecimalsInFloat = 0,
+                Labels = new YAxisLabels{Formatter =  @"function (value) {
+                    return Number(value).toLocaleString() + ' Kg';}"}
+            });
+        options.Yaxis.Add(new YAxis
+            {
+                Title = new AxisTitle { Text = "Volume" },
+                SeriesName = "Volume",
+                DecimalsInFloat = 0,
+                Labels = new YAxisLabels{Formatter =  @"function (value) {
+                    return Number(value).toLocaleString() + ' Kg';}"}
+            });
+        options.Yaxis.Add(new YAxis
+            {
+                Title = new AxisTitle { Text = "Intensity" },
+                SeriesName = "Intensity",
+                DecimalsInFloat = 0,
+                Opposite = true,
+                Labels = new YAxisLabels{Formatter =  @"function (value) {
+                    return Number(value).toLocaleString() + ' %';}"}
+            });
+
+        mobileOptions.Chart.Toolbar = new Toolbar{Show = false};
+        mobileOptions.Yaxis = new List<YAxis>();
+
+        mobileOptions.Yaxis.Add(new YAxis
+            {
+                Title = new AxisTitle { Text = "RM" },
+                SeriesName = "RM",
+                DecimalsInFloat = 0,
+                Show = false,
+                Labels = new YAxisLabels{Formatter =  @"function (value) {
+                    return Number(value).toLocaleString() + ' Kg';}"}
+            });
+        mobileOptions.Yaxis.Add(new YAxis
+            {
+                Title = new AxisTitle { Text = "Volume" },
+                SeriesName = "Volume",
+                DecimalsInFloat = 0,
+                Show = false,
+                Labels = new YAxisLabels{Formatter =  @"function (value) {
+                    return Number(value).toLocaleString() + ' Kg';}"}
+            });
+        mobileOptions.Yaxis.Add(new YAxis
+            {
+                Title = new AxisTitle { Text = "Intensity" },
+                SeriesName = "Intensity",
+                DecimalsInFloat = 0,
+                Opposite = true,
+                Show = false,
+                Labels = new YAxisLabels{Formatter =  @"function (value) {
+                    return Number(value).toLocaleString() + ' %';}"}
+            });
+
+        options.Responsive = new List<Responsive>{new Responsive(){
+            Breakpoint = 500,
+            Options = mobileOptions}};
+    }
     private void OnExpandCollapseClick()
     {
         _expanded = !_expanded;
     }
-    private GetExerciseResource[]? exercises;
-    [Parameter]
-    public int ExerciseTypeId { get; set; }
-    private int Index = -1;
-    public ChartOptions Options = new ChartOptions()
-        {
-            InterpolationOption = InterpolationOption.NaturalSpline,
-            //YAxisFormat = "# Kg",
-            LineStrokeWidth = 5,
-            ChartPalette = new string[1]{Colors.Blue.Accent3}
-        };
-    public List<ChartSeries> Series = new List<ChartSeries>();
-    public string[] XAxisLabels = { "" };
-    public GetExerciseTypeKpis? kpis;
-
-    public ChartOptions OptionsVolume = new ChartOptions()
-        {
-            InterpolationOption = InterpolationOption.NaturalSpline,
-            //YAxisFormat = "# Kg",
-            LineStrokeWidth = 5,
-            ChartPalette = new string[1]{Colors.Teal.Accent3}
-        };
-    public List<ChartSeries> SeriesVolume = new List<ChartSeries>();
-
-    public ChartOptions OptionsIntensity = new ChartOptions()
-        {
-            InterpolationOption = InterpolationOption.NaturalSpline,
-            //YAxisFormat = "# %",
-            LineStrokeWidth = 5,
-            ChartPalette = new string[1]{Colors.Amber.Accent3}
-        };
-    public List<ChartSeries> SeriesIntensity = new List<ChartSeries>();
-
-    protected override async Task OnInitializedAsync()
-    {
-        exercises = await Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?exerciseTypeId={ExerciseTypeId}");
-        kpis = await Http.GetFromJsonAsync<GetExerciseTypeKpis>($"/Exercises/{ExerciseTypeId}/kpis");
-        var trends = await Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=RM");
-        XAxisLabels = trends.Points.Select(d => d.Time.ToShortDateString()).ToArray();
-
-        Series.Add(new ChartSeries
-            {
-                Name = "RM",
-                Data = trends.Points.Select(d => (double)d.Data).ToArray()
-            });
-
-        var volumeTrends = await
-        Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Volume");
-        SeriesVolume.Add(new ChartSeries
-            {
-                Name = "Volume",
-                Data = volumeTrends.Points.Select(d => (double)d.Data).ToArray()
-            });
-
-        var intensityTrends = await
-        Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Intensity");
-        SeriesIntensity.Add(new ChartSeries
-            {
-                Name = "Intensity",
-                Data = intensityTrends.Points.Select(d => (double)d.Data).ToArray()
-            });
-
-        TitleService.Title = exercises.FirstOrDefault().Type.Name;
-    }
-
     public class GetExerciseTypeTrends
     {
         public List<DataPoint> Points { get; set; }
@@ -138,7 +189,7 @@ else
 
     public class DataPoint
     {
-        public float Data { get; set; }
+        public decimal Data { get; set; }
         public DateTime Time { get; set; }
     }
     public class GetExerciseTypeKpis
@@ -163,5 +214,4 @@ else
         public GetExerciseTypeResource? Type { get; set; }
         public GetWorkoutResource? Workout { get; set; }
     }
-
 }
