@@ -144,15 +144,19 @@ else
 
         mobileOptions.Chart.Toolbar = new Toolbar{Show = false};
         mobileOptions.Yaxis = new List<YAxis>();
-
+        
+        mobileOptions.Xaxis = new XAxis { Labels = new XAxisLabels {  Rotate = -45, RotateAlways = true } };
         mobileOptions.Yaxis.Add(new YAxis
             {
                 Title = new AxisTitle { Text = "RM" },
                 SeriesName = "RM",
                 DecimalsInFloat = 0,
                 Show = false,
-                Labels = new YAxisLabels{Formatter =  @"function (value) {
-                    return Number(value).toLocaleString() + ' Kg';}"}
+                Labels = new YAxisLabels
+                {
+                    Formatter =  @"function (value) {
+                    return Number(value).toLocaleString() + ' Kg';}"
+                }
             });
         mobileOptions.Yaxis.Add(new YAxis
             {
@@ -160,8 +164,11 @@ else
                 SeriesName = "Volume",
                 DecimalsInFloat = 0,
                 Show = false,
-                Labels = new YAxisLabels{Formatter =  @"function (value) {
-                    return Number(value).toLocaleString() + ' Kg';}"}
+                Labels = new YAxisLabels
+                {
+                    Formatter =  @"function (value) {
+                    return Number(value).toLocaleString() + ' Kg';}"
+                }
             });
         mobileOptions.Yaxis.Add(new YAxis
             {
@@ -170,8 +177,11 @@ else
                 DecimalsInFloat = 0,
                 Opposite = true,
                 Show = false,
-                Labels = new YAxisLabels{Formatter =  @"function (value) {
-                    return Number(value).toLocaleString() + ' %';}"}
+                Labels = new YAxisLabels
+                {
+                    Formatter =  @"function (value) {
+                    return Number(value).toLocaleString() + ' %';}"
+                }
             });
 
         options.Responsive = new List<Responsive>{new Responsive(){
