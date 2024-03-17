@@ -1,7 +1,15 @@
 ﻿<CascadingAuthenticationState>
     <Router AppAssembly="@typeof(App).Assembly">
         <Found Context="routeData">
-            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <Authorizing>
+                    <div style="position:absolute; top:30vh; left:0; right:0; text-align:center">
+                        <div id="loadingAnimation" style="width:100px; height:100px; margin:auto;">
+                            <img src="icon-512.png" alt="Loading" style="width:100%; height:100%;">
+                        </div>
+                    </div>
+                </Authorizing>
+            </AuthorizeRouteView>
             <FocusOnNavigate RouteData="@routeData" Selector="h1" />
         </Found>
         <NotFound>

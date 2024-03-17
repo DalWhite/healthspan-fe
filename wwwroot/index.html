@@ -10,18 +10,17 @@
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
         <link href="manifest.json" rel="manifest" />
         <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+        <link href="css/app.css" rel="stylesheet" />
 </head>
 
 <body>
-    <div id="app">
-        <div style="position:absolute; top:30vh; width:100%; text-align:center">
-          <h1>Healthspan</h1>
-          <div style="display:flex; gap:10px; justify-content:center; align-items:center">
-            <div class="spinner-border" role="status"></div>
-            The application is loading...
-          </div>
-        </div>
+  <div id="app">
+    <div style="position:absolute; top:30vh; left:0; right:0; text-align:center">
+      <div id="loadingAnimation" style="width:100px; height:100px; margin:auto;">
+        <img src="icon-512.png" alt="Loading" style="width:100%; height:100%;">
       </div>
+    </div>
+  </div>
 
     <div id="blazor-error-ui">
         An unhandled error has occurred.
