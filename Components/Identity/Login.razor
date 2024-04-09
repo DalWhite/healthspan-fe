@@ -10,8 +10,11 @@
 <PageTitle>Login</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
-    <MudText Typo="Typo.h3" GutterBottom="true">Login</MudText>
-
+    <div style=" top:30vh; left:0; right:0; text-align:center">
+        <div id="slowLoadingAnimation" style="width:100px; height:100px; margin:auto;">
+            <img src="icon-512.png" alt="Loading" style="width:100%; height:100%;">
+        </div>
+    </div>  
     <AuthorizeView>
         <Authorized>
             <MudAlert Severity="Severity.Success">You're logged in as @context.User.Identity?.Name.</MudAlert>

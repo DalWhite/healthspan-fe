@@ -9,3 +9,17 @@
   #loadingAnimation img {
     animation: heartbeat 1s ease-in-out infinite;
   }
+  #slowLoadingAnimation {
+    animation: slow-heartbeat 2s ease-in-out infinite;
+  }
+  @keyframes slow-heartbeat {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+  }
+  
+
+  

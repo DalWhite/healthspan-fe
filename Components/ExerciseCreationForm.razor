@@ -1,7 +1,7 @@
 @inject HttpClient Http
 
 <MudContainer>
-    <MudSelect Label="Exercise" Variant="Variant.Text" @bind-Value="typeToAdd">
+    <MudSelect class="ma-4" Label="Exercise" Variant="Variant.Outlined" @bind-Value="typeToAdd">
         @if (ExerciseTypes != null)
         {
             @foreach (var exerciseType in ExerciseTypes)
@@ -10,21 +10,22 @@
             }
         }
     </MudSelect>
-    <MudTextField @bind-Value="exercise.Series" Label="Series" Variant="Variant.Text"></MudTextField>
-    <MudTextField @bind-Value="exercise.Repetitions" Label="Reps" Variant="Variant.Text"></MudTextField>
-    <MudTextField @bind-Value="exercise.Weight" Label="Weight" Variant="Variant.Text"></MudTextField>
+    <MudNumericField class="ma-4" @bind-Value="exercise.Series" Label="Series" Variant="Variant.Outlined" />
+    <MudNumericField class="ma-4" @bind-Value="exercise.Repetitions" Label="Reps" Variant="Variant.Outlined" />
+    <MudNumericField class="ma-4" @bind-Value="exercise.Weight" Label="Weight" Variant="Variant.Outlined" Step=".5M" />
 </MudContainer>
 
 <MudFab @onclick="AddExerciseToTheForm" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
     style="float: right;" Size="Size.Small" />
 
 @code {
+    public string createTypeButton = "CreateNew";
     [Parameter] public EventCallback<AddExerciseResource> OnExerciseAdded { get; set; }
-    [Parameter] public GetExerciseTypeResource[] ExerciseTypes { get; set; }
+    [Parameter] public GetExerciseTypeResource[]? ExerciseTypes { get; set; }
     [Parameter] public Guid WorkoutId { get; set; }
 
     private AddExerciseResource exercise = new();
-    private GetExerciseTypeResource typeToAdd;
+    private GetExerciseTypeResource? typeToAdd;
 
     private async Task AddExerciseToTheForm()
     {
@@ -33,7 +34,7 @@
             WorkoutId = await GetLastWorkoutId();
         }
         exercise.WorkoutId = WorkoutId;
-        exercise.TypeId = typeToAdd.Id;
+        exercise.TypeId = typeToAdd?.Id;
 
         var response = await Http.PostAsJsonAsync("/Exercises", exercise);
 
@@ -47,8 +48,8 @@
     private async Task<Guid> GetLastWorkoutId()
     {
         var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("/workouts");
-        
-        var latestWorkout = workouts.OrderByDescending(w => w.Date).FirstOrDefault();
-        return latestWorkout.Id;
+
+        var latestWorkout = workouts?.OrderByDescending(w => w.Date).FirstOrDefault();
+        return latestWorkout?.Id ?? new Guid();
     }
 }

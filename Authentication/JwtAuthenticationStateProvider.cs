@@ -200,7 +200,10 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
         if (!refreshResult.IsSuccessStatusCode)
         {
-            throw new ApplicationException("Something went wrong during the refresh token action");
+            await _localStorage.RemoveItemAsync("authToken");
+            await _localStorage.RemoveItemAsync("refreshToken");
+            NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+            throw new ApplicationException("Something went wrong during the refresh token action, login out");
         }
         var refreshContent = await refreshResult.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<AuthLoginResponse>(refreshContent);
