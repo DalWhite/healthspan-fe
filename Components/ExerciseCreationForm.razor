@@ -31,7 +31,7 @@
     {
         if (WorkoutId == Guid.Empty)
         {
-            WorkoutId = await GetLastWorkoutId();
+            WorkoutId = await GetLastWorkoutIdOrNewIfLastIsNotToday();
         }
         exercise.WorkoutId = WorkoutId;
         exercise.TypeId = typeToAdd?.Id;
@@ -45,11 +45,17 @@
 
         exercise = new();
     }
-    private async Task<Guid> GetLastWorkoutId()
+    private async Task<Guid> GetLastWorkoutIdOrNewIfLastIsNotToday()
     {
         var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("/workouts");
-
+        
         var latestWorkout = workouts?.OrderByDescending(w => w.Date).FirstOrDefault();
-        return latestWorkout?.Id ?? new Guid();
+        if(latestWorkout?.Date != DateTime.Today)
+        {
+            var response = await Http.PostAsJsonAsync("/Workouts", new AddWorkoutResource{Date = DateTime.Now, Type = "default"});
+            var result = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
+            return result.Id;
+        }
+        return latestWorkout.Id;
     }
 }
