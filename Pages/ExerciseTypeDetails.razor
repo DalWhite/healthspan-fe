@@ -15,9 +15,9 @@ else
         <MudStack>
             @foreach (var exercise in exercises)
             {
-                <MudPaper Class="pa-3">@exercise.Workout.Date.ToShortDateString() - Series: @exercise.Series -
-                    Reps: @exercise.Repetitions - V: @exercise.Volume Kg - RM: @exercise.MaxRepetition Kg - I:
-                    @exercise.Intensity %</MudPaper>
+                <MudPaper Class="pa-3">@exercise.Workout.Date.ToShortDateString() - @exercise.Series x @exercise.Repetitions x
+                    @exercise.Weight kg - V: @exercise.Volume Kg - RM: @exercise.MaxRepetition Kg - I:@exercise.Intensity % -
+                    Comments: @exercise.Comments</MudPaper>
             }
         </MudStack>
     </MudCollapse>
@@ -54,11 +54,13 @@ else
                 <ApexChart @ref="rmChart" TItem="DataPoint" Title="Evolution" Options="options">
 
                     <ApexPointSeries TItem="DataPoint" Items="_rmTrends" Name="RM" SeriesType="ApexCharts.SeriesType.Line"
-                        XValue='e => e.Time.ToShortDateString()' YAggregate="e => e.Average(e=> e.Data)"/>
-                    <ApexPointSeries TItem="DataPoint" Items="_volumeTrends" Name="Volume" SeriesType="ApexCharts.SeriesType.Line"
-                        XValue='e => e.Time.ToShortDateString()' YAggregate="e => e.Average(e=> e.Data)"/>
-                    <ApexPointSeries TItem="DataPoint" Items="_intensityTrends" Name="Intensity" SeriesType="ApexCharts.SeriesType.Line"
                         XValue='e => e.Time.ToShortDateString()' YAggregate="e => e.Average(e=> e.Data)" />
+                    <ApexPointSeries TItem="DataPoint" Items="_volumeTrends" Name="Volume"
+                        SeriesType="ApexCharts.SeriesType.Line" XValue='e => e.Time.ToShortDateString()'
+                        YAggregate="e => e.Average(e=> e.Data)" />
+                    <ApexPointSeries TItem="DataPoint" Items="_intensityTrends" Name="Intensity"
+                        SeriesType="ApexCharts.SeriesType.Line" XValue='e => e.Time.ToShortDateString()'
+                        YAggregate="e => e.Average(e=> e.Data)" />
 
                 </ApexChart>
             }
@@ -75,7 +77,7 @@ else
     private ApexChart<DataPoint> rmChart;
     private ApexChartOptions<DataPoint> options { get; set; } = new();
     private ApexChartOptions<DataPoint> mobileOptions { get; set; } = new();
-        
+
     private List<DataPoint> _rmTrends { get; set; }
     private List<DataPoint> _volumeTrends { get; set; }
     private List<DataPoint> _intensityTrends { get; set; }
@@ -97,7 +99,8 @@ else
         var kpisTask = Http.GetFromJsonAsync<GetExerciseTypeKpis>($"/Exercises/{ExerciseTypeId}/kpis");
         var rmTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=RM");
         var volumeTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Volume");
-        var intensityTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Intensity");
+        var intensityTrendsTask =
+        Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Intensity");
 
         await Task.WhenAll(new Task[] { rmTrendsTask, volumeTrendsTask, intensityTrendsTask, exercisesTask, kpisTask });
 
@@ -113,7 +116,7 @@ else
     }
     private void InitializeChartOptions()
     {
-        options.Stroke = new Stroke {Curve = Curve.Smooth};
+        options.Stroke = new Stroke { Curve = Curve.Smooth };
         options.Yaxis = new List<YAxis>();
 
         options.Yaxis.Add(new YAxis
@@ -121,16 +124,16 @@ else
                 Title = new AxisTitle { Text = "RM" },
                 SeriesName = "RM",
                 DecimalsInFloat = 0,
-                Labels = new YAxisLabels{Formatter =  @"function (value) {
-                    return Number(value).toLocaleString() + ' Kg';}"}
+                Labels = new YAxisLabels { Formatter = @"function (value) {
+return Number(value).toLocaleString() + ' Kg';}" }
             });
         options.Yaxis.Add(new YAxis
             {
                 Title = new AxisTitle { Text = "Volume" },
                 SeriesName = "Volume",
                 DecimalsInFloat = 0,
-                Labels = new YAxisLabels{Formatter =  @"function (value) {
-                    return Number(value).toLocaleString() + ' Kg';}"}
+                Labels = new YAxisLabels { Formatter = @"function (value) {
+return Number(value).toLocaleString() + ' Kg';}" }
             });
         options.Yaxis.Add(new YAxis
             {
@@ -138,14 +141,14 @@ else
                 SeriesName = "Intensity",
                 DecimalsInFloat = 0,
                 Opposite = true,
-                Labels = new YAxisLabels{Formatter =  @"function (value) {
-                    return Number(value).toLocaleString() + ' %';}"}
+                Labels = new YAxisLabels { Formatter = @"function (value) {
+return Number(value).toLocaleString() + ' %';}" }
             });
 
-        mobileOptions.Chart.Toolbar = new Toolbar{Show = false};
+        mobileOptions.Chart.Toolbar = new Toolbar { Show = false };
         mobileOptions.Yaxis = new List<YAxis>();
-        
-        mobileOptions.Xaxis = new XAxis { Labels = new XAxisLabels {  Rotate = -45, RotateAlways = true } };
+
+        mobileOptions.Xaxis = new XAxis { Labels = new XAxisLabels { Rotate = -45, RotateAlways = true } };
         mobileOptions.Yaxis.Add(new YAxis
             {
                 Title = new AxisTitle { Text = "RM" },
@@ -154,8 +157,8 @@ else
                 Show = false,
                 Labels = new YAxisLabels
                 {
-                    Formatter =  @"function (value) {
-                    return Number(value).toLocaleString() + ' Kg';}"
+                    Formatter = @"function (value) {
+return Number(value).toLocaleString() + ' Kg';}"
                 }
             });
         mobileOptions.Yaxis.Add(new YAxis
@@ -166,8 +169,8 @@ else
                 Show = false,
                 Labels = new YAxisLabels
                 {
-                    Formatter =  @"function (value) {
-                    return Number(value).toLocaleString() + ' Kg';}"
+                    Formatter = @"function (value) {
+return Number(value).toLocaleString() + ' Kg';}"
                 }
             });
         mobileOptions.Yaxis.Add(new YAxis
@@ -179,14 +182,14 @@ else
                 Show = false,
                 Labels = new YAxisLabels
                 {
-                    Formatter =  @"function (value) {
-                    return Number(value).toLocaleString() + ' %';}"
+                    Formatter = @"function (value) {
+return Number(value).toLocaleString() + ' %';}"
                 }
             });
 
         options.Responsive = new List<Responsive>{new Responsive(){
-            Breakpoint = 500,
-            Options = mobileOptions}};
+Breakpoint = 500,
+Options = mobileOptions}};
     }
     private void OnExpandCollapseClick()
     {
@@ -217,10 +220,11 @@ else
         public Guid? Id { get; set; }
         public int? Series { get; set; }
         public int? Repetitions { get; set; }
-        public int? Weight { get; set; }
+        public double? Weight { get; set; }
         public double? MaxRepetition { get; set; }
         public int? Volume { get; set; }
         public double? Intensity { get; set; }
+        public string? Comments { get; set; }
         public GetExerciseTypeResource? Type { get; set; }
         public GetWorkoutResource? Workout { get; set; }
     }

@@ -143,7 +143,7 @@ else
         public Guid? Id { get; set; }
         public int? Series { get; set; }
         public int? Repetitions { get; set; }
-        public int? Weight { get; set; }
+        public double? Weight { get; set; }
         public double? MaxRepetition { get; set; }
         public int? Volume { get; set; }
         public double? Intensity { get; set; }
@@ -161,11 +161,9 @@ else
 
         if (dateString.Contains(searchString, StringComparison.OrdinalIgnoreCase))
             return true;
-        if (element.Type.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.Type?.Name?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
             return true;
-        if (element.Type.Description.Contains(searchString, StringComparison.OrdinalIgnoreCase))
-            return true;
-        if (element.Type.ImageRoute.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        if (element.Type?.Description?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
             return true;
 
         return false;
