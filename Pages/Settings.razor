@@ -1,0 +1,109 @@
+@page "/settings"
+@using Healthspan.Authentication
+@using System.Net.Http.Headers
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject IAccountManagement Acct
+@inject Blazored.LocalStorage.ISyncLocalStorageService localStorage
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<script>
+  window.downloadFileFromStream = async (fileName, contentStreamReference) => {
+    const arrayBuffer = await contentStreamReference.arrayBuffer();
+    const blob = new Blob([arrayBuffer]);
+    const url = URL.createObjectURL(blob);
+    const anchorElement = document.createElement('a');
+    anchorElement.href = url;
+    anchorElement.download = fileName ?? '';
+    anchorElement.click();
+    anchorElement.remove();
+    URL.revokeObjectURL(url);
+  }
+</script>
+
+<h1>settings</h1>
+
+<MudButton OnClick="@Logout" Color="Color.Primary">Logout</MudButton>
+<MudSwitch @bind-Checked="@_isDarkMode" Size="Size.Small" Color="Color.Primary" Class="ma-4" T="bool"
+            Label="Dark Theme" ValueChanged="HandleValueChanged" />
+
+<MudButton OnClick="@GetExercisesTemplate" Color="Color.Primary">Download Template</MudButton>
+
+<MudFileUpload T="IBrowserFile" Accept=".csv" FilesChanged="UploadTemplate" MaximumFileCount="1">
+    <ButtonTemplate>
+        <MudButton HtmlTag="label"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                   for="@context.Id">
+            Import exercises
+        </MudButton>
+    </ButtonTemplate>
+</MudFileUpload>
+@if (files != null)
+{
+    <MudList>
+        @foreach (var file in files)
+        {
+            <MudListItem Icon="@Icons.Material.Filled.AttachFile">
+                @file.Name <code>@file.Size bytes</code>
+            </MudListItem>
+        }
+    </MudList>
+}
+<MudButton OnClick="@SendFile" Color="Color.Primary">Start Import</MudButton>
+
+<MudText>v0.0.1</MudText>
+
+@code {
+    private bool _isDarkMode;
+    IList<IBrowserFile> files = new List<IBrowserFile>();
+    async Task Logout()
+    {
+        if (await Acct.CheckAuthenticatedAsync())
+        {
+            await Acct.LogoutAsync();
+        }
+
+        NavigationManager.NavigateTo("/login", true);
+    }
+    async Task GetExercisesTemplate()
+    {
+        var response =await Http.GetByteArrayAsync("/data/import/template");
+        var fileStream = new MemoryStream(response);
+        var fileName = "exercises-template.csv";
+        using var streamRef = new DotNetStreamReference(stream: fileStream);
+
+        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+
+    }
+    protected override void OnInitialized()
+    {
+        if (localStorage.ContainKey("_isDarkMode"))
+        {
+            _isDarkMode = localStorage.GetItem<bool>("_isDarkMode");
+        }
+    }
+    private void HandleValueChanged(bool value)
+    {
+        localStorage.SetItem("_isDarkMode", value);
+    }
+
+
+    void UploadTemplate(IBrowserFile file)
+    {
+        files.Add(file);
+    }
+    async Task SendFile()
+    {
+        var file = files.First();
+        using var content = new MultipartFormDataContent();
+        var fileStream = new StreamContent(file.OpenReadStream());
+        fileStream.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+
+        content.Add(content: fileStream, "\"files\"", "exercises.csv");
+        var response = await Http.PostAsync("/data/import", content);
+    }
+
+}
