@@ -30,13 +30,20 @@
 
 @if (exercises == null)
 {
-    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+    <MudProgressCircular Color="Color.Default"
+                         Indeterminate="true" />
 }
 else
 {
     <div class="table-responsive">
-        <MudTable Items="exercises" Hover="true" SortLabel="Sort By" Elevation="0" Breakpoint="Breakpoint.None" Dense="true"
-            Filter="new Func<GetExerciseResource,bool>(FilterFunc1)" GroupBy="@_groupDefinition">
+        <MudTable Items="exercises"
+                  Hover="true"
+                  SortLabel="Sort By"
+                  Elevation="0"
+                  Breakpoint="Breakpoint.None"
+                  Dense="true"
+                  Filter="new Func<GetExerciseResource,bool>(FilterFunc1)"
+                  GroupBy="@_groupDefinition">
             <ColGroup>
                 <col style="width: 5%;" />
                 <col />
@@ -48,13 +55,18 @@ else
                 <col style="width: 5%;" />
             </ColGroup>
             <ToolBarContent>
-                <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start"
-                    AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                <MudTextField @bind-Value="searchString1"
+                              Placeholder="Search"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="Size.Medium"
+                              Class="mt-0"></MudTextField>
             </ToolBarContent>
             <HeaderContent>
                 <MudTh>
                     <MudTableSortLabel InitialDirection="SortDirection.Descending"
-                        SortBy="new Func<GetExerciseResource, object>(x=>x.Workout.Date)">Date</MudTableSortLabel>
+                                       SortBy="new Func<GetExerciseResource, object>(x=>x.Workout.Date)">Date
+                    </MudTableSortLabel>
                 </MudTh>
                 <MudTh>
                     <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Type.Name)">Type
@@ -86,7 +98,8 @@ else
                 </MudTh>
             </HeaderContent>
             <GroupHeaderTemplate>
-                <MudTh Class="mud-table-cell-custom-group" colspan="8">
+                <MudTh Class="mud-table-cell-custom-group"
+                       colspan="8">
                     @{
                         var currentDate = DateTime.Now;
                         DateTime groupDate;
@@ -114,8 +127,10 @@ else
             </RowTemplate>
         </MudTable>
     </div>
-    <MudFab @onclick="GoToCreateExercise" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-        class = "fixed-create-button"  />
+    <MudFab @onclick="GoToCreateExercise"
+            Color="Color.Primary"
+            StartIcon="@Icons.Material.Filled.Add"
+            class="fixed-create-button" />
 }
 
 @code {
@@ -136,19 +151,6 @@ else
     protected override void OnInitialized()
     {
         TitleService.Title = "Exercises";
-    }
-
-    public class GetExerciseResource
-    {
-        public Guid? Id { get; set; }
-        public int? Series { get; set; }
-        public int? Repetitions { get; set; }
-        public double? Weight { get; set; }
-        public double? MaxRepetition { get; set; }
-        public int? Volume { get; set; }
-        public double? Intensity { get; set; }
-        public GetExerciseTypeResource? Type { get; set; }
-        public GetWorkoutResource? Workout { get; set; }
     }
 
     private bool FilterFunc1(GetExerciseResource element) => FilterFunc(element, searchString1);
