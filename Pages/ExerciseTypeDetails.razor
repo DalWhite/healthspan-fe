@@ -15,7 +15,7 @@ else
         <MudStack>
             @foreach (var exercise in exercises)
             {
-                <MudPaper Class="pa-3">@exercise.Workout.Date.ToShortDateString() - @exercise.Series x @exercise.Repetitions x
+                <MudPaper Class="pa-3">@exercise.Workout.Date.Value.ToShortDateString() - @exercise.Series x @exercise.Repetitions x
                     @exercise.Weight kg - V: @exercise.Volume Kg - RM: @exercise.MaxRepetition Kg - I:@exercise.Intensity % -
                     Comments: @exercise.Comments</MudPaper>
             }

@@ -43,7 +43,10 @@ else
                   Breakpoint="Breakpoint.None"
                   Dense="true"
                   Filter="new Func<GetExerciseResource,bool>(FilterFunc1)"
-                  GroupBy="@_groupDefinition">
+                  GroupBy="@_groupDefinition"
+                  T="GetExerciseResource"
+                  OnRowClick="GoToEditExercise"
+                  SelectedItem="selectedItem">
             <ColGroup>
                 <col style="width: 5%;" />
                 <col />
@@ -135,13 +138,14 @@ else
 
 @code {
     private GetExerciseResource[]? exercises;
+    private GetExerciseResource? selectedItem;
     private string searchString1 = "";
     private TableGroupDefinition<GetExerciseResource> _groupDefinition = new()
         {
             GroupName = "Date",
             Indentation = true,
             Expandable = false,
-            Selector = (e) => e.Workout?.Date.ToShortDateString()
+            Selector = (e) => e.Workout?.Date.Value.ToShortDateString()
         };
 
     protected override async Task OnInitializedAsync()
@@ -159,7 +163,7 @@ else
     {
         if (string.IsNullOrWhiteSpace(searchString))
             return true;
-        string dateString = element.Workout.Date.ToString("dd/MM/yyyy");
+        string dateString = element.Workout.Date.Value.ToString("dd/MM/yyyy");
 
         if (dateString.Contains(searchString, StringComparison.OrdinalIgnoreCase))
             return true;
@@ -172,6 +176,10 @@ else
     }
     private void GoToCreateExercise()
     {
-        NavigationManager.NavigateTo("/exercises/create"); // Adjust the URL as needed
+        NavigationManager.NavigateTo("/exercises/create");
+    }
+    private void GoToEditExercise(TableRowClickEventArgs<GetExerciseResource> tableRowClickEventArgs)
+    {
+        NavigationManager.NavigateTo($"/exercises/edit/{tableRowClickEventArgs.Item.Id}");
     }
 }

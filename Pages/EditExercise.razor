@@ -1,0 +1,96 @@
+@page "/exercises/edit/{ExerciseId}"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+
+<PageTitle>Edit Exercise</PageTitle>
+
+@if (Exercise == null)
+{
+    <MudProgressCircular Color="Color.Default"
+                         Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4">
+
+        <MudForm Model="Exercise">
+            <MudDatePicker Label="Date"
+                           @bind-Date="Exercise.Workout.Date"
+                           Variant="Variant.Outlined"
+                           FullWidth />
+            <MudNumericField Label="Series"
+                             @bind-Value="Exercise.Series"
+                             Variant="Variant.Outlined"
+                             FullWidth />
+            <MudNumericField Label="Repetitions"
+                             @bind-Value="Exercise.Repetitions"
+                             Variant="Variant.Outlined"
+                             FullWidth />
+            <MudNumericField Label="Weight (kg)"
+                             @bind-Value="Exercise.Weight"
+                             Variant="Variant.Outlined"
+                             FullWidth />
+
+            <MudButton ButtonType="ButtonType.Button"
+                       Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       OnClick="UpdateExercise">Save</MudButton>
+            <MudButton Color="Color.Secondary"
+                       Variant="Variant.Filled"
+                       OnClick="LoadMetrics">Recalculate Metrics</MudButton>
+            <MudButton Color="Color.Warning"
+                       Variant="Variant.Filled"
+                       OnClick="Delete">Delete</MudButton>
+        </MudForm>
+        <ExerciseMetrics Metrics="ExerciseMetrics"></ExerciseMetrics>
+    </MudPaper>
+}
+@code {
+    [Parameter]
+    public string ExerciseId { get; set; }
+    public GetExerciseResource? Exercise { get; set; }
+    private GetExerciseMetrics ExerciseMetrics { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadExercise();
+        await LoadMetrics();
+    }
+    private async Task LoadMetrics()
+    {
+        ExerciseMetrics = await Http.GetFromJsonAsync<GetExerciseMetrics?>($"/exercises/{ExerciseId}/metrics");
+    }
+
+    private async Task LoadExercise()
+    {
+        Exercise = await Http.GetFromJsonAsync<GetExerciseResource?>($"/exercises/{ExerciseId}");
+
+    }
+
+    private async Task UpdateExercise()
+    {
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"/exercises", Exercise);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Exercise updated successfully.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to update exercise.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+    private async Task Delete()
+    {
+        await Http.DeleteAsync($"/exercises/{ExerciseId}");
+        Snackbar.Add("exercise Deleted.", Severity.Warning);
+    }
+}
