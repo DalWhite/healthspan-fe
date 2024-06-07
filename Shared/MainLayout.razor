@@ -6,32 +6,38 @@
 @inject TitleService TitleService
 @inject Blazored.LocalStorage.ISyncLocalStorageService localStorage
 
-<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_currentTheme" />
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode"
+                  Theme="_currentTheme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
     <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-            OnClick="@ToggleDrawer" />
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       OnClick="@ToggleDrawer" />
         <MudText Typo="Typo.h6">
             @TitleService.Title
         </MudText>
     </MudAppBar>
-    <MudDrawer @bind-Open="@open" Elevation="1" Class="drawer-responsive">
+    <MudDrawer @bind-Open="@open"
+               Elevation="1"
+               Class="drawer-responsive">
         <MudDrawerHeader>
             <MudText Typo="Typo.h6">Healthspan</MudText>
         </MudDrawerHeader>
         <NavMenu />
-        <MudSwitch @bind-Checked="@_isDarkMode" Size="Size.Small" Color="Color.Primary" Class="ma-4" T="bool"
-            Label="Dark Theme" ValueChanged="HandleValueChanged" />
+
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
                 <div class="d-inline object-bottom ml-6 mb-6">
                     <MudAvatar Color="Color.Primary">@context.User?.Identity?.Name[0].ToString().ToUpper()</MudAvatar>
-                    <MudButton OnClick="@Logout" Color="Color.Tertiary">Logout</MudButton>
-                <MudText>v0.0.1</MudText>
+                    <MudIconButton OnClick="@GoToSettings"
+                                   Icon="@Icons.Material.Filled.Settings"
+                                   aria-label="settings">
+                    </MudIconButton>
                 </div>
             </Authorized>
         </AuthorizeView>
@@ -41,6 +47,7 @@
             @Body
         </MudContainer>
     </MudMainContent>
+
 </MudLayout>
 
 
@@ -84,14 +91,10 @@
     {
         open = !open;
     }
-    async Task Logout()
-    {
-        if (await Acct.CheckAuthenticatedAsync())
-        {
-            await Acct.LogoutAsync();
-        }
 
-        NavigationManager.NavigateTo("/login", true);
+    void GoToSettings()
+    {
+        NavigationManager.NavigateTo("/settings");
     }
 
     protected override void OnInitialized()
@@ -104,10 +107,6 @@
         }
     }
 
-    private void HandleValueChanged(bool value)
-    {
-        localStorage.SetItem("_isDarkMode", value);
-    }
     public void Dispose()
     {
         TitleService.OnChange -= StateHasChanged;

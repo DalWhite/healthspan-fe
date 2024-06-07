@@ -2,11 +2,19 @@
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 
-<MudDatePicker Label="Workout date" Editable="true" @bind-Date="workout.Date" Placeholder="Select Date" />
-<MudTextField @bind-Value="workout.Type" Label="Ej. Pull, strength, hypertrophy" Variant="Variant.Text"></MudTextField>
+<MudDatePicker Label="Workout date"
+               Editable="true"
+               @bind-Date="workout.Date"
+               Placeholder="Select Date" />
+<MudTextField @bind-Value="workout.Type"
+              Label="Ej. Pull, strength, hypertrophy"
+              Variant="Variant.Text"></MudTextField>
 <br>
 
-<MudButton @onclick="AddWorkout" Variant="Variant.Filled" Color="Color.Primary" style="float: right;">Create Workout
+<MudButton @onclick="AddWorkout"
+           Variant="Variant.Filled"
+           Color="Color.Primary"
+           style="float: right;">Create Workout
 </MudButton>
 
 <br>
@@ -20,7 +28,10 @@
 
 @if (exercisesAdded.Any())
 {
-    <MudTable Items="@exercisesAdded" Hover="true" Breakpoint="Breakpoint.None" Dense="true">
+    <MudTable Items="@exercisesAdded"
+              Hover="true"
+              Breakpoint="Breakpoint.None"
+              Dense="true">
         <HeaderContent>
             <MudTh>Type</MudTh>
             <MudTh>Series</MudTh>
@@ -37,7 +48,9 @@
     <br>
 }
 
-<ExerciseCreationForm ExerciseTypes="@exerciseTypes" WorkoutId="@workoutId" OnExerciseAdded="HandleExerciseAdded"></ExerciseCreationForm>
+<ExerciseCreationForm ExerciseTypes="@exerciseTypes"
+                      WorkoutId="@workoutId"
+                      OnExerciseAdded="HandleExerciseAdded"></ExerciseCreationForm>
 
 
 @code {

@@ -1,0 +1,16 @@
+# Editor configuration for Razor files in Blazor project
+
+# Top-most EditorConfig file
+root = true
+
+[*.{cshtml,razor}]
+# Change these settings according to your preferences
+indent_style = space
+indent_size = 4
+charset = utf-8
+trim_trailing_whitespace = true
+
+# HTML attribute wrapping
+[*.razor]
+# Wrap and indent HTML attributes
+resharper_attribute_style = first_attribute_on_single_line
