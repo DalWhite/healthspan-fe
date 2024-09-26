@@ -20,7 +20,7 @@ else
         {
             <MudItem xs="12" sm="6" md="4" lg="3" xl="2">
                 <MudCard Class="exercise-card" @onclick="() => GoToDetails(exerciseType)">
-                    <MudCardMedia ImageUrl="GetExerciseImageUrl(exerciseType)" Alt="@exerciseType.Name" Height="140" />
+                    <MudCardMedia Image="@GetExerciseImageUrl(exerciseType)" Alt="@exerciseType.Name" Height="140" />
                     <MudCardContent>
                         <MudText Typo="Typo.h6">@exerciseType.Name</MudText>
                         <MudText Typo="Typo.body2">@GetMuscleNameById(exerciseType.PrimaryMuscleId)</MudText>
@@ -68,8 +68,7 @@ private string GetFavoriteIcon(GetExerciseTypeResource exerciseType)
 
     private string GetExerciseImageUrl(GetExerciseTypeResource exerciseType)
     {
-        // Replace with logic to get the image URL for the exercise type
-        return "path/to/image.jpg";
+        return $"ExerciseImages/{exerciseType.Name}.jpg";
     }
 
     private async Task MarkAsFavorite(MouseEventArgs e, GetExerciseTypeResource exerciseType)
