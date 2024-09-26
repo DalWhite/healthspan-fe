@@ -15,21 +15,26 @@ else
     <ToolBarContent>
         <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
     </ToolBarContent>
-    <MudTable T="GetExerciseTypeResource" Items="_exerciseTypes" Hover="true" SortLabel="Sort By" Elevation="0" Dense="true" Breakpoint="Breakpoint.None" Filter="new Func<GetExerciseTypeResource,bool>(FilterFunc1)" OnRowClick="GoToDetails">
-    <HeaderContent>
-        <MudTh>
-            <MudTableSortLabel SortBy="new Func<GetExerciseTypeResource, object>(x => x?.Name ?? string.Empty)">Name</MudTableSortLabel>
-        </MudTh>
-        <MudTh>Muscle</MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        <MudTd DataLabel="Name">@context.Name</MudTd>
-        <MudTd DataLabel="Muscle">@GetMuscleNameById(context.PrimaryMuscleId)</MudTd>
-    </RowTemplate>
-</MudTable>
-
+    <MudGrid Class="exercise-types-grid">
+        @foreach (var exerciseType in FilteredExerciseTypes())
+        {
+            <MudItem xs="12" sm="6" md="4" lg="3" xl="2">
+                <MudCard Class="exercise-card" @onclick="() => GoToDetails(exerciseType)">
+                    <MudCardMedia ImageUrl="GetExerciseImageUrl(exerciseType)" Alt="@exerciseType.Name" Height="140" />
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">@exerciseType.Name</MudText>
+                        <MudText Typo="Typo.body2">@GetMuscleNameById(exerciseType.PrimaryMuscleId)</MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                         <MudIconButton Icon="@GetFavoriteIcon(exerciseType)" Color="Color.Primary" OnClick="(e) => MarkAsFavorite(e, exerciseType)" />
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
 }
-<MudFab @onclick="GoToCreateExerciseType" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" class = "fixed-create-button" />
+
+<MudFab @onclick="GoToCreateExerciseType" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" class="fixed-create-button" />
 
 @code {
     private string searchString1 = "";
@@ -51,24 +56,73 @@ else
         new Muscle { Id = 14, Name = "Obliquus externus abdominis" },
         new Muscle { Id = 15, Name = "Soleus" }
     };
+private string GetFavoriteIcon(GetExerciseTypeResource exerciseType)
+    {
+        return exerciseType.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder;
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+        TitleService.Title = "Exercise types";
+    }
+
+    private string GetExerciseImageUrl(GetExerciseTypeResource exerciseType)
+    {
+        // Replace with logic to get the image URL for the exercise type
+        return "path/to/image.jpg";
+    }
+
+    private async Task MarkAsFavorite(MouseEventArgs e, GetExerciseTypeResource exerciseType)
+    {
+        try
+        {
+            var updateExerciseTypeResource = new UpdateExerciseTypeResource
+            {
+                Id = exerciseType.Id,
+                Name = exerciseType.Name,
+                Description = exerciseType.Description,
+                ImageRoute = exerciseType.ImageRoute,
+                PrimaryMuscleId = exerciseType.PrimaryMuscleId,
+                SecondaryMuscleId = exerciseType.SecondaryMuscleId,
+                IsFavourite = !exerciseType.IsFavourite
+            };
+            // PUT request to mark the exercise as a favorite
+            var response = await Http.PutAsJsonAsync($"/ExerciseTypes", updateExerciseTypeResource);
+
+            if (response.IsSuccessStatusCode)
+            {
+                 exerciseType.IsFavourite = !exerciseType.IsFavourite;
+            }
+            else
+            {
+                // Handle non-successful responses
+                Console.WriteLine("Failed to mark exercise as favorite.");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle any exceptions
+            Console.WriteLine($"Error occurred: {ex.Message}");
+        }
+    }
+
     private string GetMuscleNameById(int? muscleId)
     {
         return Muscles.FirstOrDefault(m => m.Id == muscleId)?.Name ?? "Not specified";
     }
 
-    protected override async Task OnInitializedAsync()
+    private void GoToDetails(GetExerciseTypeResource exerciseType)
     {
-        _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+        NavigationManager.NavigateTo($"/exercises/types/{exerciseType.Id}/details");
     }
-    protected override void OnInitialized()
+
+    private IEnumerable<GetExerciseTypeResource> FilteredExerciseTypes()
     {
-        TitleService.Title = "Exercise types";
+        if (string.IsNullOrWhiteSpace(searchString1))
+            return _exerciseTypes;
+
+        return _exerciseTypes.Where(exerciseType => FilterFunc(exerciseType, searchString1));
     }
-    private void GoToCreateExerciseType()
-    {
-        NavigationManager.NavigateTo("/exercises/types/create");
-    }
-    private bool FilterFunc1(GetExerciseTypeResource element) => FilterFunc(element, searchString1);
 
     private bool FilterFunc(GetExerciseTypeResource element, string searchString)
     {
@@ -81,8 +135,8 @@ else
         return false;
     }
 
-    private void GoToDetails(TableRowClickEventArgs<GetExerciseTypeResource> tableRowClickEventArgs)
+    private void GoToCreateExerciseType()
     {
-        NavigationManager.NavigateTo($"/exercises/types/{tableRowClickEventArgs.Item.Id}/details");
+        NavigationManager.NavigateTo("/exercises/types/create");
     }
 }

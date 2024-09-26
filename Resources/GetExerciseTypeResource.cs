@@ -6,4 +6,5 @@ public record GetExerciseTypeResource
     public string? ImageRoute { get; set; }
     public int? PrimaryMuscleId {get;set;}
     public int? SecondaryMuscleId {get;set;}
+    public bool IsFavourite { get; set; }
 }
