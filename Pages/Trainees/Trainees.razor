@@ -1,0 +1,89 @@
+@page "/trainees"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@using healthspan_fe_wasm_pwa.Shared
+@inject TitleService TitleService
+
+<PageTitle>Trainees</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge"
+              Class="mt-4">
+    <MudGrid>
+        @if (_trainees == null)
+        {
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6">Loading...</MudText>
+            </MudItem>
+        }
+        else if (_trainees.Count == 0)
+        {
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6">No trainees found.</MudText>
+            </MudItem>
+        }
+        else
+        {
+            @foreach (var trainee in _trainees)
+            {
+                <MudItem xs="12"
+                         sm="6"
+                         md="4"
+                         lg="3">
+                    <MudCard Class="pa-4">
+                        <MudAvatar Icon="@Icons.Material.Filled.Person"
+                                   Size="Size.Large" />
+                        <MudText Typo="Typo.h5">@trainee.Name</MudText>
+                        <MudText Typo="Typo.subtitle1">Next planned workout: TBD</MudText>
+                        <MudText Typo="Typo.subtitle2">WK/routine type: TBD</MudText>
+
+                        <MudCardActions Class="mt-4">
+                            <MudGrid Spacing="3">
+                                <MudItem xs="12"
+                                         sm="6">
+                                    <MudButton Variant="Variant.Filled"
+                                               Color="Color.Error"
+                                               FullWidth="true"
+                                               OnClick="() => ViewExercises(trainee.Id)">
+                                        Exercises
+                                    </MudButton>
+                                </MudItem>
+                                <MudItem xs="12"
+                                         sm="6">
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Secondary"
+                                               FullWidth="true"
+                                               OnClick="() => ViewFavouriteExercises(trainee.Id)">
+                                        Fav Exercises
+                                    </MudButton>
+                                </MudItem>
+                            </MudGrid>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        }
+    </MudGrid>
+</MudContainer>
+
+
+@code {
+    private List<UserResource> _trainees;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _trainees = await Http.GetFromJsonAsync<List<UserResource>>("/users/trainees");
+        TitleService.Title = "Trainees";
+    }
+
+    // Navigate to the page that shows exercises for the trainee
+    private void ViewExercises(Guid traineeId)
+    {
+        NavigationManager.NavigateTo($"/trainees/{traineeId}/exercises");
+    }
+
+    // Navigate to the page that shows favorite exercises for the trainee
+    private void ViewFavouriteExercises(Guid traineeId)
+    {
+        NavigationManager.NavigateTo($"/trainees/{traineeId}/favourite-exercises");
+    }
+}
