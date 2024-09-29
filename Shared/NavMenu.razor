@@ -1,6 +1,44 @@
-﻿<MudNavMenu>
-    <MudNavLink Href="exercises" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Exercises</MudNavLink>
-    <MudNavLink Href="exercises/types" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">Exercise Types</MudNavLink>
-    <MudNavLink Href="exercises/types/fav" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">Favourite Exercise Types</MudNavLink>
-    <MudNavLink Href="trainees" Match="NavLinkMatch.Prefix" Icon="@Icons.Custom.Brands.Reddit">Trainees</MudNavLink>
+﻿@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject HttpClient Http
+
+<MudNavMenu>
+    <MudNavLink Href="exercises" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.FitnessCenter">
+        Exercises
+    </MudNavLink>
+
+    <MudNavLink Href="exercises/types" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ListAlt">
+        Exercise Types
+    </MudNavLink>
+
+    <MudNavLink Href="exercises/types/fav" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Favorite">
+        Favourite Exercise Types
+    </MudNavLink>
+
+    @if (isTrainer)
+    {
+        <MudNavLink Href="trainees" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
+            Trainees
+        </MudNavLink>
+    }
 </MudNavMenu>
+
+@code {
+    private bool isTrainer = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userRoles = await Http.GetFromJsonAsync<string[]>($"/Users/roles");
+
+            if (userRoles.Contains("Trainer"))
+            {
+                isTrainer = true;
+            }
+        }
+
+    }
+}
