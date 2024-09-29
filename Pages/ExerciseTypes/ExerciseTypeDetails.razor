@@ -1,4 +1,4 @@
-@page "/exercises/types/{ExerciseTypeId:int}/details"
+@page "/exercises/types/{ExerciseTypeId:int}/details/{traineeId}"
 @inject HttpClient Http
 @using ApexCharts
 @inject TitleService TitleService
@@ -7,7 +7,8 @@
 
 @if (exercises == null)
 {
-    <MudProgressCircular Color="MudBlazor.Color.Default" Indeterminate="true" />
+    <MudProgressCircular Color="MudBlazor.Color.Default"
+                         Indeterminate="true" />
 }
 else
 {
@@ -15,7 +16,8 @@ else
         <MudStack>
             @foreach (var exercise in exercises)
             {
-                <MudPaper Class="pa-3">@exercise.Workout.Date.Value.ToShortDateString() - @exercise.Series x @exercise.Repetitions x
+                <MudPaper Class="pa-3">@exercise.Workout.Date.Value.ToShortDateString() - @exercise.Series x
+                    @exercise.Repetitions x
                     @exercise.Weight kg - V: @exercise.Volume Kg - RM: @exercise.MaxRepetition Kg - I:@exercise.Intensity % -
                     Comments: @exercise.Comments</MudPaper>
             }
@@ -23,7 +25,8 @@ else
     </MudCollapse>
 }
 <MudDivider />
-<MudButton style="float: right; margin-top: 30px;" OnClick="OnExpandCollapseClick">@(_expanded ? "Collapse" : "Expand")
+<MudButton style="float: right; margin-top: 30px;"
+           OnClick="OnExpandCollapseClick">@(_expanded ? "Collapse" : "Expand")
 </MudButton>
 
 <MudGrid>
@@ -51,16 +54,29 @@ else
         <div>
             @if (_rmTrends != null && _volumeTrends != null && _intensityTrends != null)
             {
-                <ApexChart @ref="rmChart" TItem="DataPoint" Title="Evolution" Options="options">
+                <ApexChart @ref="rmChart"
+                           TItem="DataPoint"
+                           Title="Evolution"
+                           Options="options">
 
-                    <ApexPointSeries TItem="DataPoint" Items="_rmTrends" Name="RM" SeriesType="ApexCharts.SeriesType.Line"
-                        XValue='e => e.Time.ToShortDateString()' YAggregate="e => e.Average(e=> e.Data)" />
-                    <ApexPointSeries TItem="DataPoint" Items="_volumeTrends" Name="Volume"
-                        SeriesType="ApexCharts.SeriesType.Line" XValue='e => e.Time.ToShortDateString()'
-                        YAggregate="e => e.Average(e=> e.Data)" />
-                    <ApexPointSeries TItem="DataPoint" Items="_intensityTrends" Name="Intensity"
-                        SeriesType="ApexCharts.SeriesType.Line" XValue='e => e.Time.ToShortDateString()'
-                        YAggregate="e => e.Average(e=> e.Data)" />
+                    <ApexPointSeries TItem="DataPoint"
+                                     Items="_rmTrends"
+                                     Name="RM"
+                                     SeriesType="ApexCharts.SeriesType.Line"
+                                     XValue='e => e.Time.ToShortDateString()'
+                                     YAggregate="e => e.Average(e=> e.Data)" />
+                    <ApexPointSeries TItem="DataPoint"
+                                     Items="_volumeTrends"
+                                     Name="Volume"
+                                     SeriesType="ApexCharts.SeriesType.Line"
+                                     XValue='e => e.Time.ToShortDateString()'
+                                     YAggregate="e => e.Average(e=> e.Data)" />
+                    <ApexPointSeries TItem="DataPoint"
+                                     Items="_intensityTrends"
+                                     Name="Intensity"
+                                     SeriesType="ApexCharts.SeriesType.Line"
+                                     XValue='e => e.Time.ToShortDateString()'
+                                     YAggregate="e => e.Average(e=> e.Data)" />
 
                 </ApexChart>
             }
@@ -73,6 +89,8 @@ else
 
     [Parameter]
     public int ExerciseTypeId { get; set; }
+    [Parameter]
+    public string traineeId { get; set; }
 
     private ApexChart<DataPoint> rmChart;
     private ApexChartOptions<DataPoint> options { get; set; } = new();
@@ -95,12 +113,11 @@ else
 
     private async Task LoadDataAsync()
     {
-        var exercisesTask = Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?exerciseTypeId={ExerciseTypeId}");
-        var kpisTask = Http.GetFromJsonAsync<GetExerciseTypeKpis>($"/Exercises/{ExerciseTypeId}/kpis");
-        var rmTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=RM");
-        var volumeTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Volume");
-        var intensityTrendsTask =
-        Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Intensity");
+        var exercisesTask = Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?exerciseTypeId={ExerciseTypeId}&userId={traineeId}");
+        var kpisTask = Http.GetFromJsonAsync<GetExerciseTypeKpis>($"/Exercises/{ExerciseTypeId}/kpis?userId={traineeId}");
+        var rmTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=RM&userId={traineeId}");
+        var volumeTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Volume&userId={traineeId}");
+        var intensityTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Intensity&userId={traineeId}");
 
         await Task.WhenAll(new Task[] { rmTrendsTask, volumeTrendsTask, intensityTrendsTask, exercisesTask, kpisTask });
 

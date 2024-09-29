@@ -114,7 +114,7 @@ private string GetFavoriteIcon(GetExerciseTypeResource exerciseType)
 
     private void GoToDetails(GetExerciseTypeResource exerciseType)
     {
-        NavigationManager.NavigateTo($"/exercises/types/{exerciseType.Id}/details");
+        NavigationManager.NavigateTo($"/exercises/types/{exerciseType.Id}/details/{traineeId}");
     }
 
     private IEnumerable<GetExerciseTypeResource> FilteredExerciseTypes()
