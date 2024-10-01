@@ -1,4 +1,4 @@
-@page "/exercises/types/{ExerciseTypeId:int}/details/{traineeId}"
+@page "/exercises/types/{ExerciseTypeId:int}/details/{traineeId?}"
 @inject HttpClient Http
 @using ApexCharts
 @inject TitleService TitleService
@@ -90,7 +90,7 @@ else
     [Parameter]
     public int ExerciseTypeId { get; set; }
     [Parameter]
-    public string traineeId { get; set; }
+    public string? traineeId { get; set; }
 
     private ApexChart<DataPoint> rmChart;
     private ApexChartOptions<DataPoint> options { get; set; } = new();
