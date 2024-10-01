@@ -1,7 +1,14 @@
 @inject HttpClient Http
 
 <MudContainer>
-    <MudSelect class="ma-4" Label="Exercise" Variant="Variant.Outlined" @bind-Value="typeToAdd">
+    <MudDatePicker Label="Date"
+                   @bind-Date="workoutToAdd.Date"
+                   Variant="Variant.Outlined"
+                   class="ma-4" />
+    <MudSelect class="ma-4"
+               Label="Exercise"
+               Variant="Variant.Outlined"
+               @bind-Value="typeToAdd">
         @if (ExerciseTypes != null)
         {
             @foreach (var exerciseType in ExerciseTypes)
@@ -10,13 +17,26 @@
             }
         }
     </MudSelect>
-    <MudNumericField class="ma-4" @bind-Value="exercise.Series" Label="Series" Variant="Variant.Outlined" />
-    <MudNumericField class="ma-4" @bind-Value="exercise.Repetitions" Label="Reps" Variant="Variant.Outlined" />
-    <MudNumericField class="ma-4" @bind-Value="exercise.Weight" Label="Weight" Variant="Variant.Outlined" Step=".5M" />
+    <MudNumericField class="ma-4"
+                     @bind-Value="exercise.Series"
+                     Label="Series"
+                     Variant="Variant.Outlined" />
+    <MudNumericField class="ma-4"
+                     @bind-Value="exercise.Repetitions"
+                     Label="Reps"
+                     Variant="Variant.Outlined" />
+    <MudNumericField class="ma-4"
+                     @bind-Value="exercise.Weight"
+                     Label="Weight"
+                     Variant="Variant.Outlined"
+                     Step=".5M" />
 </MudContainer>
 
-<MudFab @onclick="AddExerciseToTheForm" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-    style="float: right;" Size="Size.Small" />
+<MudFab @onclick="AddExerciseToTheForm"
+        Color="Color.Primary"
+        StartIcon="@Icons.Material.Filled.Add"
+        style="float: right;"
+        Size="Size.Small" />
 
 @code {
     public string createTypeButton = "CreateNew";
@@ -27,12 +47,13 @@
 
     private AddExerciseResource exercise = new();
     private GetExerciseTypeResource? typeToAdd;
+    private AddWorkoutResource workoutToAdd = new(){Date = DateTime.Today};
 
     private async Task AddExerciseToTheForm()
     {
         if (WorkoutId == Guid.Empty)
         {
-            WorkoutId = await GetLastWorkoutIdOrNewIfLastIsNotToday();
+            WorkoutId = await GetLastWorkoutIdOrNewIfNoWorkoutForSelectedDate(workoutToAdd.Date);
         }
         exercise.WorkoutId = WorkoutId;
         exercise.TypeId = typeToAdd?.Id;
@@ -46,17 +67,28 @@
 
         exercise = new();
     }
-    private async Task<Guid> GetLastWorkoutIdOrNewIfLastIsNotToday()
+    private async Task<Guid> GetLastWorkoutIdOrNewIfNoWorkoutForSelectedDate(DateTime? selectedDate)
     {
-        var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("/workouts");
+        // Fetch the workouts for the trainee
+        var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>($"/workouts?traineeId={traineeId}");
 
-        var latestWorkout = workouts?.OrderByDescending(w => w.Date).FirstOrDefault();
-        if(latestWorkout?.Date != DateTime.Today)
+        // Get the workout for the selected date (ordered by descending date to get the latest workout)
+        var workoutForSelectedDate = workouts?.FirstOrDefault(w => w.Date.Value.Date.DayOfYear == selectedDate.Value.Date.DayOfYear);
+
+        // If no workout exists for the selected date, create a new one
+        if (workoutForSelectedDate == null)
         {
-            var response = await Http.PostAsJsonAsync("/Workouts", new AddWorkoutResource{Date = DateTime.Now, Type = "default", UserId = traineeId});
-            var result = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
-            return result.Id;
+            workoutToAdd.Type = "default";
+            workoutToAdd.UserId = traineeId;
+            workoutToAdd.Date = selectedDate.Value; // Use the selected date
+
+            var response = await Http.PostAsJsonAsync("/Workouts", workoutToAdd);
+            var newWorkout = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
+
+            return newWorkout.Id;
         }
-        return latestWorkout.Id;
+
+        // Return the ID of the existing workout for the selected date
+        return workoutForSelectedDate.Id;
     }
 }
