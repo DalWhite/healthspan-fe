@@ -177,7 +177,7 @@ else
     }
     private void GoToCreateExercise()
     {
-        NavigationManager.NavigateTo("/exercises/create");
+        NavigationManager.NavigateTo($"/exercises/create/{traineeId}");
     }
     private void GoToEditExercise(TableRowClickEventArgs<GetExerciseResource> tableRowClickEventArgs)
     {

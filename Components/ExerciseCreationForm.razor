@@ -23,6 +23,7 @@
     [Parameter] public EventCallback<AddExerciseResource> OnExerciseAdded { get; set; }
     [Parameter] public GetExerciseTypeResource[]? ExerciseTypes { get; set; }
     [Parameter] public Guid WorkoutId { get; set; }
+    [Parameter] public string? traineeId { get; set; }
 
     private AddExerciseResource exercise = new();
     private GetExerciseTypeResource? typeToAdd;
@@ -48,11 +49,11 @@
     private async Task<Guid> GetLastWorkoutIdOrNewIfLastIsNotToday()
     {
         var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("/workouts");
-        
+
         var latestWorkout = workouts?.OrderByDescending(w => w.Date).FirstOrDefault();
         if(latestWorkout?.Date != DateTime.Today)
         {
-            var response = await Http.PostAsJsonAsync("/Workouts", new AddWorkoutResource{Date = DateTime.Now, Type = "default"});
+            var response = await Http.PostAsJsonAsync("/Workouts", new AddWorkoutResource{Date = DateTime.Now, Type = "default", UserId = traineeId});
             var result = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
             return result.Id;
         }

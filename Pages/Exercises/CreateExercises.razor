@@ -1,4 +1,4 @@
-@page "/exercises/create"
+@page "/exercises/create/{traineeId?}"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -8,14 +8,16 @@
 <MudPaper Class="pa-4">
     <MudContainer>
         <MudText class="ma-4" Typo="Typo.h5">Add New Exercise</MudText>
-        <ExerciseCreationForm ExerciseTypes="@exerciseTypes" WorkoutId="@workoutId" OnExerciseAdded="HandleExerciseAdded" />
+        <ExerciseCreationForm ExerciseTypes="@exerciseTypes" WorkoutId="@workoutId" OnExerciseAdded="HandleExerciseAdded" traineeId="@traineeId"/>
     </MudContainer>
 </MudPaper>
 
 @code {
+    [Parameter]
+    public string? traineeId { get; set; }
     private GetExerciseTypeResource[] exerciseTypes;
     private Guid workoutId;
-    
+
     protected override async Task OnInitializedAsync()
     {
         exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
