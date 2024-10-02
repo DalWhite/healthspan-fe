@@ -7,7 +7,9 @@
 
 <MudPaper Class="pa-4">
     <MudContainer>
-        <MudText class="ma-4" Typo="Typo.h5">Add New Exercise</MudText>
+        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Color="Color.Primary" Variant="Variant.Outlined" Class="mb-4" OnClick="GoBack">
+            Back
+        </MudButton>
         <ExerciseCreationForm ExerciseTypes="@exerciseTypes" WorkoutId="@workoutId" OnExerciseAdded="HandleExerciseAdded" traineeId="@traineeId"/>
     </MudContainer>
 </MudPaper>
@@ -27,5 +29,9 @@
     private void HandleExerciseAdded(AddExerciseResource exercise)
     {
         Snackbar.Add("Exercise added successfully!", Severity.Success);
+    }
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/Exercises", forceLoad: false);
     }
 }

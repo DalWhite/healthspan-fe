@@ -20,6 +20,18 @@ else
                            @bind-Date="Exercise.Workout.Date"
                            Variant="Variant.Outlined"
                            FullWidth />
+            <MudSelect class="ma-4"
+               Label="Exercise"
+               Variant="Variant.Outlined"
+               @bind-Value="Exercise.Type">
+        @if (exerciseTypes != null)
+        {
+            @foreach (var exerciseType in exerciseTypes)
+            {
+                <MudSelectItem Value="@exerciseType">@exerciseType.Name</MudSelectItem>
+            }
+        }
+    </MudSelect>
             <MudNumericField Label="Series"
                              @bind-Value="Exercise.Series"
                              Variant="Variant.Outlined"
@@ -52,9 +64,11 @@ else
     public string ExerciseId { get; set; }
     public GetExerciseResource? Exercise { get; set; }
     private GetExerciseMetrics ExerciseMetrics { get; set; }
+    private GetExerciseTypeResource[] exerciseTypes;
 
     protected override async Task OnInitializedAsync()
     {
+        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
         await LoadExercise();
         await LoadMetrics();
     }
