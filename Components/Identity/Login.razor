@@ -1,5 +1,4 @@
 @layout LoginLayout
-
 @page "/login"
 @using Healthspan.Authentication
 @inject IAccountManagement Acct
@@ -9,42 +8,91 @@
 
 <PageTitle>Login</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
-    <div style=" top:30vh; left:0; right:0; text-align:center">
-        <div id="slowLoadingAnimation" style="width:100px; height:100px; margin:auto;">
-            <img src="icon-512.png" alt="Loading" style="width:100%; height:100%;">
-        </div>
-    </div>  
-    <AuthorizeView>
-        <Authorized>
-            <MudAlert Severity="Severity.Success">You're logged in as @context.User.Identity?.Name.</MudAlert>
-        </Authorized>
-        <NotAuthorized>
-            @if (errors)
-            {
-                @foreach (var error in errorList)
-                {
-                    <MudAlert Severity="Severity.Error">@error</MudAlert>
-                }
-            }
+<div class="login-page">
+    <div class="login-left">
 
-            <MudForm>
-                <MudTextField Label="Email" Required="true" Placeholder="Enter your email address"
-                    Variant="Variant.Outlined" @bind-Value="email" />
-                <MudTextField Label="Password" Required="true" Placeholder="Enter your password"
-                    Variant="Variant.Outlined" InputType="@PasswordInput" Adornment="Adornment.End"
-                    AdornmentIcon="@PasswordInputIcon" @bind-Value="password" Class="mt-2"
-                    OnAdornmentClick="ButtonTestclick" />
-                <div style="display: flex; justify-content: flex-end;">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="DoLoginAsync">Login</MudButton>
-                    <MudButton Variant="Variant.Text" OnClick="@(() => Navigation.NavigateTo("register"))" Class="ml-2">
-                        <MudIcon Icon="@Icons.Material.Filled.Edit" Style="vertical-align: middle;" /> Register
-                    </MudButton>
+        <div class="tagline-container">
+            <div style=" top:30vh; left:0; right:0; text-align:center">
+                <div id="slowLoadingAnimation"
+                     style="width:130px; height:130px; margin:auto;">
+                    <img src="icon-512.png"
+                         alt="Loading"
+                         style="width:100%; height:100%;">
                 </div>
-            </MudForm>
-        </NotAuthorized>
-    </AuthorizeView>
-</MudContainer>
+            </div>
+            <MudText Typo="Typo.h3"
+                     Class="headline">Enhance Your Health Journey</MudText>
+            <ul class="features-list">
+                <li>Track and improve your health with expert insights</li>
+                <li>Connect with certified professionals in real-time</li>
+                <li>Access personalized health and wellness plans</li>
+                <li>Join a community focused on well-being and vitality</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="login-right">
+        <MudContainer MaxWidth="MaxWidth.Small"
+                      Class="login-container">
+            <MudPaper Class="login-form rounded-container"
+                      Elevation="4"
+                      Style="padding: 2rem;">
+
+                @if (errors)
+                {
+                    @foreach (var error in errorList)
+                    {
+                        <MudAlert Severity="Severity.Error"
+                                  Variant="Variant.Filled">@error</MudAlert>
+                    }
+                }
+
+                <MudForm>
+                    <MudTextField Placeholder="Enter your email"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  @bind-Value="email"
+                                  FullWidth="true"
+                                  RequiredError="Email is required"
+                                  Class="input-field text-field outlined" />
+
+                    <MudTextField Placeholder="Enter your password"
+                                  Variant="Variant.Outlined"
+                                  InputType="@PasswordInput"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@PasswordInputIcon"
+                                  @bind-Value="password"
+                                  FullWidth="true"
+                                  OnAdornmentClick="ButtonTestclick"
+                                  RequiredError="Password is required"
+                                  Class="input-field text-field outlined" />
+
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="DoLoginAsync"
+                               FullWidth="true"
+                               Class="mb-3 rounded-button">Log In</MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Custom.Brands.Google"
+                               FullWidth="true"
+                               Class="google-button rounded-button">
+                        Continue with Google
+                    </MudButton>
+
+                    <MudText Typo="Typo.body2"
+                             Align="Align.Center"
+                             Class="mt-3">
+                        New here? <MudButton Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   OnClick="NavigateToRegister">Create an account</MudButton>
+                    </MudText>
+                </MudForm>
+            </MudPaper>
+        </MudContainer>
+    </div>
+</div>
 
 @code {
     private bool success, errors;
@@ -92,5 +140,10 @@
             errors = true;
             errorList = result.ErrorList.ToArray();
         }
+    }
+
+    private void NavigateToRegister()
+    {
+        Navigation.NavigateTo("/register");
     }
 }

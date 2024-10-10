@@ -28,5 +28,144 @@
   z-index: 1000;
 }
   
+.logo-container-mobile {
+  display: none; /* Hidden by default, shown on mobile */
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+}
+.mud-input-outlined-border {
+  border-radius: 15px !important;
+}
+.login-page {
+  display: flex;
+  height: 100vh;
+  width: 100vw; /* Ensure the login page takes the full width of the viewport */
+}
+.login-left {
+  background: linear-gradient(135deg, #4d9f95, #1a3c3b);
+  color: #fff;
+  width: 50%; /* Left side will take 50% of the width */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  box-sizing: border-box; /* Ensures padding doesn't overflow */
+}
 
-  
+  .login-right {
+    background-color: #f9f9f9;
+    width: 50%; /* Right side will also take 50% of the width */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+  .logo-container {
+      margin-bottom: 2rem;
+  }
+
+  .logo-image {
+      width: 150px;
+      height: auto;
+  }
+
+  .tagline-container {
+      max-width: 500px;
+      text-align: left;
+  }
+
+  .headline {
+      font-weight: 700;
+  }
+
+  .features-list {
+      list-style-type: none;
+      padding: 0;
+      margin-top: 1rem;
+  }
+
+  .features-list li {
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+  }
+
+  .login-container {
+      max-width: 400px;
+      width: 100%;
+      padding: 2rem;
+  }
+
+  /* Input Fields and Buttons Styling */
+  .login-form {
+      background-color: #fff;
+      padding: 2rem;
+      border-radius: 15px;
+  }
+
+  .input-field {
+      border-radius: 15px;
+      margin-bottom: 15px;
+      background-color: #f1f5f9; /* Lighter background color for the text fields */
+      border: none;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .input-field input {
+      border-radius: 15px;
+      padding: 10px 15px;
+  }
+
+  .rounded-button {
+      border-radius: 15px;
+      padding: 12px;
+  }
+
+  .google-button {
+      margin-top: 1.5rem;
+      border-radius: 15px;
+      border: 1px solid #ccc;
+  }
+
+  .google-button:hover {
+      border-color: #bbb;
+  }
+
+  /* Error Message Styling */
+  .mud-input-error {
+      color: #d32f2f !important;
+      font-size: 0.875rem;
+  }
+  @media (min-width: 950px) {
+    .login-left {
+        padding: 2rem 4rem; /* Increase padding for larger screens */
+    }
+    
+    .login-right {
+        padding: 2rem 4rem; /* Ensure the right side aligns properly */
+    }
+}
+  /* Responsive Layout for Mobile */
+  @media (max-width: 768px) {
+      .login-page {
+          flex-direction: column;
+      }
+
+      .login-left {
+          display: none;
+      }
+
+      .login-right {
+          width: 100%;
+          height: 100%;
+          padding: 1rem;
+          background: linear-gradient(135deg, #4d9f95, #1a3c3b);
+      }
+
+      .login-container {
+          padding: 1rem;
+          box-shadow: none;
+      }
+  }
