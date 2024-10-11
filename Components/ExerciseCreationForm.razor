@@ -47,7 +47,7 @@
 
     private AddExerciseResource exercise = new();
     private GetExerciseTypeResource? typeToAdd;
-    private AddWorkoutResource workoutToAdd = new(){Date = DateTime.Today};
+    private AddWorkoutResource workoutToAdd = new(){Date = DateTime.Now};
 
     private async Task AddExerciseToTheForm()
     {
@@ -73,7 +73,7 @@
         var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>($"/workouts?traineeId={traineeId}");
 
         // Get the workout for the selected date (ordered by descending date to get the latest workout)
-        var workoutForSelectedDate = workouts?.FirstOrDefault(w => w.Date.Value.Date.DayOfYear == selectedDate.Value.Date.DayOfYear);
+        var workoutForSelectedDate = workouts?.FirstOrDefault(w => w.Date.Value.Date.DayOfYear == selectedDate.Value.Date.DayOfYear && w.Date.Value.Year == selectedDate.Value.Year);
 
         // If no workout exists for the selected date, create a new one
         if (workoutForSelectedDate == null)
