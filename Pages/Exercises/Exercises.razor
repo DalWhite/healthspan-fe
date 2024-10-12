@@ -4,135 +4,96 @@
 @using healthspan_fe_wasm_pwa.Shared
 @inject TitleService TitleService
 
-<style>
-    @@media (max-width: 600px) {
-        .hide-on-mobile {
-            display: none;
-        }
-
-        .table-responsive {
-            overflow-x: auto;
-        }
-    }
-
-    .mud-table-cell-custom-group {
-        font-weight: 500;
-    }
-
-    .mud-table-cell-custom-group-footer {
-        padding-bottom: 50px;
-        text-align: right;
-    }
-</style>
-
 <PageTitle>Exercises</PageTitle>
 
-@if (exercises == null)
-{
-    <MudProgressCircular Color="Color.Default"
-                         Indeterminate="true" />
-}
-else
+
+@if (exercises != null)
 {
     <div class="table-responsive">
-        <MudTable Items="exercises"
-                  Hover="true"
-                  SortLabel="Sort By"
-                  Elevation="0"
-                  Breakpoint="Breakpoint.None"
-                  Dense="true"
-                  Filter="new Func<GetExerciseResource,bool>(FilterFunc1)"
-                  GroupBy="@_groupDefinition"
-                  T="GetExerciseResource"
-                  OnRowClick="GoToEditExercise"
-                  SelectedItem="selectedItem">
-            <ColGroup>
-                <col style="width: 5%;" />
-                <col />
-                <col style="width: 5%;" />
-                <col style="width: 5%;" />
-                <col style="width: 5%;" />
-                <col style="width: 5%;" />
-                <col style="width: 5%;" />
-                <col style="width: 5%;" />
-            </ColGroup>
-            <ToolBarContent>
-                <MudTextField @bind-Value="searchString1"
-                              Placeholder="Search"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Search"
-                              IconSize="Size.Medium"
-                              Class="mt-0"></MudTextField>
-            </ToolBarContent>
-            <HeaderContent>
-                <MudTh>
-                    <MudTableSortLabel InitialDirection="SortDirection.Descending"
-                                       SortBy="new Func<GetExerciseResource, object>(x=>x.Workout.Date)">Date
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Type.Name)">Type
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Series)">Series
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Repetitions)">Repetitions
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Weight)">Weight
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.MaxRepetition)">1RM
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Volume)">Volume
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Intensity)">Intensity
-                    </MudTableSortLabel>
-                </MudTh>
-            </HeaderContent>
-            <GroupHeaderTemplate>
-                <MudTh Class="mud-table-cell-custom-group"
-                       colspan="8">
-                    @{
-                        var currentDate = DateTime.Now;
-                        DateTime groupDate;
-                        if (DateTime.TryParse(context.Key.ToString(), out groupDate))
-                        {
-                            var daysAgo = (currentDate - groupDate).Days;
-                            <text>@($"{context.GroupName}: {context.Key}, ({daysAgo} days ago)")</text>
-                        }
-                        else
-                        {
-                            <text>Invalid Date</text>
-                        }
-                    }
-                </MudTh>
-            </GroupHeaderTemplate>
-            <RowTemplate>
-                <MudTd DataLabel="Date"></MudTd>
-                <MudTd DataLabel="Type">@context.Type?.Name</MudTd>
-                <MudTd DataLabel="Series">@context.Series</MudTd>
-                <MudTd DataLabel="Reps">@context.Repetitions</MudTd>
-                <MudTd DataLabel="Weight">@context.Weight kg</MudTd>
-                <MudTd DataLabel="1RM">@context.MaxRepetition kg</MudTd>
-                <MudTd DataLabel="Volume">@context.Volume kg</MudTd>
-                <MudTd DataLabel="Intensity">@context.Intensity %</MudTd>
-            </RowTemplate>
-        </MudTable>
-    </div>
-    <MudFab @onclick="GoToCreateExercise"
-            Color="Color.Primary"
-            StartIcon="@Icons.Material.Filled.Add"
-            class="fixed-create-button" />
+    <MudTable Items="exercises"
+              Hover="true"
+              Elevation="0"
+              Breakpoint="Breakpoint.None"
+              Dense="true"
+              Filter="new Func<GetExerciseResource,bool>(FilterFunc1)"
+              GroupBy="@_groupDefinition"
+              T="GetExerciseResource"
+              OnRowClick="GoToEditExercise"
+              SelectedItem="selectedItem">
+        <ColGroup>
+            <col style="width: 10%;" />
+            <col style="width: 20%;" />
+            <col style="width: 20%;" />
+            <col style="width: 10%;" />
+            <col style="width: 10%;" />
+            <col style="width: 10%;" />
+            <col style="width: 10%;" />
+            <col style="width: 10%;" />
+        </ColGroup>
+        <ToolBarContent>
+            <MudTextField @bind-Value="searchString1"
+                          Placeholder="Search"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          IconSize="Size.Small"
+                          Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>
+                <MudTableSortLabel InitialDirection="SortDirection.Descending"
+                                   SortBy="new Func<GetExerciseResource, object>(x => x.Workout.Date)"
+                                   Class="small-indentation-column">
+                                   Date
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Type.Name)" Class="compact-column">Exercise
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Series)" Class="compact-column">S x R x W
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.MaxRepetition)" Class="compact-column">1RM
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh Class="hide-on-mobile compact-column">
+            <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Volume)">Volume</MudTableSortLabel>
+        </MudTh>
+        <MudTh Class="hide-on-mobile compact-column">
+            <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Intensity)">Intensity</MudTableSortLabel>
+        </MudTh>
+        </HeaderContent>
+        <GroupHeaderTemplate>
+            <MudTh Class="mud-table-cell-custom-group" colspan="6">
+                @if (DateTime.TryParse(context.Key.ToString(), out DateTime groupDate))
+                {
+                    var daysAgo = (DateTime.Now - groupDate).Days;
+                    <text>@($"{context.GroupName}: {context.Key} ({daysAgo} days ago)")</text>
+                }
+                else
+                {
+                    <text>Invalid Date</text>
+                }
+            </MudTh>
+        </GroupHeaderTemplate>
+        <RowTemplate>
+    <MudTd DataLabel="Date" Class="small-indentation-column"></MudTd> <!-- Indentation column -->
+    <MudTd DataLabel="Exercise" Class="compact-column">@context.Type?.Name</MudTd>
+    <MudTd DataLabel="Series x Reps x Weight" Class="compact-column">@($"{context.Series} x {context.Repetitions} x {context.Weight} kg")</MudTd>
+    <MudTd DataLabel="1RM" Class="compact-column">@context.MaxRepetition?.ToString("N1") kg</MudTd>
+    <MudTd DataLabel="Volume" Class="compact-column hide-on-mobile">@context.Volume kg</MudTd>
+    <MudTd DataLabel="Intensity" Class="compact-column hide-on-mobile">@context.Intensity %</MudTd>
+</RowTemplate>
+    </MudTable>
+</div>
+
+<MudFab @onclick="GoToCreateExercise"
+        Color="Color.Primary"
+        StartIcon="@Icons.Material.Filled.Add"
+        Class="fixed-create-button" />
+
 }
 
 @code {

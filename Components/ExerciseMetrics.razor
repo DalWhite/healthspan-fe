@@ -2,38 +2,40 @@
 
 @if (Metrics != null)
 {
-    <MudPaper Elevation="3" Class="pa-4 ma-4">
-        <MudText Typo="Typo.h5" GutterBottom="true">Exercise Metrics</MudText>
-        <MudGrid Justify="Justify.Center">
-            <MudItem xs="12" sm="4">
-                <MudCard>
-                    <MudCardContent>
-                        <MudText Typo="Typo.h6">Max Repetition</MudText>
-                        <MudText Typo="Typo.h4">@Metrics.MaxRepetition?.ToString("N1")</MudText>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
-            <MudItem xs="12" sm="4">
-                <MudCard>
-                    <MudCardContent>
-                        <MudText Typo="Typo.h6">Volume</MudText>
-                        <MudText Typo="Typo.h4">@Metrics.Volume?.ToString()</MudText>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
-            <MudItem xs="12" sm="4">
-                <MudCard>
-                    <MudCardContent>
-                        <MudText Typo="Typo.h6">Intensity</MudText>
-                        <MudText Typo="Typo.h4">@Metrics.Intensity?.ToString("0")%</MudText>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
+<MudGrid Class="mt-4, justify-center" GutterSize="0">
+    <MudItem xs="4">
+        <MudTextField Label="RM"
+                      Value="@MaxRepetitionDisplay"
+                      Variant="Variant.Outlined"
+                      ReadOnly="true"
+                      Adornment="Adornment.End"
+                      FullWidth
+                      class= "pr-0"/>
+    </MudItem>
+    <MudItem xs="4">
+        <MudTextField Label="Volume"
+                      Value="@VolumeDisplay"
+                      Variant="Variant.Outlined"
+                      ReadOnly="true"
+                      FullWidth />
+    </MudItem>
+    <MudItem xs="4">
+        <MudTextField Label="Intensity"
+                      Value="@IntensityDisplay"
+                      Variant="Variant.Outlined"
+                      ReadOnly="true"
+                      FullWidth />
+    </MudItem>
+</MudGrid>
 }
 
+
 @code {
+    // Prepare display values for the text fields.
+    private string MaxRepetitionDisplay => Metrics.MaxRepetition?.ToString("N1") + " Kg" ?? "N/A";
+    private string VolumeDisplay => Metrics.Volume?.ToString() + " Kg" ?? "N/A";
+    private string IntensityDisplay => Metrics.Intensity != null ? $"{Metrics.Intensity.Value.ToString("0")}%": "N/A";
+
     [Parameter]
     public GetExerciseMetrics Metrics { get; set; }
 }

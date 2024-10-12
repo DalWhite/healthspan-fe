@@ -1,171 +1,295 @@
 @keyframes heartbeat {
-    0% { transform: scale(1); }
-    25% { transform: scale(1.1); }
-    50% { transform: scale(1); }
-    75% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-  }
-  
-  #loadingAnimation img {
-    animation: heartbeat 1s ease-in-out infinite;
-  }
-  #slowLoadingAnimation {
-    animation: slow-heartbeat 2s ease-in-out infinite;
-  }
-  @keyframes slow-heartbeat {
-    0%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.1);
-    }
-  }
-.fixed-create-button
+  0%, 100% { transform: scale(1); }
+  25%, 75% { transform: scale(1.1); }
+}
+
+#loadingAnimation img, #slowLoadingAnimation img {
+  animation: heartbeat 1s ease-in-out infinite;
+}
+
+@keyframes slow-heartbeat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+.mud-paper
 {
+  border-radius: 24px;
+}
+.mud-appbar
+{
+  border-bottom-right-radius: 14px;
+  border-bottom-left-radius: 14px;
+}
+.metrics-grid {
+  max-width: 800px; /* Control the max-width for a more compact layout */
+  margin: 0 auto;
+}
+
+.mud-item {
+  padding: 0 !important; /* Reduce unnecessary padding */
+}
+
+.mud-card {
+  padding: 10px; /* Reduce the padding inside the card */
+  margin: 0 5px; /* Control the spacing between the cards */
+}
+
+.fixed-create-button {
   position: fixed;
   bottom: 20px;
   right: 20px;
   z-index: 1000;
 }
-  
+
+/* Logo container for mobile */
 .logo-container-mobile {
-  display: none; /* Hidden by default, shown on mobile */
+  display: none; /* Hidden by default */
   margin-bottom: 2rem;
   display: flex;
   justify-content: center;
 }
-.mud-input-outlined-border {
+
+/* Consistent rounding for input fields */
+.mud-input-outlined-border, .input-field, .rounded-button, .google-button {
   border-radius: 15px !important;
 }
+
+/* Login Page Styling */
 .login-page {
   display: flex;
   height: 100vh;
-  width: 100vw; /* Ensure the login page takes the full width of the viewport */
+  width: 100vw;
 }
+
 .login-left {
   background: linear-gradient(135deg, #4d9f95, #1a3c3b);
   color: #fff;
-  width: 50%; /* Left side will take 50% of the width */
+  width: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  box-sizing: border-box; /* Ensures padding doesn't overflow */
+  box-sizing: border-box;
 }
+
+.login-right {
+  background-color: #f9f9f9;
+  width: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+/* Tagline and Feature List */
+.tagline-container {
+  max-width: 500px;
+  text-align: left;
+}
+
+.headline {
+  font-weight: 700;
+}
+
+.features-list {
+  list-style-type: none;
+  padding: 0;
+  margin-top: 1rem;
+}
+
+.features-list li {
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+/* Form and Button Styles */
+.login-container {
+  max-width: 400px;
+  width: 100%;
+  padding: 2rem;
+}
+
+.login-form {
+  background-color: #fff;
+  padding: 2rem;
+  border-radius: 15px;
+}
+
+.input-field {
+  margin-bottom: 15px;
+  background-color: #f1f5f9;
+  border: none;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Input Padding for Consistency */
+.input-field input {
+  padding: 10px 15px;
+}
+
+.google-button {
+  margin-top: 1.5rem;
+  border: 1px solid #ccc;
+}
+
+.google-button:hover {
+  border-color: #bbb;
+}
+
+/* Error Message Styling */
+.mud-input-error {
+  color: #d32f2f !important;
+  font-size: 0.875rem;
+}
+
+/* Mobile Layout Adjustments */
+@media (max-width: 768px) {
+  .login-page {
+      flex-direction: column;
+  }
+
+  .login-left {
+      display: none;
+  }
 
   .login-right {
-    background-color: #f9f9f9;
-    width: 50%; /* Right side will also take 50% of the width */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 2rem;
-    box-sizing: border-box;
-}
-
-  .logo-container {
-      margin-bottom: 2rem;
-  }
-
-  .logo-image {
-      width: 150px;
-      height: auto;
-  }
-
-  .tagline-container {
-      max-width: 500px;
-      text-align: left;
-  }
-
-  .headline {
-      font-weight: 700;
-  }
-
-  .features-list {
-      list-style-type: none;
-      padding: 0;
-      margin-top: 1rem;
-  }
-
-  .features-list li {
-      margin-bottom: 0.75rem;
-      font-size: 1.1rem;
+      width: 100%;
+      height: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, #4d9f95, #1a3c3b);
   }
 
   .login-container {
-      max-width: 400px;
-      width: 100%;
-      padding: 2rem;
+      padding: 1rem;
+      box-shadow: none;
   }
 
-  /* Input Fields and Buttons Styling */
-  .login-form {
-      background-color: #fff;
-      padding: 2rem;
-      border-radius: 15px;
+  .logo-container-mobile {
+      display: flex; /* Show on mobile */
   }
-
-  .input-field {
-      border-radius: 15px;
-      margin-bottom: 15px;
-      background-color: #f1f5f9; /* Lighter background color for the text fields */
-      border: none;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .input-field input {
-      border-radius: 15px;
-      padding: 10px 15px;
-  }
-
-  .rounded-button {
-      border-radius: 15px;
-      padding: 12px;
-  }
-
-  .google-button {
-      margin-top: 1.5rem;
-      border-radius: 15px;
-      border: 1px solid #ccc;
-  }
-
-  .google-button:hover {
-      border-color: #bbb;
-  }
-
-  /* Error Message Styling */
-  .mud-input-error {
-      color: #d32f2f !important;
-      font-size: 0.875rem;
-  }
-  @media (min-width: 950px) {
-    .login-left {
-        padding: 2rem 4rem; /* Increase padding for larger screens */
-    }
-    
-    .login-right {
-        padding: 2rem 4rem; /* Ensure the right side aligns properly */
-    }
 }
-  /* Responsive Layout for Mobile */
-  @media (max-width: 768px) {
-      .login-page {
-          flex-direction: column;
-      }
 
-      .login-left {
-          display: none;
-      }
-
-      .login-right {
-          width: 100%;
-          height: 100%;
-          padding: 1rem;
-          background: linear-gradient(135deg, #4d9f95, #1a3c3b);
-      }
-
-      .login-container {
-          padding: 1rem;
-          box-shadow: none;
-      }
+/* Larger Screen Adjustments */
+@media (min-width: 950px) {
+  .login-left, .login-right {
+      padding: 2rem 4rem;
   }
+}
+@media (max-width: 600px) {
+  .hide-on-mobile {
+      display: none;
+  }
+
+  .table-responsive {
+      overflow-x: auto;
+  }
+  .compact-column {
+    padding: 0.25rem; /* Even smaller padding on mobile */
+    width: auto; /* Ensure width auto-adjusts */
+  }
+  .small-indentation-column {
+    width: 5px; /* Reduce width for indentation */
+    padding-left: 0.5rem; /* Slight left padding for indentation */
+    text-align: left;
+}
+}
+
+.mud-table-cell-custom-group {
+  font-weight: 500;
+}
+
+.mud-table-cell-custom-group-footer {
+  padding-bottom: 50px;
+  text-align: right;
+}
+/* CSS for the small column used for indentation */
+.small-indentation-column {
+  width: 0px; /* Adjust width as needed */
+  padding-left: 0px; /* Adjust this for indentation effect */
+  text-align: left;
+}/* General table cell adjustments */
+.mud-table td, .mud-table th {
+  padding: 0.5rem 0.75rem; /* Reduced padding */
+  margin: 0; /* No margin */
+}
+
+/* Custom column style for reducing white space between columns */
+.compact-column {
+  padding: 0.5rem; /* Less padding between columns */
+  width: auto; /* Auto adjust width */
+  white-space: nowrap; /* Prevent text wrapping */
+}
+/* Rounded corners for the whole table */
+.mud-table {
+  border-radius: 10px;
+  overflow: hidden; /* Ensure contents don't overflow rounded corners */
+  border: 1px solid #e0e0e0; /* Light border to define table edges */
+}
+
+/* Individual cell and header styling with rounded corners */
+.mud-table td, .mud-table th {
+  border-radius: 10px; /* Add rounded corners to each cell */
+  padding: 0.5rem 1rem; /* Minimal padding for a cleaner look */
+  background-color: #fafafa; /* Soft background color for contrast */
+  color: #333; /* Lighter text for minimalist design */
+}
+
+/* Add subtle shadows to the table for depth */
+.mud-table {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Light shadow for depth */
+  margin-bottom: 1.5rem; /* Add margin below the table for breathing space */
+}
+
+/* Soft hover effect on rows */
+.mud-table tbody tr:hover {
+  background-color: #f5f5f5; /* Light background color on hover */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow effect */
+}
+
+/* Compact layout with smaller paddings */
+.mud-table th, .mud-table td {
+  padding: 0.5rem 0.75rem;
+  white-space: nowrap;
+}
+
+/* Indentation column style */
+.small-indentation-column {
+  width: 5px;
+  padding-left: 0.5rem;
+  text-align: left;
+}
+
+/* Minimalist header style */
+.mud-table th {
+  font-weight: 600;
+  background-color: #f1f1f1; /* Light header background */
+  color: #333;
+  border-bottom: none; /* Remove border for clean lines */
+  text-align: left;
+}
+/* Styling for buttons */
+.mud-button {
+  border-radius: 12px; /* Add rounded corners to buttons */
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+}
+
+/* Add slight hover effect for buttons */
+.mud-button:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow on hover */
+  background-color: #1976d2; /* Adjust background color on hover */
+}/* Minimalist color scheme */
+.mud-table th {
+  background-color: #f9f9f9; /* Light header background */
+  color: #333; /* Neutral color for text */
+}
+
+.mud-table td {
+  background-color: #ffffff; /* White background for the table rows */
+  color: #555; /* Softer text color */
+}
+
+.mud-table tbody tr:hover {
+  background-color: #f3f3f3; /* Subtle hover effect */
+}

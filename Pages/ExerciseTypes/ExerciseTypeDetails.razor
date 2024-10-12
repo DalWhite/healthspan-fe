@@ -204,7 +204,7 @@ return Number(value).toLocaleString() + ' %';}"
                 }
             });
 
-        options.Responsive = new List<Responsive>{new Responsive(){
+        options.Responsive = new List<Responsive<DataPoint>>{new Responsive<DataPoint>(){
 Breakpoint = 500,
 Options = mobileOptions}};
     }

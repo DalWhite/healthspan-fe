@@ -6,13 +6,22 @@
 <PageTitle>Create Exercise</PageTitle>
 
 <MudPaper Class="pa-4">
-    <MudContainer>
-        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Color="Color.Primary" Variant="Variant.Outlined" Class="mb-4" OnClick="GoBack">
+    <MudContainer MaxWidth="MaxWidth.Medium">
+
+        <ExerciseCreationForm ExerciseTypes="@exerciseTypes"
+                              WorkoutId="@workoutId"
+                              OnExerciseAdded="HandleExerciseAdded"
+                              traineeId="@traineeId" />
+        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
+                   Color="Color.Primary"
+                   Variant="Variant.Outlined"
+                   Class="ml-8 rounded-button"
+                   OnClick="GoBack">
             Back
         </MudButton>
-        <ExerciseCreationForm ExerciseTypes="@exerciseTypes" WorkoutId="@workoutId" OnExerciseAdded="HandleExerciseAdded" traineeId="@traineeId"/>
     </MudContainer>
 </MudPaper>
+
 
 @code {
     [Parameter]

@@ -20,18 +20,17 @@ else
                            @bind-Date="Exercise.Workout.Date"
                            Variant="Variant.Outlined"
                            FullWidth />
-            <MudSelect class="ma-4"
-               Label="Exercise"
-               Variant="Variant.Outlined"
-               @bind-Value="Exercise.Type">
-        @if (exerciseTypes != null)
-        {
-            @foreach (var exerciseType in exerciseTypes)
-            {
-                <MudSelectItem Value="@exerciseType">@exerciseType.Name</MudSelectItem>
-            }
-        }
-    </MudSelect>
+            <MudSelect Label="Exercise"
+                       Variant="Variant.Outlined"
+                       @bind-Value="Exercise.Type">
+                @if (exerciseTypes != null)
+                {
+                    @foreach (var exerciseType in exerciseTypes)
+                    {
+                        <MudSelectItem Value="@exerciseType">@exerciseType.Name</MudSelectItem>
+                    }
+                }
+            </MudSelect>
             <MudNumericField Label="Series"
                              @bind-Value="Exercise.Series"
                              Variant="Variant.Outlined"
@@ -45,18 +44,28 @@ else
                              Variant="Variant.Outlined"
                              FullWidth />
 
+            <ExerciseMetrics Metrics="ExerciseMetrics"></ExerciseMetrics>
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
+                       Color="Color.Primary"
+                       Variant="Variant.Outlined"
+                       Class="ml-0 mt-4 rounded-button"
+                       OnClick="GoBack">
+                Back
+            </MudButton>
             <MudButton ButtonType="ButtonType.Button"
                        Color="Color.Primary"
-                       Variant="Variant.Filled"
+                       Variant="Variant.Outlined"
+                       Class="ml-0 mt-4 rounded-button"
                        OnClick="UpdateExercise">Save</MudButton>
             <MudButton Color="Color.Secondary"
-                       Variant="Variant.Filled"
+                       Variant="Variant.Outlined"
+                       Class="ml-0 mt-4 rounded-button"
                        OnClick="LoadMetrics">Recalculate Metrics</MudButton>
             <MudButton Color="Color.Warning"
-                       Variant="Variant.Filled"
+                       Variant="Variant.Outlined"
+                       Class="ml-0 mt-4 rounded-button"
                        OnClick="Delete">Delete</MudButton>
         </MudForm>
-        <ExerciseMetrics Metrics="ExerciseMetrics"></ExerciseMetrics>
     </MudPaper>
 }
 @code {
@@ -106,5 +115,9 @@ else
     {
         await Http.DeleteAsync($"/exercises/{ExerciseId}");
         Snackbar.Add("exercise Deleted.", Severity.Warning);
+    }
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/Exercises", forceLoad: false);
     }
 }

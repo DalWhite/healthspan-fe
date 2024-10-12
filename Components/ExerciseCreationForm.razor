@@ -4,8 +4,8 @@
     <MudDatePicker Label="Date"
                    @bind-Date="workoutToAdd.Date"
                    Variant="Variant.Outlined"
-                   class="ma-4" />
-    <MudSelect class="ma-4"
+                   class="ma-2" />
+    <MudSelect class="ma-2"
                Label="Exercise"
                Variant="Variant.Outlined"
                @bind-Value="typeToAdd">
@@ -17,15 +17,15 @@
             }
         }
     </MudSelect>
-    <MudNumericField class="ma-4"
+    <MudNumericField class="ma-2"
                      @bind-Value="exercise.Series"
                      Label="Series"
                      Variant="Variant.Outlined" />
-    <MudNumericField class="ma-4"
+    <MudNumericField class="ma-2"
                      @bind-Value="exercise.Repetitions"
                      Label="Reps"
                      Variant="Variant.Outlined" />
-    <MudNumericField class="ma-4"
+    <MudNumericField class="ma-2"
                      @bind-Value="exercise.Weight"
                      Label="Weight"
                      Variant="Variant.Outlined"
@@ -36,7 +36,8 @@
         Color="Color.Primary"
         StartIcon="@Icons.Material.Filled.Add"
         style="float: right;"
-        Size="Size.Small" />
+        Size="Size.Small"
+        class= "mr-8" />
 
 @code {
     public string createTypeButton = "CreateNew";
@@ -48,7 +49,6 @@
     private AddExerciseResource exercise = new();
     private GetExerciseTypeResource? typeToAdd;
     private AddWorkoutResource workoutToAdd = new(){Date = DateTime.Now};
-
     private async Task AddExerciseToTheForm()
     {
         if (WorkoutId == Guid.Empty)
