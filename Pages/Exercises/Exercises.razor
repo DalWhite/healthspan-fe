@@ -22,7 +22,7 @@
             <MudTable Items="exercises"
                       Hover="true"
                       Elevation="0"
-                      Breakpoint="Breakpoint.None"
+                      Breakpoint="Breakpoint.Sm"
                       Dense="true"
                       Filter="new Func<GetExerciseResource,bool>(FilterFunc1)"
                       GroupBy="@_groupDefinition"
@@ -31,13 +31,7 @@
                       SelectedItem="selectedItem">
 
                 <HeaderContent>
-                    <MudTh>
-                        <MudTableSortLabel InitialDirection="SortDirection.Descending"
-                                           SortBy="new Func<GetExerciseResource, object>(x => x.Workout.Date)"
-                                           Class="small-indentation-column">
-                                           Date
-                        </MudTableSortLabel>
-                    </MudTh>
+
                     <MudTh>
                         <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Type.Name)" Class="compact-column">
                             Exercise
@@ -78,7 +72,7 @@
                     </MudTh>
                 </GroupHeaderTemplate>
                 <RowTemplate>
-                    <MudTd DataLabel="Date" Class="small-indentation-column"></MudTd> <!-- Indentation column -->
+
                     <MudTd DataLabel="Exercise">@context.Type?.Name</MudTd>
                     <MudTd DataLabel="Sets x Reps x Weight">@($"{context.Series} x {context.Repetitions} x {context.Weight} kg")</MudTd>
                     <MudTd DataLabel="1RM">@context.MaxRepetition?.ToString("N1") kg</MudTd>
