@@ -136,7 +136,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
             var refreshResult = await RefreshToken();
             if (!refreshResult.Succeeded)
             {
-                throw new Exception("refresh failed");
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
 
             savedToken = await _localStorage.GetItemAsync<string>("authToken");
@@ -203,7 +203,11 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
             await _localStorage.RemoveItemAsync("authToken");
             await _localStorage.RemoveItemAsync("refreshToken");
             NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
-            throw new ApplicationException("Something went wrong during the refresh token action, login out");
+            return new FormResult
+            {
+                Succeeded = false,
+                ErrorList = ["error refreshing token"]
+            };
         }
         var refreshContent = await refreshResult.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<AuthLoginResponse>(refreshContent);

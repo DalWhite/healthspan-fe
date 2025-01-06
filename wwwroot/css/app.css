@@ -169,6 +169,13 @@
       display: flex; /* Show on mobile */
   }
 }
+.only-mobile {
+  display: none; /* Hide by default */
+}
+.hide-on-mobile {
+  display: block; /* Visible by default */
+}
+
 
 /* Larger Screen Adjustments */
 @media (min-width: 950px) {
@@ -180,6 +187,9 @@
   .hide-on-mobile {
       display: none;
   }
+  .only-mobile {
+    display: block; /* Display on mobile */
+}
 
   .table-responsive {
       overflow-x: auto;
@@ -292,4 +302,45 @@
 
 .mud-table tbody tr:hover {
   background-color: #f3f3f3; /* Subtle hover effect */
+}
+/* Adjust flexbox alignment for the mobile row */
+.exercise-row {
+  display: flex;
+  justify-content: space-between; /* Space items evenly */
+  align-items: center; /* Align items vertically in the center */
+  width: 100%; /* Ensure full width for the row */
+  padding: 0; /* Remove extra padding */
+  margin: 0; /* Remove default margins */
+}
+
+/* Style for the exercise name */
+.exercise-name {
+  font-weight: bold;
+  flex: 1; /* Let the name take up flexible space */
+  white-space: nowrap; /* Prevent wrapping */
+  overflow: hidden; /* Prevent overflow */
+  text-overflow: ellipsis; /* Gracefully truncate long text */
+}
+
+/* Style for sets, reps, and weight */
+.exercise-details {
+  font-size: 0.9em; /* Slightly smaller font for details */
+  flex: 1; /* Distribute space evenly */
+  text-align: left; /* Align details to the left */
+  white-space: nowrap; /* Prevent wrapping */
+}
+
+/* Style for 1RM */
+.exercise-1rm {
+  font-size: 0.85em; /* Smaller font for less emphasis */
+  color: gray; /* Dim the 1RM text */
+  white-space: nowrap; /* Prevent wrapping */
+  text-align: right; /* Align to the far right */
+  flex: 0; /* Prevent shrinking or uneven space distribution */
+}
+
+/* Adjust table cell padding for a compact layout */
+.mud-table td, .mud-table th {
+  padding: 0.25rem 0.5rem; /* Reduce padding for tighter rows */
+  margin: 0; /* Ensure no extra margin */
 }

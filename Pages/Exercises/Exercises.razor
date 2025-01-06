@@ -22,7 +22,7 @@
             <MudTable Items="exercises"
                       Hover="true"
                       Elevation="0"
-                      Breakpoint="Breakpoint.Sm"
+                      Breakpoint="Breakpoint.None"
                       Dense="true"
                       Filter="new Func<GetExerciseResource,bool>(FilterFunc1)"
                       GroupBy="@_groupDefinition"
@@ -31,57 +31,60 @@
                       SelectedItem="selectedItem">
 
                 <HeaderContent>
-
-                    <MudTh>
-                        <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Type.Name)" Class="compact-column">
+                    <MudTh Class="hide-on-mobile">
+                        <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Type.Name)">
                             Exercise
                         </MudTableSortLabel>
                     </MudTh>
-                    <MudTh>
-                        <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Series)" Class="compact-column">
+                    <MudTh Class="hide-on-mobile">
+                        <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Series)">
                             Sets x Reps x Weight
                         </MudTableSortLabel>
                     </MudTh>
-                    <MudTh>
-                        <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.MaxRepetition)" Class="compact-column">
-                            1RM
+                    <MudTh Class="hide-on-mobile">
+                        <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.MaxRepetition)">1RM
                         </MudTableSortLabel>
                     </MudTh>
-                    <MudTh>
-                        <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Volume)">
-                            Volume
-                        </MudTableSortLabel>
+                    <MudTh Class="hide-on-mobile">
+                        <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Volume)">Volume</MudTableSortLabel>
                     </MudTh>
-                    <MudTh>
-                        <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Intensity)">
-                            Intensity
-                        </MudTableSortLabel>
+                    <MudTh Class="hide-on-mobile">
+                        <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x => x.Intensity)">Intensity</MudTableSortLabel>
                     </MudTh>
                 </HeaderContent>
 
                 <GroupHeaderTemplate>
-                    <MudTh Class="mud-table-cell-custom-group" colspan="6">
+                    <MudTh Class="mud-table-cell-custom-group" colspan="4">
                         @if (DateTime.TryParse(context.Key.ToString(), out DateTime groupDate))
                         {
                             var daysAgo = (DateTime.Now - groupDate).Days;
-                            <text>@($"{context.Key} ({daysAgo} days ago)")</text>                        }
+                            <text>@($"{context.Key} ({daysAgo} days ago)")</text>
+                        }
                         else
                         {
                             <text>Invalid Date</text>
                         }
                     </MudTh>
                 </GroupHeaderTemplate>
-                <RowTemplate>
 
-                    <MudTd DataLabel="Exercise">@context.Type?.Name</MudTd>
-                    <MudTd DataLabel="Sets x Reps x Weight">@($"{context.Series} x {context.Repetitions} x {context.Weight} kg")</MudTd>
-                    <MudTd DataLabel="1RM">@context.MaxRepetition?.ToString("N1") kg</MudTd>
-                    <MudTd DataLabel="Volume">@context.Volume kg</MudTd>
-                    <MudTd DataLabel="Intensity">
+                <RowTemplate>
+                    <MudTd Class="only-mobile padded-row" colspan="4">
+                        <div class="exercise-row">
+                            <span class="exercise-name">@context.Type?.Name</span>
+                            <span class="exercise-details">@($"{context.Series} x {context.Repetitions} x {context.Weight} kg")</span>
+                            <span class="exercise-1rm">1RM: @context.MaxRepetition kg</span>
+                        </div>
+                    </MudTd>
+                    <MudTd Class="hide-on-mobile" DataLabel="Exercise">@context.Type?.Name</MudTd>
+                    <MudTd Class="hide-on-mobile" DataLabel="Sets x Reps x Weight">@($"{context.Series} x {context.Repetitions} x {context.Weight} kg")</MudTd>
+                    <MudTd Class="hide-on-mobile" DataLabel="1RM" >@context.MaxRepetition?.ToString("N1") kg</MudTd>
+                    <MudTd Class="hide-on-mobile" DataLabel="Volume" >@context.Volume kg</MudTd>
+                    <MudTd Class="hide-on-mobile" DataLabel="Intensity">
                         <MudProgressLinear Value="context.Intensity ?? 0"
                                            Height="16"
                                            Color="@GetIntensityColor(context.Intensity ?? 0)"/>
                     </MudTd>
+
                 </RowTemplate>
             </MudTable>
         </div>
