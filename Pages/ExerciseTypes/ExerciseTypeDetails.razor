@@ -2,96 +2,203 @@
 @inject HttpClient Http
 @using ApexCharts
 @inject TitleService TitleService
+@inject IJSRuntime JSRuntime
 @rendermode RenderMode.InteractiveWebAssembly
 
+@implements IAsyncDisposable
 
-@if (exercises == null)
-{
-    <MudProgressCircular Color="MudBlazor.Color.Default"
-                         Indeterminate="true" />
-}
-else
-{
-    <MudCollapse Expanded="_expanded">
-        <MudStack>
-            @foreach (var exercise in exercises)
-            {
-                <MudPaper Class="pa-3">@exercise.Workout.Date.Value.ToShortDateString() - @exercise.Series x
-                    @exercise.Repetitions x
-                    @exercise.Weight kg - V: @exercise.Volume Kg - RM: @exercise.MaxRepetition Kg - I:@exercise.Intensity % -
-                    Comments: @exercise.Comments</MudPaper>
-            }
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    @if (exercises == null || kpis == null)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-8">
+            <MudProgressCircular Color="MudBlazor.Color.Primary" Indeterminate="true" Size="MudBlazor.Size.Large" />
+            <MudText>Loading exercise data...</MudText>
         </MudStack>
-    </MudCollapse>
-}
-<MudDivider />
-<MudButton style="float: right; margin-top: 30px;"
-           OnClick="OnExpandCollapseClick">@(_expanded ? "Collapse" : "Expand")
-</MudButton>
+    }
+    else
+    {
+        <MudText Typo="Typo.h4" Class="mb-2" Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">@Title</MudText>
 
-<MudGrid>
-    <MudItem xs="12">
-        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">Theoric RM Max: @kpis?.MaxRM Kg on
-            @kpis?.MaxRMDate.ToShortDateString()</MudPaper>
-    </MudItem>
-    <MudItem xs="6">
-        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">Last theoric RM: @kpis?.Current1RM Kg
-        </MudPaper>
-    </MudItem>
-    <MudItem xs="6">
-        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">ΔRM in last 3 months:
-            @kpis?.RMDiferentialInLast3Months Kg</MudPaper>
-    </MudItem>
-    <MudItem xs="6">
-        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">Weekly workout frecuency:
-            @kpis?.WeeklyFrequency</MudPaper>
-    </MudItem>
-    <MudItem xs="6">
-        <MudPaper Class="d-flex align-center justify-center mud-width-full py-8">Last session PE:
-            @kpis?.PerceibedEffortLastSession</MudPaper>
-    </MudItem>
-    <MudItem xs="12">
-        <div>
-            @if (_rmTrends != null && _volumeTrends != null && _intensityTrends != null)
-            {
-                <ApexChart @ref="rmChart"
-                           TItem="DataPoint"
-                           Title="Evolution"
-                           Options="options">
+        <MudGrid>
+            <!-- KPI Summary Cards -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mb-2">Performance Summary</MudText>
+                <MudGrid Spacing="2" Class="mt-2">
+                        <MudItem xs="12" md="6">
+                            <MudPaper Elevation="0" Class="pa-3 mud-background-color-primary" Style="height: 100%; cursor: pointer; border-radius: 8px;" @onclick="() => ScrollToExerciseDate(kpis.MaxRMDate)">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.h4" Style="color: white;">@kpis.MaxRM.ToString("F1") kg</MudText>
+                                    <MudText Typo="Typo.subtitle2" Style="color: rgba(255,255,255,0.8);">Theoretical Max RM</MudText>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="MudBlazor.Size.Small" Style="color: rgba(255,255,255,0.7);" />
+                                        <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.7);">@kpis.MaxRMDate.ToShortDateString()</MudText>
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudPaper Elevation="0" Class="pa-3 mud-background-color-primary" Style="height: 100%; cursor: pointer; border-radius: 8px;" @onclick="() => ScrollToExerciseDate(kpis.MaxRMDate)">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.h4" Style="color: white;">@kpis.MaxRM.ToString("F1") kg</MudText>
+                                    <MudText Typo="Typo.subtitle2" Style="color: rgba(255,255,255,0.8);">Theoretical Max RM</MudText>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="MudBlazor.Size.Small" Style="color: rgba(255,255,255,0.7);" />
+                                        <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.7);">@kpis.MaxRMDate.ToShortDateString()</MudText>
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudPaper Elevation="2" Class="pa-4" Style="height: 100%;">
+                                <MudText Typo="Typo.h5">@kpis.Current1RM.ToString("F1") kg</MudText>
+                                <MudText Typo="Typo.subtitle1">Current 1RM</MudText>
+                                <MudStack Row="true" AlignItems="AlignItems.Center">
+                                    <MudIcon Icon="@(kpis.RMDiferentialInLast3Months >= 0 ? @Icons.Material.Filled.TrendingUp : @Icons.Material.Filled.TrendingDown)"
+                                             Color="@(kpis.RMDiferentialInLast3Months >= 0 ? MudBlazor.Color.Success : MudBlazor.Color.Error)" />
+                                    <MudText Typo="Typo.caption">@Math.Abs(kpis.RMDiferentialInLast3Months) kg in last 3 months</MudText>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudPaper Elevation="0" Class="pa-2" Style="height: 100%; border: 1px solid var(--mud-palette-lines-default); border-radius: 8px;">
+                                <MudStack AlignItems="MudBlazor.AlignItems.Center" Justify="MudBlazor.Justify.Center" Spacing="0">
+                                    <MudText Typo="Typo.h4">@kpis.WeeklyFrequency</MudText>
+                                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">Weekly Frequency</MudText>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudPaper Elevation="2" Class="pa-3" Style="height: 100%;">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center">
+                                    @for (int i = 1; i <= 10; i++)
+                                    {
+                                                                                        <MudIcon Icon="@Icons.Material.Filled.Star" Size="MudBlazor.Size.Small"
+                                                Color="@(i <= kpis.PerceibedEffortLastSession ? MudBlazor.Color.Warning : MudBlazor.Color.Dark)" />
+                                    }
+                                </MudStack>
+                                <MudText Typo="Typo.body2" Align="MudBlazor.Align.Center">Last Session PE</MudText>
+                            </MudPaper>
+                        </MudItem>
+                </MudGrid>
+            </MudItem>
 
-                    <ApexPointSeries TItem="DataPoint"
-                                     Items="_rmTrends"
-                                     Name="RM"
-                                     SeriesType="ApexCharts.SeriesType.Line"
-                                     XValue='e => e.Time.ToShortDateString()'
-                                     YAggregate="e => e.Average(e=> e.Data)" />
-                    <ApexPointSeries TItem="DataPoint"
-                                     Items="_volumeTrends"
-                                     Name="Volume"
-                                     SeriesType="ApexCharts.SeriesType.Line"
-                                     XValue='e => e.Time.ToShortDateString()'
-                                     YAggregate="e => e.Average(e=> e.Data)" />
-                    <ApexPointSeries TItem="DataPoint"
-                                     Items="_intensityTrends"
-                                     Name="Intensity"
-                                     SeriesType="ApexCharts.SeriesType.Line"
-                                     XValue='e => e.Time.ToShortDateString()'
-                                     YAggregate="e => e.Average(e=> e.Data)" />
+                <!-- Evolution Chart -->
+                <MudItem xs="12" Class="mt-3">
+                    <MudText Typo="Typo.h6" Class="mb-2">Performance Trends</MudText>
+                    <div Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 8px; overflow: hidden;">
+                        @if (_rmTrends != null && _volumeTrends != null && _intensityTrends != null)
+                        {
+                            <div style="height: 300px; padding: 8px;">
+                                <ApexChart @ref="rmChart"
+                                           TItem="DataPoint"
+                                           Options="options">
+                                    <ApexPointSeries TItem="DataPoint"
+                                                    Items="_rmTrends"
+                                                    Name="RM"
+                                                    SeriesType="ApexCharts.SeriesType.Line"
+                                                    XValue='e => e.Time.ToShortDateString()'
+                                                    YAggregate="e => e.Average(e=> e.Data)" />
+                                    <ApexPointSeries TItem="DataPoint"
+                                                    Items="_volumeTrends"
+                                                    Name="Volume"
+                                                    SeriesType="ApexCharts.SeriesType.Line"
+                                                    XValue='e => e.Time.ToShortDateString()'
+                                                    YAggregate="e => e.Average(e=> e.Data)" />
+                                    <ApexPointSeries TItem="DataPoint"
+                                                    Items="_intensityTrends"
+                                                    Name="Intensity"
+                                                    SeriesType="ApexCharts.SeriesType.Line"
+                                                    XValue='e => e.Time.ToShortDateString()'
+                                                    YAggregate="e => e.Average(e=> e.Data)" />
+                                </ApexChart>
+                            </div>
+                        }
+                    </div>
+                </MudItem>
 
-                </ApexChart>
-            }
-        </div>
-    </MudItem>
-</MudGrid>
+                <!-- Exercise History -->
+                <MudItem xs="12" Class="mt-4">
+                    <MudPaper Elevation="2" Class="pa-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.h6">Exercise History</MudText>
+                            <MudButton Variant="Variant.Outlined"
+                                      Color="MudBlazor.Color.Primary"
+                                      OnClick="OnExpandCollapseClick"
+                                      EndIcon="@(_expanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)">
+                                @(_expanded ? "Collapse" : "Expand")
+                            </MudButton>
+                        </MudStack>
+                        <MudDivider Class="my-2" />
 
+                        <MudCollapse Expanded="_expanded">
+                            <div style="max-height: 500px; overflow-y: auto;">
+                                <MudTable Items="@exercises.OrderByDescending(e => e.Workout.Date)" Dense="true" Hover="true" Bordered="false" Striped="true">
+                                    <ColGroup>
+                                        <col style="width: 100px;" />
+                                        <col style="width: 160px;" />
+                                        <col />
+                                        <col style="width: 90px;" />
+                                        <col style="width: 90px;" />
+                                    </ColGroup>
+                                    <HeaderContent>
+                                        <MudTh>Date</MudTh>
+                                        <MudTh>Sets × Reps × Weight</MudTh>
+                                        <MudTh>Comments</MudTh>
+                                        <MudTh>1RM</MudTh>
+                                        <MudTh>Stats</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd DataLabel="Date">
+                                            <MudText id="@($"exercise-{context.Workout.Date.Value.ToString("yyyyMMdd")}")">
+                                                @context.Workout.Date.Value.ToShortDateString()
+                                            </MudText>
+                                        </MudTd>
+                                        <MudTd DataLabel="Details">
+                                            <MudText Typo="Typo.body2">@context.Series × @context.Repetitions × @context.Weight kg</MudText>
+                                        </MudTd>
+                                        <MudTd DataLabel="Comments">
+                                            <MudText Typo="Typo.body2">@(string.IsNullOrEmpty(context.Comments) ? "-" : context.Comments)</MudText>
+                                        </MudTd>
+                                        <MudTd DataLabel="1RM">
+                                            <MudText Typo="Typo.body2" Align="MudBlazor.Align.Right" Style="@(context.Workout.Date.Value.Date == kpis.MaxRMDate.Date ? "font-weight: bold; color: var(--mud-palette-primary);" : "")">
+                                                @context.MaxRepetition.Value.ToString("F1") kg
+                                            </MudText>
+                                        </MudTd>
+                                        <MudTd DataLabel="Stats">
+                                            <MudStack Row="true" Spacing="0">
+                                                <MudTooltip Text="Volume">
+                                                    <MudIcon Icon="@Icons.Material.Filled.FitnessCenter" Size="MudBlazor.Size.Small" Class="mr-1" />
+                                                </MudTooltip>
+                                                <MudText Typo="Typo.body2" Class="mr-2">@context.Volume kg</MudText>
+                                                <MudTooltip Text="Intensity">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Speed" Size="MudBlazor.Size.Small" Class="mr-1" />
+                                                </MudTooltip>
+                                                <MudText Typo="Typo.body2">@context.Intensity.Value.ToString("F0")%</MudText>
+                                            </MudStack>
+                                        </MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </div>
+                        </MudCollapse>
+
+                        @if (!_expanded && exercises.Length > 0)
+                        {
+                            <MudText Typo="Typo.caption" Class="mt-2">@exercises.Length sessions available. Click Expand to view all.</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+    </MudContainer>
 
 @code {
-
     [Parameter]
     public int ExerciseTypeId { get; set; }
+
     [Parameter]
     public string? traineeId { get; set; }
 
+    private string Title { get; set; } = "Exercise Details";
     private ApexChart<DataPoint> rmChart;
     private ApexChartOptions<DataPoint> options { get; set; } = new();
     private ApexChartOptions<DataPoint> mobileOptions { get; set; } = new();
@@ -111,6 +218,32 @@ else
         await base.OnInitializedAsync();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                window.scrollToElement = function(elementId) {
+                    const element = document.getElementById(elementId);
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        element.parentElement.parentElement.style.backgroundColor = 'rgba(var(--mud-palette-primary-rgb), 0.1)';
+                        setTimeout(() => {
+                            element.parentElement.parentElement.style.backgroundColor = '';
+                        }, 2000);
+                    }
+                }
+            ");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try {
+            await JSRuntime.InvokeVoidAsync("eval", "delete window.scrollToElement");
+        } catch {}
+    }
+
     private async Task LoadDataAsync()
     {
         var exercisesTask = Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?exerciseTypeId={ExerciseTypeId}&userId={traineeId}");
@@ -128,90 +261,136 @@ else
         exercises = exercisesTask.Result;
         kpis = kpisTask.Result;
 
-        TitleService.Title = exercises.FirstOrDefault().Type.Name;
-
+        if (exercises.Length > 0 && exercises.FirstOrDefault()?.Type != null)
+        {
+            Title = exercises.FirstOrDefault().Type.Name;
+            TitleService.Title = Title;
+        }
     }
+
     private void InitializeChartOptions()
     {
-        options.Stroke = new Stroke { Curve = Curve.Smooth };
+        options.Chart = new Chart
+        {
+            Height = 350,
+            Toolbar = new Toolbar { Show = true }
+        };
+
+        options.Title = new Title
+        {
+            Text = "Performance Metrics Over Time"
+        };
+
+        options.Tooltip = new Tooltip
+        {
+            Shared = true,
+            Intersect = false
+        };
+
+        options.Grid = new Grid
+        {
+            BorderColor = "#f1f1f1"
+        };
+
+        options.Stroke = new Stroke { Curve = Curve.Smooth, Width = 3 };
         options.Yaxis = new List<YAxis>();
 
+        // Colors for the series
+        options.Colors = new List<string> { "#2196F3", "#00E396", "#FFA500" };
+
         options.Yaxis.Add(new YAxis
             {
-                Title = new AxisTitle { Text = "RM" },
+                Title = new AxisTitle { Text = "RM (kg)" },
                 SeriesName = "RM",
                 DecimalsInFloat = 0,
                 Labels = new YAxisLabels { Formatter = @"function (value) {
-return Number(value).toLocaleString() + ' Kg';}" }
+                    return Number(value).toLocaleString() + ' kg';
+                }" }
             });
         options.Yaxis.Add(new YAxis
             {
-                Title = new AxisTitle { Text = "Volume" },
+                Title = new AxisTitle { Text = "Volume (kg)" },
                 SeriesName = "Volume",
                 DecimalsInFloat = 0,
                 Labels = new YAxisLabels { Formatter = @"function (value) {
-return Number(value).toLocaleString() + ' Kg';}" }
+                    return Number(value).toLocaleString() + ' kg';
+                }" }
             });
         options.Yaxis.Add(new YAxis
             {
-                Title = new AxisTitle { Text = "Intensity" },
+                Title = new AxisTitle { Text = "Intensity (%)" },
                 SeriesName = "Intensity",
                 DecimalsInFloat = 0,
                 Opposite = true,
                 Labels = new YAxisLabels { Formatter = @"function (value) {
-return Number(value).toLocaleString() + ' %';}" }
+                    return Number(value).toLocaleString() + '%';
+                }" }
             });
 
-        mobileOptions.Chart.Toolbar = new Toolbar { Show = false };
+        options.Legend = new Legend
+        {
+        };
+
+        // Mobile-specific options
+        mobileOptions = new ApexChartOptions<DataPoint>();
+        mobileOptions.Chart = new Chart { Height = 300, Toolbar = new Toolbar { Show = false } };
+        mobileOptions.Title = options.Title;
+        mobileOptions.Tooltip = options.Tooltip;
+        mobileOptions.Grid = options.Grid;
+        mobileOptions.Stroke = options.Stroke;
+        mobileOptions.Colors = options.Colors;
+        mobileOptions.Legend = new Legend { };
+
         mobileOptions.Yaxis = new List<YAxis>();
+        mobileOptions.Xaxis = new XAxis { Labels = new XAxisLabels { Rotate = -45, RotateAlways = true, MaxHeight = 60 } };
 
-        mobileOptions.Xaxis = new XAxis { Labels = new XAxisLabels { Rotate = -45, RotateAlways = true } };
         mobileOptions.Yaxis.Add(new YAxis
             {
-                Title = new AxisTitle { Text = "RM" },
+                Title = new AxisTitle { Text = "" },
                 SeriesName = "RM",
                 DecimalsInFloat = 0,
                 Show = false,
-                Labels = new YAxisLabels
-                {
-                    Formatter = @"function (value) {
-return Number(value).toLocaleString() + ' Kg';}"
-                }
+                Labels = new YAxisLabels { Formatter = @"function (value) { return Number(value).toLocaleString() + ' kg'; }" }
             });
         mobileOptions.Yaxis.Add(new YAxis
             {
-                Title = new AxisTitle { Text = "Volume" },
+                Title = new AxisTitle { Text = "" },
                 SeriesName = "Volume",
                 DecimalsInFloat = 0,
                 Show = false,
-                Labels = new YAxisLabels
-                {
-                    Formatter = @"function (value) {
-return Number(value).toLocaleString() + ' Kg';}"
-                }
+                Labels = new YAxisLabels { Formatter = @"function (value) { return Number(value).toLocaleString() + ' kg'; }" }
             });
         mobileOptions.Yaxis.Add(new YAxis
             {
-                Title = new AxisTitle { Text = "Intensity" },
+                Title = new AxisTitle { Text = "" },
                 SeriesName = "Intensity",
                 DecimalsInFloat = 0,
                 Opposite = true,
                 Show = false,
-                Labels = new YAxisLabels
-                {
-                    Formatter = @"function (value) {
-return Number(value).toLocaleString() + ' %';}"
-                }
+                Labels = new YAxisLabels { Formatter = @"function (value) { return Number(value).toLocaleString() + '%'; }" }
             });
 
-        options.Responsive = new List<Responsive<DataPoint>>{new Responsive<DataPoint>(){
-Breakpoint = 500,
-Options = mobileOptions}};
+        // Responsive design
+        options.Responsive = new List<Responsive<DataPoint>> {
+            new Responsive<DataPoint>() {
+                Breakpoint = 768,
+                Options = mobileOptions
+            }
+        };
     }
+
     private void OnExpandCollapseClick()
     {
         _expanded = !_expanded;
     }
+
+    private async Task ScrollToExerciseDate(DateTime date)
+    {
+        _expanded = true;
+        await Task.Delay(100); // Allow time for the collapse to expand
+        await JSRuntime.InvokeVoidAsync("scrollToElement", $"exercise-{date.ToString("yyyyMMdd")}");
+    }
+
     public class GetExerciseTypeTrends
     {
         public List<DataPoint> Points { get; set; }
@@ -222,6 +401,7 @@ Options = mobileOptions}};
         public decimal Data { get; set; }
         public DateTime Time { get; set; }
     }
+
     public class GetExerciseTypeKpis
     {
         public float MaxRM { get; set; }
@@ -244,5 +424,17 @@ Options = mobileOptions}};
         public string? Comments { get; set; }
         public GetExerciseTypeResource? Type { get; set; }
         public GetWorkoutResource? Workout { get; set; }
+    }
+
+    public class GetExerciseTypeResource
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+    }
+
+    public class GetWorkoutResource
+    {
+        public Guid Id { get; set; }
+        public DateTime? Date { get; set; }
     }
 }
