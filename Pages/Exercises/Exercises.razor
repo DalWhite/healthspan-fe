@@ -2,34 +2,63 @@
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @using healthspan_fe_wasm_pwa.Shared
+@using static healthspan_fe_wasm_pwa.Components.ExerciseFilterDialog
 @inject TitleService TitleService
+@inject IDialogService DialogService
 
 <PageTitle>Exercises</PageTitle>
 
 <div class="container">
-    <div class="search-bar mb-3">
-        <MudTextField @bind-Value="searchString"
-                      Placeholder="Search for an exercise..."
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      IconSize="Size.Small"
-                      Class="mt-0"
-                      DebounceInterval="300"
-                      OnDebounceIntervalElapsed="HandleSearch" />
-    </div>
-
     <div class="sort-controls mb-3">
-        <MudText Typo="Typo.subtitle1" Class="mr-2">Sort by:</MudText>
         <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
             <MudButton OnClick="@(() => SortExercisesBy("date"))" Variant="@GetSortButtonVariant("date")">Date</MudButton>
             <MudButton OnClick="@(() => SortExercisesBy("name"))" Variant="@GetSortButtonVariant("name")">Exercise</MudButton>
             <MudButton OnClick="@(() => SortExercisesBy("1rm"))" Variant="@GetSortButtonVariant("1rm")">1RM</MudButton>
             <MudButton OnClick="@(() => SortExercisesBy("volume"))" Variant="@GetSortButtonVariant("volume")">Volume</MudButton>
+            <MudButton OnClick="OpenFilterDialog" Variant="@(isFilterActive ? Variant.Filled : Variant.Outlined)">
+                <MudIcon Icon="@Icons.Material.Filled.FilterList" Class="mr-2" />Filter
+            </MudButton>
         </MudButtonGroup>
         <MudIconButton Icon="@(sortDescending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
                        OnClick="ToggleSortDirection"
                        Size="Size.Small"
                        Class="ml-2" />
+
+        @if (isFilterActive)
+        {
+            <div class="d-flex flex-wrap mt-2">
+                @if (!string.IsNullOrEmpty(selectedExerciseType))
+                {
+                    <MudChip Class="mr-2 mb-1"
+                             Variant="Variant.Filled"
+                             Color="Color.Primary"
+                             Size="Size.Small"
+                             OnClose="ClearExerciseTypeFilter">
+                        Exercise: @selectedExerciseType
+                    </MudChip>
+                }
+                @if (selectedMuscleGroups.Any())
+                {
+                    @foreach (var muscle in selectedMuscleGroups)
+                    {
+                        <MudChip Class="mr-2 mb-1"
+                                 Variant="Variant.Filled"
+                                 Color="Color.Secondary"
+                                 Size="Size.Small"
+                                 OnClose="() => RemoveMuscleFilter(muscle)">
+                            Muscle: @muscle
+                        </MudChip>
+                    }
+                }
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Error"
+                           Size="Size.Small"
+                           OnClick="ClearAllFilters"
+                           StartIcon="@Icons.Material.Filled.Clear">
+                    Clear All
+                </MudButton>
+            </div>
+        }
     </div>
 
     @if (isLoading)
@@ -467,7 +496,7 @@
     /* Media queries */
     @@media (max-width: 768px) {
         .hide-on-mobile {
-       2     display: none !important;
+            display: none !important;
         }
 
         .only-mobile {
@@ -493,12 +522,15 @@
         background-color: #b71c1c !important;
     }
 
-    .search-bar {
+    .search-section {
         position: sticky;
         top: 0;
         z-index: 2;
         background-color: white;
         padding: 8px 0;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
     }
 
     /* Only render what's visible */
@@ -518,16 +550,27 @@
         public int TotalPages { get; set; }
     }
 
+    private class ExerciseTypeResource
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public int? PrimaryMuscleId { get; set; }
+    }
+
     // State variables
     private PagedResult<GetExerciseResource> pagedData;
-    private string searchString = "";
+    private string selectedExerciseType = "";
+    private List<string> selectedMuscleGroups = new List<string>();
+    private List<string> exerciseTypeOptions = new List<string>();
+    private List<string> muscleGroupOptions = new List<string>();
     private string sortBy = "date";
     private bool sortDescending = true;
     private int currentPage = 1;
     private int pageSize = 20;
     private bool isLoading = true;
+    private bool isFilterActive => !string.IsNullOrEmpty(selectedExerciseType) || selectedMuscleGroups.Any();
     private Dictionary<string, bool> expandedDates = new Dictionary<string, bool>();
-    private string lastSearchQuery = "";
     private string currentSortField = "date";
 
     // Muscle name mapping
@@ -547,7 +590,31 @@
     protected override async Task OnInitializedAsync()
     {
         TitleService.Title = "Exercises";
+        await LoadFilterOptions();
         await LoadExercises();
+    }
+
+    private async Task LoadFilterOptions()
+    {
+        try
+        {
+            // Load exercise types
+            var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
+            if (allTypes != null)
+            {
+                exerciseTypeOptions = allTypes.Select(t => t.Name).OrderBy(n => n).ToList();
+            }
+
+            // Initialize muscle group options
+            muscleGroupOptions = new List<string>
+            {
+                "Chest", "Back", "Legs", "Shoulders", "Arms", "Core"
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading filter options: {ex.Message}");
+        }
     }
 
     // Data loading
@@ -560,9 +627,28 @@
         {
             var url = $"/Exercises?page={currentPage}&pageSize={pageSize}&sortBy={sortBy}&descending={sortDescending}";
 
-            if (!string.IsNullOrWhiteSpace(searchString))
+            // Add exercise type filter
+            if (!string.IsNullOrWhiteSpace(selectedExerciseType))
             {
-                url += $"&search={Uri.EscapeDataString(searchString)}";
+                // Get the exercise type ID by the name
+                var exerciseType = await GetExerciseTypeByName(selectedExerciseType);
+                if (exerciseType != null)
+                {
+                    url += $"&exerciseTypeId={exerciseType.Id}";
+                }
+            }
+
+            // Add muscle group filters
+            if (selectedMuscleGroups.Any())
+            {
+                foreach (var muscleGroup in selectedMuscleGroups)
+                {
+                    int? muscleId = GetMuscleIdByName(muscleGroup);
+                    if (muscleId.HasValue)
+                    {
+                        url += $"&muscleId={muscleId.Value}";
+                    }
+                }
             }
 
             pagedData = await Http.GetFromJsonAsync<PagedResult<GetExerciseResource>>(url);
@@ -601,6 +687,91 @@
         StateHasChanged();
     }
 
+    private int? GetMuscleIdByName(string muscleName)
+    {
+        Dictionary<string, int> muscleMapping = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "Chest", 1 },
+            { "Back", 2 },
+            { "Legs", 3 },
+            { "Shoulders", 4 },
+            { "Arms", 5 },
+            { "Core", 6 }
+        };
+
+        if (muscleMapping.TryGetValue(muscleName, out int muscleId))
+        {
+            return muscleId;
+        }
+
+        return null;
+    }
+// Implementation for the missing GetExerciseTypeByName function
+
+private async Task<ExerciseTypeResource> GetExerciseTypeByName(string name)
+{
+    try
+    {
+        // If we have a cached list of exercise types, use that instead of making a new API call
+        if (exerciseTypeOptions.Count > 0)
+        {
+            // We'll need to get the full exercise type resource with ID
+            var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
+            return allTypes?.FirstOrDefault(t => t.Name == name);
+        }
+        else
+        {
+            // If we don't have the cached list yet, make the API call
+            var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
+
+            // Cache the exercise type names for future use
+            exerciseTypeOptions = allTypes?.Select(t => t.Name).OrderBy(n => n).ToList() ?? new List<string>();
+
+            return allTypes?.FirstOrDefault(t => t.Name == name);
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error getting exercise type: {ex.Message}");
+        return null;
+    }
+}
+    // Dialog for filtering
+    private async Task OpenFilterDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            ["ExerciseTypes"] = exerciseTypeOptions,
+            ["MuscleGroups"] = muscleGroupOptions,
+            ["SelectedExerciseType"] = selectedExerciseType,
+            ["SelectedMuscleGroups"] = selectedMuscleGroups
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            DisableBackdropClick = true
+        };
+
+        var dialog = await DialogService.ShowAsync<ExerciseFilterDialog>("Filter Exercises", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            var filterSettings = (FilterSettings)result.Data;
+
+            // Update filter state
+            selectedExerciseType = filterSettings.ExerciseType;
+            selectedMuscleGroups = filterSettings.MuscleGroups;
+
+            // Apply filters
+            currentPage = 1;
+            await LoadExercises();
+        }
+    }
+
     // Event handlers
     private async Task OnPageChanged(int page)
     {
@@ -611,15 +782,37 @@
         }
     }
 
-    private async Task HandleSearch()
+    private async Task<IEnumerable<string>> SearchExerciseTypes(string value)
     {
-        if (searchString != lastSearchQuery)
+        // Search locally to avoid API call for each keystroke
+        if (string.IsNullOrEmpty(value))
+            return exerciseTypeOptions;
+
+        return exerciseTypeOptions
+            .Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase))
+            .OrderBy(x => x)
+            .Take(10); // Limit results for performance
+    }
+
+    private async Task ApplyFilter()
+    {
+        if (!string.IsNullOrWhiteSpace(selectedExerciseType))
         {
-            lastSearchQuery = searchString;
-            currentPage = 1; // Reset to first page on new search
+            currentPage = 1; // Reset to first page on new filter
             await LoadExercises();
         }
     }
+
+    private async Task ClearFilter()
+    {
+        if (!string.IsNullOrEmpty(selectedExerciseType))
+        {
+            selectedExerciseType = "";
+            currentPage = 1;
+            await LoadExercises();
+        }
+    }
+
 
     private async Task SortExercisesBy(string field)
     {
@@ -680,6 +873,29 @@
             NavigationManager.NavigateTo($"/exercises/edit/{exerciseId}");
         }
     }
+    private async Task ClearExerciseTypeFilter()
+{
+    selectedExerciseType = "";
+    currentPage = 1;
+    await LoadExercises();
+}
+
+// Function to remove a specific muscle filter
+private async Task RemoveMuscleFilter(string muscle)
+{
+    selectedMuscleGroups.Remove(muscle);
+    currentPage = 1;
+    await LoadExercises();
+}
+
+// Function to clear all filters at once
+private async Task ClearAllFilters()
+{
+    selectedExerciseType = "";
+    selectedMuscleGroups.Clear();
+    currentPage = 1;
+    await LoadExercises();
+}
 
     // Helper methods
     private string GetMuscleName(int muscleId)

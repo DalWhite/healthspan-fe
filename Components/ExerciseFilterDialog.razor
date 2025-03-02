@@ -1,0 +1,107 @@
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <MudContainer Class="mt-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Filter By Exercise Type</MudText>
+            <MudAutocomplete T="string"
+                         @bind-Value="exerciseType"
+                         SearchFunc="@SearchExerciseTypes"
+                         ResetValueOnEmptyText="true"
+                         CoerceText="false"
+                         Placeholder="Select an exercise type..."
+                         Adornment="Adornment.Start"
+                         AdornmentIcon="@Icons.Material.Filled.FitnessCenter"
+                         IconSize="Size.Small"
+                         Class="mb-4" />
+
+            <MudDivider Class="my-4" />
+
+            <MudText Typo="Typo.h6" Class="mb-3">Filter By Muscle Group</MudText>
+            <MudContainer Class="d-flex flex-wrap gap-2 px-0">
+                @foreach (var muscle in muscleGroups)
+                {
+                    <MudChip Color="@(selectedMuscleGroups.Contains(muscle) ? Color.Secondary : Color.Default)"
+                             Variant="@(selectedMuscleGroups.Contains(muscle) ? Variant.Filled : Variant.Outlined)"
+                             OnClick="@(() => ToggleMuscleGroup(muscle))">
+                        @muscle
+                    </MudChip>
+                }
+            </MudContainer>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text" Color="Color.Default">Cancel</MudButton>
+        <MudButton OnClick="ClearFilters" Variant="Variant.Text" Color="Color.Error">Clear All</MudButton>
+        <MudButton OnClick="ApplyFilters" Variant="Variant.Filled" Color="Color.Primary">Apply Filters</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    [Parameter] public List<string> ExerciseTypes { get; set; } = new List<string>();
+    [Parameter] public List<string> MuscleGroups { get; set; } = new List<string>();
+    [Parameter] public string SelectedExerciseType { get; set; } = "";
+    [Parameter] public List<string> SelectedMuscleGroups { get; set; } = new List<string>();
+
+    private string exerciseType;
+    private List<string> selectedMuscleGroups = new List<string>();
+    private List<string> muscleGroups = new List<string>();
+
+    protected override void OnInitialized()
+    {
+        exerciseType = SelectedExerciseType;
+        selectedMuscleGroups = new List<string>(SelectedMuscleGroups);
+        muscleGroups = MuscleGroups;
+    }
+
+    private async Task<IEnumerable<string>> SearchExerciseTypes(string value)
+    {
+        // Search locally to avoid API call for each keystroke
+        if (string.IsNullOrEmpty(value))
+            return ExerciseTypes;
+
+        return ExerciseTypes
+            .Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase))
+            .OrderBy(x => x)
+            .Take(10); // Limit results for performance
+    }
+
+    private void ToggleMuscleGroup(string muscle)
+    {
+        if (selectedMuscleGroups.Contains(muscle))
+        {
+            selectedMuscleGroups.Remove(muscle);
+        }
+        else
+        {
+            selectedMuscleGroups.Add(muscle);
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        var result = new FilterSettings
+        {
+            ExerciseType = exerciseType,
+            MuscleGroups = selectedMuscleGroups
+        };
+
+        MudDialog.Close(DialogResult.Ok(result));
+    }
+
+    private void ClearFilters()
+    {
+        exerciseType = "";
+        selectedMuscleGroups.Clear();
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public class FilterSettings
+    {
+        public string ExerciseType { get; set; }
+        public List<string> MuscleGroups { get; set; } = new List<string>();
+    }
+}
