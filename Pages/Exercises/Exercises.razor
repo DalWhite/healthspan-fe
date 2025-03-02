@@ -5,47 +5,60 @@
 @inject TitleService TitleService
 
 <PageTitle>Exercises</PageTitle>
-@if (exercises != null)
-{
-    <div class="container">
-        <div class="search-bar mb-3">
-            <MudTextField @bind-Value="searchString1"
-                          Placeholder="Search for an exercise..."
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Search"
-                          IconSize="Size.Small"
-                          Class="mt-0"></MudTextField>
-        </div>
 
+<div class="container">
+    <div class="search-bar mb-3">
+        <MudTextField @bind-Value="searchString"
+                      Placeholder="Search for an exercise..."
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      IconSize="Size.Small"
+                      Class="mt-0"
+                      DebounceInterval="300"
+                      OnDebounceIntervalElapsed="HandleSearch" />
+    </div>
+
+    <div class="sort-controls mb-3">
+        <MudText Typo="Typo.subtitle1" Class="mr-2">Sort by:</MudText>
+        <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+            <MudButton OnClick="@(() => SortExercisesBy("date"))" Variant="@GetSortButtonVariant("date")">Date</MudButton>
+            <MudButton OnClick="@(() => SortExercisesBy("name"))" Variant="@GetSortButtonVariant("name")">Exercise</MudButton>
+            <MudButton OnClick="@(() => SortExercisesBy("1rm"))" Variant="@GetSortButtonVariant("1rm")">1RM</MudButton>
+            <MudButton OnClick="@(() => SortExercisesBy("volume"))" Variant="@GetSortButtonVariant("volume")">Volume</MudButton>
+        </MudButtonGroup>
+        <MudIconButton Icon="@(sortDescending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                       OnClick="ToggleSortDirection"
+                       Size="Size.Small"
+                       Class="ml-2" />
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center my-4">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (pagedData?.Items == null || !pagedData.Items.Any())
+    {
+        <MudAlert Severity="Severity.Info" Class="my-4">No exercises found. Try adjusting your search or add a new exercise.</MudAlert>
+    }
+    else
+    {
         <!-- Desktop View -->
         <div class="hide-on-mobile desktop-card-view">
             @{
-                // Get filtered exercises
-                var filteredExercisesDesktop = exercises.Where(FilterFunc1).ToList();
-
                 // Group by date, but only include dates that have matching exercises
-                var filteredDateGroupsDesktop = filteredExercisesDesktop
+                var dateGroups = pagedData.Items
                     .GroupBy(e => e.Workout?.Date.Value.ToShortDateString())
                     .OrderByDescending(g => DateTime.Parse(g.Key));
             }
 
-            <div class="sort-controls mb-3">
-                <MudText Typo="Typo.subtitle1" Class="mr-2">Sort by:</MudText>
-                <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
-                    <MudButton OnClick="@(() => SortExercisesBy("date"))">Date</MudButton>
-                    <MudButton OnClick="@(() => SortExercisesBy("exercise"))">Exercise</MudButton>
-                    <MudButton OnClick="@(() => SortExercisesBy("1rm"))">1RM</MudButton>
-                    <MudButton OnClick="@(() => SortExercisesBy("volume"))">Volume</MudButton>
-                </MudButtonGroup>
-            </div>
-
-            @foreach (var dateGroup in filteredDateGroupsDesktop)
+            @foreach (var dateGroup in dateGroups)
             {
                 @if (DateTime.TryParse(dateGroup.Key, out DateTime groupDate))
                 {
                     var daysAgo = (DateTime.Now - groupDate).Days;
-                    var volumeSummary = GetVolumeSummaryByMuscleForDate(dateGroup.Key, filteredExercisesDesktop);
-                    var dateId = $"date-{dateGroup.Key.Replace('/', '-')}";
+                    var volumeSummary = GetVolumeSummaryByMuscleForDate(dateGroup.Key, dateGroup.ToList());
                     var isExpanded = expandedDates.ContainsKey(dateGroup.Key) ? expandedDates[dateGroup.Key] : true;
 
                     <div class="date-header mb-3">
@@ -60,13 +73,22 @@
                             @if (volumeSummary.Any())
                             {
                                 <div class="d-flex gap-2">
-                                    @foreach (var muscleGroup in volumeSummary)
+                                    @foreach (var muscleGroup in volumeSummary.Take(3))
                                     {
                                         <MudChip Color="Color.Error"
                                                  Variant="Variant.Filled"
                                                  Size="Size.Small"
                                                  Class="muscle-volume-chip-desktop px-3 py-1">
                                             @muscleGroup.Key: @muscleGroup.Value kg
+                                        </MudChip>
+                                    }
+                                    @if (volumeSummary.Count > 3)
+                                    {
+                                        <MudChip Color="Color.Default"
+                                                 Variant="Variant.Filled"
+                                                 Size="Size.Small"
+                                                 Class="muscle-volume-chip-desktop px-3 py-1">
+                                            +@(volumeSummary.Count - 3) more
                                         </MudChip>
                                     }
                                 </div>
@@ -77,7 +99,7 @@
 
                 @if (expandedDates.ContainsKey(dateGroup.Key) && expandedDates[dateGroup.Key])
                 {
-                    var mainExercise = FindMainExerciseForDate(dateGroup.Key, filteredExercisesDesktop);
+                    var mainExercise = FindMainExerciseForDate(dateGroup.Key, dateGroup.ToList());
 
                     <div class="desktop-exercise-grid">
                         @foreach (var exerciseTypeGroup in dateGroup.GroupBy(e => e.Type?.Name))
@@ -122,7 +144,7 @@
                                     </div>
 
                                     <div class="exercise-instances">
-                                        @foreach (var exercise in exerciseTypeGroup)
+                                        @foreach (var exercise in exerciseTypeGroup.Take(3)) // Limit to 3 instances for performance
                                         {
                                             <div class="d-flex flex-wrap gap-2 mt-2">
                                                 <MudChip Variant="Variant.Outlined" Size="Size.Medium" Class="rep-chip-desktop">
@@ -135,6 +157,12 @@
                                                     @($"{exercise.Weight} kg")
                                                 </MudChip>
                                             </div>
+                                        }
+                                        @if (exerciseTypeGroup.Count() > 3)
+                                        {
+                                            <MudButton Color="Color.Default" Variant="Variant.Text" Size="Size.Small" Class="mt-2">
+                                                Show @(exerciseTypeGroup.Count() - 3) more
+                                            </MudButton>
                                         }
                                     </div>
 
@@ -163,11 +191,8 @@
         <!-- Mobile View -->
         <div class="only-mobile">
             @{
-                // Get filtered exercises
-                var filteredExercises = exercises.Where(FilterFunc1).ToList();
-
                 // Group by date, but only include dates that have matching exercises
-                var filteredDateGroups = filteredExercises
+                var filteredDateGroups = pagedData.Items
                     .GroupBy(e => e.Workout?.Date.Value.ToShortDateString())
                     .OrderByDescending(g => DateTime.Parse(g.Key));
             }
@@ -177,8 +202,7 @@
                 @if (DateTime.TryParse(dateGroup.Key, out DateTime groupDate))
                 {
                     var daysAgo = (DateTime.Now - groupDate).Days;
-                    var volumeSummary = GetVolumeSummaryByMuscleForDate(dateGroup.Key, filteredExercises);
-                    var dateId = $"date-{dateGroup.Key.Replace('/', '-')}";
+                    var volumeSummary = GetVolumeSummaryByMuscleForDate(dateGroup.Key, dateGroup.ToList());
                     var isExpanded = expandedDates.ContainsKey(dateGroup.Key) ? expandedDates[dateGroup.Key] : true;
 
                     <div class="date-header mb-2">
@@ -193,13 +217,22 @@
                             @if (volumeSummary.Any())
                             {
                                 <div class="d-flex overflow-x-auto volume-tags-container">
-                                    @foreach (var muscleGroup in volumeSummary)
+                                    @foreach (var muscleGroup in volumeSummary.Take(2))
                                     {
                                         <MudChip Color="Color.Error"
                                                  Variant="Variant.Filled"
                                                  Size="Size.Small"
                                                  Class="muscle-volume-chip px-2 py-0 ml-1">
                                             @muscleGroup.Key: @muscleGroup.Value kg
+                                        </MudChip>
+                                    }
+                                    @if (volumeSummary.Count > 2)
+                                    {
+                                        <MudChip Color="Color.Default"
+                                                 Variant="Variant.Filled"
+                                                 Size="Size.Small"
+                                                 Class="muscle-volume-chip px-2 py-0 ml-1">
+                                            +@(volumeSummary.Count - 2)
                                         </MudChip>
                                     }
                                 </div>
@@ -210,7 +243,7 @@
 
                 @if (expandedDates.ContainsKey(dateGroup.Key) && expandedDates[dateGroup.Key])
                 {
-                    var mainExercise = FindMainExerciseForDate(dateGroup.Key, filteredExercises);
+                    var mainExercise = FindMainExerciseForDate(dateGroup.Key, dateGroup.ToList());
 
                     @foreach (var exerciseTypeGroup in dateGroup.GroupBy(e => e.Type?.Name))
                     {
@@ -254,7 +287,7 @@
                                 </div>
 
                                 <div class="exercise-instances">
-                                    @foreach (var exercise in exerciseTypeGroup)
+                                    @foreach (var exercise in exerciseTypeGroup.Take(2)) // Limit to 2 for mobile
                                     {
                                         <div class="d-flex flex-wrap gap-2 mt-2">
                                             <MudChip Variant="Variant.Outlined" Size="Size.Small" Class="rep-chip">
@@ -267,6 +300,12 @@
                                                 @($"{exercise.Weight} kg")
                                             </MudChip>
                                         </div>
+                                    }
+                                    @if (exerciseTypeGroup.Count() > 2)
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mt-1">
+                                            +@(exerciseTypeGroup.Count() - 2) more sets
+                                        </MudText>
                                     }
                                 </div>
 
@@ -290,13 +329,21 @@
                 }
             }
         </div>
-    </div>
 
-    <MudFab @onclick="GoToCreateExercise"
-            Color="Color.Error"
-            StartIcon="@Icons.Material.Filled.Add"
-            Class="fixed-create-button" />
-}
+        <!-- Pagination Controls -->
+        <div class="d-flex justify-center my-4">
+            <MudPagination Count="@pagedData.TotalPages"
+                           SelectedChanged="OnPageChanged"
+                           Selected="@currentPage"
+                           Class="mt-4" />
+        </div>
+    }
+</div>
+
+<MudFab @onclick="GoToCreateExercise"
+        Color="Color.Error"
+        StartIcon="@Icons.Material.Filled.Add"
+        Class="fixed-create-button" />
 
 <style>
     .exercise-card {
@@ -304,6 +351,8 @@
         border: none;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         transition: all 0.2s ease;
+        will-change: transform, box-shadow;
+        contain: layout style paint;
     }
 
     .main-exercise-card {
@@ -317,6 +366,7 @@
         background-color: #f5f5f5;
         border-radius: 8px;
         cursor: pointer;
+        contain: layout style;
     }
 
     .exercise-title-container {
@@ -329,10 +379,6 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-    }
-
-    .volume-badge {
-        color: #b71c1c;
     }
 
     .volume-tags-container {
@@ -368,23 +414,13 @@
         height: 28px;
     }
 
-    /* Media query for mobile view */
-    @@media (max-width: 768px) {
-        .hide-on-mobile {
-            display: none !important;
-        }
-
-        .only-mobile {
-            display: block;
-        }
-    }
-
     /* Desktop specific styles */
     .desktop-exercise-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
         gap: 16px;
         margin-bottom: 24px;
+        contain: style layout;
     }
 
     .action-button-desktop {
@@ -423,9 +459,22 @@
         padding: 8px 16px;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        z-index: 1;
+        position: sticky;
+        top: 56px; /* Adjust if needed based on your search bar height */
     }
 
-    /* Media query for desktop view */
+    /* Media queries */
+    @@media (max-width: 768px) {
+        .hide-on-mobile {
+       2     display: none !important;
+        }
+
+        .only-mobile {
+            display: block;
+        }
+    }
+
     @@media (min-width: 769px) {
         .hide-on-mobile {
             display: block;
@@ -451,24 +500,37 @@
         background-color: white;
         padding: 8px 0;
     }
+
+    /* Only render what's visible */
+    .virtualized-container {
+        contain: strict;
+    }
 </style>
 
 @code {
-    private GetExerciseResource[]? exercises;
-    private GetExerciseResource[]? sortedExercises;
-    private GetExerciseResource? selectedItem;
-    private string searchString1 = "";
-    private string currentSortField = "date";
-    private Dictionary<string, bool> expandedDates = new Dictionary<string, bool>();
-    private TableGroupDefinition<GetExerciseResource> _groupDefinition = new()
+    // Models
+    private class PagedResult<T>
     {
-        GroupName = "Date",
-        Indentation = true,
-        Expandable = false,
-        Selector = (e) => e.Workout?.Date.Value.ToShortDateString()
-    };
+        public List<T> Items { get; set; }
+        public int TotalCount { get; set; }
+        public int PageSize { get; set; }
+        public int CurrentPage { get; set; }
+        public int TotalPages { get; set; }
+    }
 
-    // Dictionary mapping muscle IDs to muscle names
+    // State variables
+    private PagedResult<GetExerciseResource> pagedData;
+    private string searchString = "";
+    private string sortBy = "date";
+    private bool sortDescending = true;
+    private int currentPage = 1;
+    private int pageSize = 20;
+    private bool isLoading = true;
+    private Dictionary<string, bool> expandedDates = new Dictionary<string, bool>();
+    private string lastSearchQuery = "";
+    private string currentSortField = "date";
+
+    // Muscle name mapping
     private Dictionary<int, string> muscleNames = new Dictionary<int, string>
     {
         { 1, "Chest" },
@@ -481,56 +543,105 @@
         // Add more muscle mappings as needed
     };
 
+    // Lifecycle methods
     protected override async Task OnInitializedAsync()
     {
-        exercises = await Http.GetFromJsonAsync<GetExerciseResource[]>("/Exercises");
-        sortedExercises = exercises;
-
-        // Initialize expanded state for dates
-        if (exercises != null)
-        {
-            var dates = exercises
-                .Select(e => e.Workout?.Date.Value.ToShortDateString())
-                .Where(d => !string.IsNullOrEmpty(d))
-                .Distinct();
-
-            foreach (var date in dates)
-            {
-                expandedDates[date] = true;
-            }
-        }
+        TitleService.Title = "Exercises";
+        await LoadExercises();
     }
 
-    private void SortExercisesBy(string field)
+    // Data loading
+    private async Task LoadExercises()
     {
-        currentSortField = field;
+        isLoading = true;
+        StateHasChanged();
 
-        if (exercises == null)
-            return;
-
-        switch (field)
+        try
         {
-            case "date":
-                // Default sort is by date descending
-                sortedExercises = exercises.OrderByDescending(e => e.Workout?.Date).ToArray();
-                break;
-            case "exercise":
-                sortedExercises = exercises.OrderBy(e => e.Type?.Name).ToArray();
-                break;
-            case "1rm":
-                sortedExercises = exercises.OrderByDescending(e => e.MaxRepetition ?? 0).ToArray();
-                break;
-            case "volume":
-                sortedExercises = exercises.OrderByDescending(e => e.Volume ?? 0).ToArray();
-                break;
+            var url = $"/Exercises?page={currentPage}&pageSize={pageSize}&sortBy={sortBy}&descending={sortDescending}";
+
+            if (!string.IsNullOrWhiteSpace(searchString))
+            {
+                url += $"&search={Uri.EscapeDataString(searchString)}";
+            }
+
+            pagedData = await Http.GetFromJsonAsync<PagedResult<GetExerciseResource>>(url);
+
+            // Initialize expanded state for dates if not already done
+            if (pagedData?.Items != null)
+            {
+                var dates = pagedData.Items
+                    .Select(e => e.Workout?.Date.Value.ToShortDateString())
+                    .Where(d => !string.IsNullOrEmpty(d))
+                    .Distinct();
+
+                foreach (var date in dates)
+                {
+                    if (!expandedDates.ContainsKey(date))
+                    {
+                        expandedDates[date] = true;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading exercises: {ex.Message}");
+            pagedData = new PagedResult<GetExerciseResource>
+            {
+                Items = new List<GetExerciseResource>(),
+                TotalCount = 0,
+                PageSize = pageSize,
+                CurrentPage = 1,
+                TotalPages = 0
+            };
         }
 
+        isLoading = false;
         StateHasChanged();
     }
 
-    protected override void OnInitialized()
+    // Event handlers
+    private async Task OnPageChanged(int page)
     {
-        TitleService.Title = "Exercises";
+        if (currentPage != page)
+        {
+            currentPage = page;
+            await LoadExercises();
+        }
+    }
+
+    private async Task HandleSearch()
+    {
+        if (searchString != lastSearchQuery)
+        {
+            lastSearchQuery = searchString;
+            currentPage = 1; // Reset to first page on new search
+            await LoadExercises();
+        }
+    }
+
+    private async Task SortExercisesBy(string field)
+    {
+        if (field == currentSortField)
+        {
+            // Toggle sort direction if same field clicked
+            sortDescending = !sortDescending;
+        }
+        else
+        {
+            currentSortField = field;
+            sortBy = field;
+            sortDescending = true; // Default to descending for new field
+        }
+
+        await LoadExercises();
+    }
+
+    private async Task ToggleSortDirection()
+    {
+        sortDescending = !sortDescending;
+        await LoadExercises();
     }
 
     private void ToggleDateExpand(string date)
@@ -543,35 +654,15 @@
         StateHasChanged();
     }
 
-    private bool FilterFunc1(GetExerciseResource element) => FilterFunc(element, searchString1);
-
-    private bool FilterFunc(GetExerciseResource element, string searchString)
+    private Variant GetSortButtonVariant(string field)
     {
-        if (string.IsNullOrWhiteSpace(searchString))
-            return true;
-        string dateString = element.Workout.Date.Value.ToString("dd/MM/yyyy");
-
-        if (dateString.Contains(searchString, StringComparison.OrdinalIgnoreCase))
-            return true;
-        if (element.Type?.Name?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
-            return true;
-        if (element.Type?.Description?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
-            return true;
-
-        return false;
+        return field == currentSortField ? Variant.Filled : Variant.Outlined;
     }
 
+    // Navigation methods
     private void GoToCreateExercise()
     {
         NavigationManager.NavigateTo("/exercises/create");
-    }
-
-    private void GoToExerciseTypeDetails(TableRowClickEventArgs<GetExerciseResource> tableRowClickEventArgs)
-    {
-        if (tableRowClickEventArgs.Item?.Type?.Id != null)
-        {
-            NavigationManager.NavigateTo($"/exercises/types/{tableRowClickEventArgs.Item.Type.Id}/details");
-        }
     }
 
     private void GoToExerciseTypeDetails(int? exerciseTypeId)
@@ -590,25 +681,26 @@
         }
     }
 
+    // Helper methods
     private string GetMuscleName(int muscleId)
     {
         return muscleNames.ContainsKey(muscleId) ? muscleNames[muscleId] : $"Muscle {muscleId}";
     }
 
-    // Find the exercise type name with the highest 1RM for a given date, using filtered exercises
-    private string? FindMainExerciseForDate(string date, List<GetExerciseResource> filteredExercises)
+    // Find the exercise type name with the highest 1RM for a given date
+    private string FindMainExerciseForDate(string date, List<GetExerciseResource> exercises)
     {
-        if (filteredExercises == null || !filteredExercises.Any())
+        if (exercises == null || !exercises.Any())
             return null;
 
-        var dateExercises = filteredExercises
+        var dateExercises = exercises
             .Where(e => e.Workout?.Date.Value.ToShortDateString() == date && e.MaxRepetition.HasValue)
             .ToList();
 
         if (!dateExercises.Any())
             return null;
 
-        // Get the exercise with the highest 1RM
+        // Cache the result to avoid recalculation
         var mainExercise = dateExercises
             .OrderByDescending(e => e.MaxRepetition)
             .FirstOrDefault();
@@ -616,15 +708,15 @@
         return mainExercise?.Type?.Name;
     }
 
-    // Get volume summary for exercises on a specific date, using filtered exercises
-    private Dictionary<string, int> GetVolumeSummaryByMuscleForDate(string date, List<GetExerciseResource> filteredExercises)
+    // Get volume summary for exercises on a specific date
+    private Dictionary<string, int> GetVolumeSummaryByMuscleForDate(string date, List<GetExerciseResource> exercises)
     {
         var summary = new Dictionary<string, int>();
 
-        if (filteredExercises == null || !filteredExercises.Any())
+        if (exercises == null || !exercises.Any())
             return summary;
 
-        var dateExercises = filteredExercises.Where(e => e.Workout?.Date.Value.ToShortDateString() == date);
+        var dateExercises = exercises.Where(e => e.Workout?.Date.Value.ToShortDateString() == date);
 
         // If no muscle ID is found, group by exercise type name instead as a fallback
         var hasMuscleData = dateExercises.Any(e => e.Type?.PrimaryMuscleId.HasValue == true);
@@ -667,7 +759,7 @@
         }
 
         return summary.OrderByDescending(x => x.Value)
-                      .ToDictionary(x => x.Key, x => x.Value);
+                     .ToDictionary(x => x.Key, x => x.Value);
     }
 
     // Helper method to infer muscle group from exercise name
