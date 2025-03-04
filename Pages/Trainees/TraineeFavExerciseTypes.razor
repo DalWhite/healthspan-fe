@@ -41,23 +41,7 @@ else
     public string traineeId { get; set; }
     private string searchString1 = "";
     private GetExerciseTypeResource[]? _exerciseTypes;
-    private List<Muscle> Muscles = new List<Muscle>
-    {
-        new Muscle { Id = 1, Name = "Biceps brachii" },
-        new Muscle { Id = 3, Name = "Serratus anterior" },
-        new Muscle { Id = 4, Name = "Pectoralis major" },
-        new Muscle { Id = 5, Name = "Triceps brachii" },
-        new Muscle { Id = 6, Name = "Rectus abdominis" },
-        new Muscle { Id = 7, Name = "Gastrocnemius" },
-        new Muscle { Id = 8, Name = "Gluteus maximus" },
-        new Muscle { Id = 9, Name = "Trapezius" },
-        new Muscle { Id = 10, Name = "Quadriceps femoris" },
-        new Muscle { Id = 11, Name = "Biceps femoris" },
-        new Muscle { Id = 12, Name = "Latissimus dorsi" },
-        new Muscle { Id = 13, Name = "Brachialis" },
-        new Muscle { Id = 14, Name = "Obliquus externus abdominis" },
-        new Muscle { Id = 15, Name = "Soleus" }
-    };
+    private List<Muscle> Muscles = new();
 private string GetFavoriteIcon(GetExerciseTypeResource exerciseType)
     {
         return exerciseType.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder;
@@ -65,6 +49,7 @@ private string GetFavoriteIcon(GetExerciseTypeResource exerciseType)
     protected override async Task OnInitializedAsync()
     {
         _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>($"/ExerciseTypes?favourite=true&userId={traineeId}");
+        Muscles = await Http.GetFromJsonAsync<List<Muscle>>("api/muscles");
         TitleService.Title = "Exercise types";
     }
 

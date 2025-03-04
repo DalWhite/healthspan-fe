@@ -47,23 +47,7 @@ else
     private string searchString1 = "";
     private GetExerciseTypeResource[]? _exerciseTypes;
     private GetExerciseTypeResource[]? _filteredExerciseTypes;
-    private List<Muscle> Muscles = new List<Muscle>
-    {
-        new Muscle { Id = 1, Name = "Biceps brachii" },
-        new Muscle { Id = 3, Name = "Serratus anterior" },
-        new Muscle { Id = 4, Name = "Pectoralis major" },
-        new Muscle { Id = 5, Name = "Triceps brachii" },
-        new Muscle { Id = 6, Name = "Rectus abdominis" },
-        new Muscle { Id = 7, Name = "Gastrocnemius" },
-        new Muscle { Id = 8, Name = "Gluteus maximus" },
-        new Muscle { Id = 9, Name = "Trapezius" },
-        new Muscle { Id = 10, Name = "Quadriceps femoris" },
-        new Muscle { Id = 11, Name = "Biceps femoris" },
-        new Muscle { Id = 12, Name = "Latissimus dorsi" },
-        new Muscle { Id = 13, Name = "Brachialis" },
-        new Muscle { Id = 14, Name = "Obliquus externus abdominis" },
-        new Muscle { Id = 15, Name = "Soleus" }
-    };
+    private List<Muscle> Muscles = new();
     private async Task HandleValueChanged(bool newValue)
 {
     favouriteOnly = newValue;
@@ -86,7 +70,8 @@ else
     protected override async Task OnInitializedAsync()
     {
         _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
-        _filteredExerciseTypes = _exerciseTypes; // Initialize filtered list
+        Muscles = await Http.GetFromJsonAsync<List<Muscle>>("api/muscles");
+        _filteredExerciseTypes = _exerciseTypes;
         TitleService.Title = "Exercise types";
     }
 

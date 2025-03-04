@@ -558,6 +558,14 @@
         public int? PrimaryMuscleId { get; set; }
     }
 
+    private class Muscle
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Position { get; set; } // front or back
+        public string MuscleGroup { get; set; } // e.g., Arms, Legs, etc.
+    }
+
     // State variables
     private PagedResult<GetExerciseResource> pagedData;
     private string selectedExerciseType = "";
@@ -573,25 +581,59 @@
     private Dictionary<string, bool> expandedDates = new Dictionary<string, bool>();
     private string currentSortField = "date";
 
-    // Muscle name mapping
-    private Dictionary<int, string> muscleNames = new Dictionary<int, string>
-    {
-        { 1, "Chest" },
-        { 2, "Back" },
-        { 3, "Legs" },
-        { 4, "Shoulders" },
-        { 5, "Arms" },
-        { 6, "Core" },
-        { 10, "Muscle 10" }
-        // Add more muscle mappings as needed
-    };
+    // Muscles data from API
+    private List<Muscle> muscles = new List<Muscle>();
+    private Dictionary<int, string> muscleNames = new Dictionary<int, string>();
+    private Dictionary<string, int> muscleIdByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
     // Lifecycle methods
     protected override async Task OnInitializedAsync()
     {
         TitleService.Title = "Exercises";
+
+        // Load muscles first so we have the data for everything else
+        await LoadMusclesData();
         await LoadFilterOptions();
         await LoadExercises();
+    }
+
+    private async Task LoadMusclesData()
+    {
+        try
+        {
+            // Get muscles from API
+            muscles = await Http.GetFromJsonAsync<List<Muscle>>("api/muscles");
+
+            if (muscles != null && muscles.Any())
+            {
+                // Build the muscle name lookup dictionary
+                muscleNames = muscles.ToDictionary(m => m.Id, m => m.Name);
+
+                // Build reverse lookup (name to id)
+                muscleIdByName = muscles.ToDictionary(
+                    m => m.Name,
+                    m => m.Id,
+                    StringComparer.OrdinalIgnoreCase
+                );
+
+                // Extract unique muscle groups for filter options
+                muscleGroupOptions = muscles
+                    .Select(m => m.MuscleGroup)
+                    .Distinct()
+                    .OrderBy(g => g)
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading muscles: {ex.Message}");
+
+            // Fallback to default muscle groups if API fails
+            muscleGroupOptions = new List<string>
+            {
+                "Chest", "Back", "Legs", "Shoulders", "Arms", "Core"
+            };
+        }
     }
 
     private async Task LoadFilterOptions()
@@ -604,12 +646,6 @@
             {
                 exerciseTypeOptions = allTypes.Select(t => t.Name).OrderBy(n => n).ToList();
             }
-
-            // Initialize muscle group options
-            muscleGroupOptions = new List<string>
-            {
-                "Chest", "Back", "Legs", "Shoulders", "Arms", "Core"
-            };
         }
         catch (Exception ex)
         {
@@ -641,13 +677,14 @@
             // Add muscle group filters
             if (selectedMuscleGroups.Any())
             {
-                foreach (var muscleGroup in selectedMuscleGroups)
+                // Find muscle IDs that belong to the selected muscle groups
+                var muscleIdsInSelectedGroups = muscles
+                    .Where(m => selectedMuscleGroups.Contains(m.MuscleGroup, StringComparer.OrdinalIgnoreCase))
+                    .Select(m => m.Id);
+
+                foreach (var muscleId in muscleIdsInSelectedGroups)
                 {
-                    int? muscleId = GetMuscleIdByName(muscleGroup);
-                    if (muscleId.HasValue)
-                    {
-                        url += $"&muscleId={muscleId.Value}";
-                    }
+                    url += $"&muscleId={muscleId}";
                 }
             }
 
@@ -689,53 +726,55 @@
 
     private int? GetMuscleIdByName(string muscleName)
     {
-        Dictionary<string, int> muscleMapping = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-        {
-            { "Chest", 1 },
-            { "Back", 2 },
-            { "Legs", 3 },
-            { "Shoulders", 4 },
-            { "Arms", 5 },
-            { "Core", 6 }
-        };
-
-        if (muscleMapping.TryGetValue(muscleName, out int muscleId))
+        // Use the dictionary populated from the API
+        if (muscleIdByName.TryGetValue(muscleName, out int muscleId))
         {
             return muscleId;
         }
 
+        // If the muscle group name is provided instead of muscle name,
+        // take the first muscle from that group
+        var musclesInGroup = muscles.FirstOrDefault(m =>
+            string.Equals(m.MuscleGroup, muscleName, StringComparison.OrdinalIgnoreCase));
+
+        if (musclesInGroup != null)
+        {
+            return musclesInGroup.Id;
+        }
+
         return null;
     }
-// Implementation for the missing GetExerciseTypeByName function
 
-private async Task<ExerciseTypeResource> GetExerciseTypeByName(string name)
-{
-    try
+    // Implementation for the GetExerciseTypeByName function
+    private async Task<ExerciseTypeResource> GetExerciseTypeByName(string name)
     {
-        // If we have a cached list of exercise types, use that instead of making a new API call
-        if (exerciseTypeOptions.Count > 0)
+        try
         {
-            // We'll need to get the full exercise type resource with ID
-            var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
-            return allTypes?.FirstOrDefault(t => t.Name == name);
+            // If we have a cached list of exercise types, use that instead of making a new API call
+            if (exerciseTypeOptions.Count > 0)
+            {
+                // We'll need to get the full exercise type resource with ID
+                var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
+                return allTypes?.FirstOrDefault(t => t.Name == name);
+            }
+            else
+            {
+                // If we don't have the cached list yet, make the API call
+                var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
+
+                // Cache the exercise type names for future use
+                exerciseTypeOptions = allTypes?.Select(t => t.Name).OrderBy(n => n).ToList() ?? new List<string>();
+
+                return allTypes?.FirstOrDefault(t => t.Name == name);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            // If we don't have the cached list yet, make the API call
-            var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
-
-            // Cache the exercise type names for future use
-            exerciseTypeOptions = allTypes?.Select(t => t.Name).OrderBy(n => n).ToList() ?? new List<string>();
-
-            return allTypes?.FirstOrDefault(t => t.Name == name);
+            Console.Error.WriteLine($"Error getting exercise type: {ex.Message}");
+            return null;
         }
     }
-    catch (Exception ex)
-    {
-        Console.Error.WriteLine($"Error getting exercise type: {ex.Message}");
-        return null;
-    }
-}
+
     // Dialog for filtering
     private async Task OpenFilterDialog()
     {
@@ -813,7 +852,6 @@ private async Task<ExerciseTypeResource> GetExerciseTypeByName(string name)
         }
     }
 
-
     private async Task SortExercisesBy(string field)
     {
         if (field == currentSortField)
@@ -873,34 +911,42 @@ private async Task<ExerciseTypeResource> GetExerciseTypeByName(string name)
             NavigationManager.NavigateTo($"/exercises/edit/{exerciseId}");
         }
     }
+
     private async Task ClearExerciseTypeFilter()
-{
-    selectedExerciseType = "";
-    currentPage = 1;
-    await LoadExercises();
-}
+    {
+        selectedExerciseType = "";
+        currentPage = 1;
+        await LoadExercises();
+    }
 
-// Function to remove a specific muscle filter
-private async Task RemoveMuscleFilter(string muscle)
-{
-    selectedMuscleGroups.Remove(muscle);
-    currentPage = 1;
-    await LoadExercises();
-}
+    // Function to remove a specific muscle filter
+    private async Task RemoveMuscleFilter(string muscle)
+    {
+        selectedMuscleGroups.Remove(muscle);
+        currentPage = 1;
+        await LoadExercises();
+    }
 
-// Function to clear all filters at once
-private async Task ClearAllFilters()
-{
-    selectedExerciseType = "";
-    selectedMuscleGroups.Clear();
-    currentPage = 1;
-    await LoadExercises();
-}
+    // Function to clear all filters at once
+    private async Task ClearAllFilters()
+    {
+        selectedExerciseType = "";
+        selectedMuscleGroups.Clear();
+        currentPage = 1;
+        await LoadExercises();
+    }
 
     // Helper methods
     private string GetMuscleName(int muscleId)
     {
-        return muscleNames.ContainsKey(muscleId) ? muscleNames[muscleId] : $"Muscle {muscleId}";
+        // Use the dictionary populated from the API
+        if (muscleNames.ContainsKey(muscleId))
+        {
+            return muscleNames[muscleId];
+        }
+
+        // Fallback to generic name if not found
+        return $"Muscle {muscleId}";
     }
 
     // Find the exercise type name with the highest 1RM for a given date
@@ -947,8 +993,12 @@ private async Task ClearAllFilters()
             foreach (var group in muscleGroups)
             {
                 string muscleName = GetMuscleName(group.Key);
+
+                // Add emoji based on muscle group
+                string muscleNameWithEmoji = AddEmojiToMuscleName(muscleName);
+
                 int totalVolume = group.Sum(e => e.Volume ?? 0);
-                summary[muscleName] = totalVolume;
+                summary[muscleNameWithEmoji] = totalVolume;
             }
         }
         else
@@ -964,13 +1014,13 @@ private async Task ClearAllFilters()
                 int totalVolume = group.Sum(e => e.Volume ?? 0);
 
                 // Infer muscle group from exercise name
-                string muscleName = InferMuscleFromExerciseName(typeName);
+                string muscleWithEmoji = InferMuscleFromExerciseName(typeName);
 
                 // Add or update volume for this muscle
-                if (summary.ContainsKey(muscleName))
-                    summary[muscleName] += totalVolume;
+                if (summary.ContainsKey(muscleWithEmoji))
+                    summary[muscleWithEmoji] += totalVolume;
                 else
-                    summary[muscleName] = totalVolume;
+                    summary[muscleWithEmoji] = totalVolume;
             }
         }
 
@@ -978,9 +1028,77 @@ private async Task ClearAllFilters()
                      .ToDictionary(x => x.Key, x => x.Value);
     }
 
+    // Helper method to add emoji to muscle name
+    private string AddEmojiToMuscleName(string muscleName)
+    {
+        if (string.IsNullOrEmpty(muscleName))
+            return "🔘 Other";
+
+        // Find the muscle group for this muscle
+        var muscle = muscles.FirstOrDefault(m => m.Name.Equals(muscleName, StringComparison.OrdinalIgnoreCase));
+        string muscleGroup = muscle?.MuscleGroup ?? "";
+
+        if (string.IsNullOrEmpty(muscleGroup))
+        {
+            // Try to infer the group from the muscle name
+            return InferMuscleGroupEmoji(muscleName) + " " + muscleName;
+        }
+        else
+        {
+            // We have the muscle group from the API
+            return GetEmojiForMuscleGroup(muscleGroup) + " " + muscleName;
+        }
+    }
+
+    // Helper method to get emoji for a muscle group
+    private string GetEmojiForMuscleGroup(string muscleGroup)
+    {
+        if (string.IsNullOrEmpty(muscleGroup))
+            return "🔘";
+
+        switch (muscleGroup.ToLower())
+        {
+            case "chest": return "👕";
+            case "back": return "🔄";
+            case "legs": return "🦿";
+            case "shoulders": return "🛡️";
+            case "arms": return "💪";
+            case "core": return "🧱";
+            default: return "🔘";
+        }
+    }
+
+    // Helper method to infer emoji based on muscle name
+    private string InferMuscleGroupEmoji(string muscleName)
+    {
+        if (string.IsNullOrEmpty(muscleName))
+            return "🔘";
+
+        muscleName = muscleName.ToLower();
+
+        if (muscleName.Contains("bicep") || muscleName.Contains("tricep") || muscleName.Contains("arm"))
+            return "💪";
+        else if (muscleName.Contains("chest") || muscleName.Contains("pec"))
+            return "👕";
+        else if (muscleName.Contains("shoulder") || muscleName.Contains("delt"))
+            return "🛡️";
+        else if (muscleName.Contains("abs") || muscleName.Contains("core") || muscleName.Contains("abdomin"))
+            return "🧱";
+        else if (muscleName.Contains("back") || muscleName.Contains("lat") || muscleName.Contains("trap"))
+            return "🔄";
+        else if (muscleName.Contains("leg") || muscleName.Contains("quad") || muscleName.Contains("hamstring") ||
+                muscleName.Contains("glute") || muscleName.Contains("calf"))
+            return "🦿";
+        else
+            return "🔘";
+    }
+
     // Helper method to infer muscle group from exercise name
     private string InferMuscleFromExerciseName(string exerciseName)
     {
+        if (string.IsNullOrEmpty(exerciseName))
+            return "🔘 Other";
+
         exerciseName = exerciseName.ToLower();
 
         if (exerciseName.Contains("bench") || exerciseName.Contains("chest") || exerciseName.Contains("pec"))
@@ -1001,4 +1119,5 @@ private async Task ClearAllFilters()
         else
             return "🔘 Other";
     }
+}
 }
