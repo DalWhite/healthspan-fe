@@ -20,67 +20,66 @@
         <MudText Typo="Typo.h4" Class="mb-2" Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">@Title</MudText>
 
         <MudGrid>
-            <!-- KPI Summary Cards -->
-            <MudItem xs="12">
-                <MudText Typo="Typo.h6" Class="mb-2">Performance Summary</MudText>
-                <MudGrid Spacing="2" Class="mt-2">
-                        <MudItem xs="12" md="6">
-                            <MudPaper Elevation="0" Class="pa-3 mud-background-color-primary" Style="height: 100%; cursor: pointer; border-radius: 8px;" @onclick="() => ScrollToExerciseDate(kpis.MaxRMDate)">
-                                <MudStack Spacing="0">
-                                    <MudText Typo="Typo.h4" Style="color: white;">@kpis.MaxRM.ToString("F1") kg</MudText>
-                                    <MudText Typo="Typo.subtitle2" Style="color: rgba(255,255,255,0.8);">Theoretical Max RM</MudText>
-                                    <MudStack Row="true" AlignItems="AlignItems.Center">
-                                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="MudBlazor.Size.Small" Style="color: rgba(255,255,255,0.7);" />
-                                        <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.7);">@kpis.MaxRMDate.ToShortDateString()</MudText>
-                                    </MudStack>
-                                </MudStack>
-                            </MudPaper>
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudPaper Elevation="0" Class="pa-3 mud-background-color-primary" Style="height: 100%; cursor: pointer; border-radius: 8px;" @onclick="() => ScrollToExerciseDate(kpis.MaxRMDate)">
-                                <MudStack Spacing="0">
-                                    <MudText Typo="Typo.h4" Style="color: white;">@kpis.MaxRM.ToString("F1") kg</MudText>
-                                    <MudText Typo="Typo.subtitle2" Style="color: rgba(255,255,255,0.8);">Theoretical Max RM</MudText>
-                                    <MudStack Row="true" AlignItems="AlignItems.Center">
-                                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="MudBlazor.Size.Small" Style="color: rgba(255,255,255,0.7);" />
-                                        <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.7);">@kpis.MaxRMDate.ToShortDateString()</MudText>
-                                    </MudStack>
-                                </MudStack>
-                            </MudPaper>
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudPaper Elevation="2" Class="pa-4" Style="height: 100%;">
-                                <MudText Typo="Typo.h5">@kpis.Current1RM.ToString("F1") kg</MudText>
-                                <MudText Typo="Typo.subtitle1">Current 1RM</MudText>
-                                <MudStack Row="true" AlignItems="AlignItems.Center">
-                                    <MudIcon Icon="@(kpis.RMDiferentialInLast3Months >= 0 ? @Icons.Material.Filled.TrendingUp : @Icons.Material.Filled.TrendingDown)"
-                                             Color="@(kpis.RMDiferentialInLast3Months >= 0 ? MudBlazor.Color.Success : MudBlazor.Color.Error)" />
-                                    <MudText Typo="Typo.caption">@Math.Abs(kpis.RMDiferentialInLast3Months) kg in last 3 months</MudText>
-                                </MudStack>
-                            </MudPaper>
-                        </MudItem>
-                        <MudItem xs="12" sm="6" md="3">
-                            <MudPaper Elevation="0" Class="pa-2" Style="height: 100%; border: 1px solid var(--mud-palette-lines-default); border-radius: 8px;">
-                                <MudStack AlignItems="MudBlazor.AlignItems.Center" Justify="MudBlazor.Justify.Center" Spacing="0">
-                                    <MudText Typo="Typo.h4">@kpis.WeeklyFrequency</MudText>
-                                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">Weekly Frequency</MudText>
-                                </MudStack>
-                            </MudPaper>
-                        </MudItem>
-                        <MudItem xs="12" sm="6" md="3">
-                            <MudPaper Elevation="2" Class="pa-3" Style="height: 100%;">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center">
-                                    @for (int i = 1; i <= 10; i++)
-                                    {
-                                                                                        <MudIcon Icon="@Icons.Material.Filled.Star" Size="MudBlazor.Size.Small"
-                                                Color="@(i <= kpis.PerceibedEffortLastSession ? MudBlazor.Color.Warning : MudBlazor.Color.Dark)" />
-                                    }
-                                </MudStack>
-                                <MudText Typo="Typo.body2" Align="MudBlazor.Align.Center">Last Session PE</MudText>
-                            </MudPaper>
-                        </MudItem>
-                </MudGrid>
-            </MudItem>
+<!-- KPI Summary Cards - FIXED FINAL VERSION -->
+<MudItem xs="12">
+    <MudText Typo="Typo.h6" Class="mb-2">Performance Summary</MudText>
+    <MudGrid Spacing="2" Class="mt-2">
+        <!-- Max RM Card - Top Left -->
+        <MudItem xs="12" sm="6">
+            <MudPaper Elevation="0" Style="background-color: #1976d2; color: white; height: 100%; min-height: 100px; cursor: pointer; border-radius: 8px; padding: 16px;"
+                     @onclick="() => ScrollToExerciseDate(kpis.MaxRMDate)">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h4" Style="color: white;">@kpis.MaxRM.ToString("F1") kg</MudText>
+                    <MudText Typo="Typo.subtitle2" Style="color: rgba(255,255,255,0.8);">Theoretical Max RM</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="MudBlazor.Size.Small" Style="color: rgba(255,255,255,0.7);" />
+                        <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.7);">@kpis.MaxRMDate.ToShortDateString()</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Current 1RM Card - Top Right -->
+        <MudItem xs="12" sm="6">
+            <MudPaper Elevation="0" Style="background-color: white; height: 100%; min-height: 100px; border-radius: 8px; border: 1px solid #e0e0e0; padding: 16px;">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h4">@kpis.Current1RM.ToString("F1") kg</MudText>
+                    <MudText Typo="Typo.subtitle2">Current 1RM</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@(kpis.RMDiferentialInLast3Months >= 0 ? @Icons.Material.Filled.TrendingUp : @Icons.Material.Filled.TrendingDown)"
+                                Color="@(kpis.RMDiferentialInLast3Months >= 0 ? MudBlazor.Color.Success : MudBlazor.Color.Error)" />
+                        <MudText Typo="Typo.caption">@Math.Abs(kpis.RMDiferentialInLast3Months) kg in last 3 months</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Weekly Frequency Card - Bottom Left -->
+        <MudItem xs="12" sm="6">
+            <MudPaper Elevation="0" Style="background-color: white; height: 100%; min-height: 80px; border-radius: 8px; border: 1px solid #e0e0e0; padding: 16px;">
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="0">
+                    <MudText Typo="Typo.h4">@kpis.WeeklyFrequency</MudText>
+                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">Weekly Frequency</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Perceived Effort Card - Bottom Right -->
+        <MudItem xs="12" sm="6">
+            <MudPaper Elevation="0" Style="background-color: white; height: 100%; min-height: 80px; border-radius: 8px; border: 1px solid #e0e0e0; padding: 16px;">
+                <MudText Typo="Typo.caption" Align="MudBlazor.Align.Center">Last Session PE</MudText>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Style="flex-wrap: wrap; margin-top: 4px;">
+                    @for (int i = 1; i <= 10; i++)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Star" Size="MudBlazor.Size.Small"
+                               Color="@(i <= kpis.PerceibedEffortLastSession ? MudBlazor.Color.Warning : MudBlazor.Color.Dark)"
+                               Style="margin: 0 2px;" />
+                    }
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudItem>
 
                 <!-- Evolution Chart -->
                 <MudItem xs="12" Class="mt-3">
