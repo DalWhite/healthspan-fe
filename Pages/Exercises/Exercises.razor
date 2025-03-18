@@ -12,9 +12,6 @@
     <div class="sort-controls mb-3">
         <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
             <MudButton OnClick="@(() => SortExercisesBy("date"))" Variant="@GetSortButtonVariant("date")">Date</MudButton>
-            <MudButton OnClick="@(() => SortExercisesBy("name"))" Variant="@GetSortButtonVariant("name")">Exercise</MudButton>
-            <MudButton OnClick="@(() => SortExercisesBy("1rm"))" Variant="@GetSortButtonVariant("1rm")">1RM</MudButton>
-            <MudButton OnClick="@(() => SortExercisesBy("volume"))" Variant="@GetSortButtonVariant("volume")">Volume</MudButton>
             <MudButton OnClick="OpenFilterDialog" Variant="@(isFilterActive ? Variant.Filled : Variant.Outlined)">
                 <MudIcon Icon="@Icons.Material.Filled.FilterList" Class="mr-2" />Filter
             </MudButton>
