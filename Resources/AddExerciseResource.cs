@@ -5,4 +5,7 @@ public record AddExerciseResource
     public int Series { get; set; } = 1;
     public int Repetitions { get; set; } = 8;
     public decimal Weight { get; set; } = 0;
+        public ExerciseWeightType WeightType { get; set; }
+        public decimal? BodyWeight { get; set; }
+        public decimal? AddedWeight { get; set; }
 }
