@@ -8,5 +8,5 @@ public record GetExerciseTypeResource
     public int? SecondaryMuscleId {get;set;}
     public bool IsFavourite { get; set; }
 
-    public ExerciseWeightType WeightType { get; set; }
+    public ExerciseWeightType WeightType { get; set; } = ExerciseWeightType.Standard;
 }

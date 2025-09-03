@@ -74,7 +74,7 @@
 
     private AddExerciseResource exercise = new();
     private GetExerciseTypeResource? typeToAdd;
-    private AddWorkoutResource workoutToAdd = new(){Date = DateTime.Now};
+    private WorkoutPostResource workoutToAdd = new(){Date = DateTime.Now};
 
     // Search function for MudAutocomplete
     private Task<IEnumerable<GetExerciseTypeResource>> SearchExerciseTypes(string value)
@@ -132,11 +132,13 @@
         // If no workout exists for the selected date, create a new one
         if (workoutForSelectedDate == null)
         {
-            workoutToAdd.Type = "default";
-            workoutToAdd.UserId = traineeId ?? string.Empty;
-            workoutToAdd.Date = selectedDate.HasValue ? selectedDate.Value : DateTime.Now;
-
-            var response = await Http.PostAsJsonAsync("/Workouts", workoutToAdd);
+            var postResource = new WorkoutPostResource
+            {
+                Type = "default",
+                UserId = traineeId ?? string.Empty,
+                Date = selectedDate.HasValue ? selectedDate.Value : DateTime.Now
+            };
+            var response = await Http.PostAsJsonAsync("/Workouts", postResource);
             var newWorkout = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
 
             return newWorkout != null ? newWorkout.Id : Guid.NewGuid();
