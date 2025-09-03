@@ -67,10 +67,13 @@
 
 @code {
     public string createTypeButton = "CreateNew";
-    [Parameter] public EventCallback<AddExerciseResource> OnExerciseAdded { get; set; }
+    // ...existing code...
     [Parameter] public GetExerciseTypeResource[]? ExerciseTypes { get; set; }
     [Parameter] public Guid WorkoutId { get; set; }
     [Parameter] public string? traineeId { get; set; }
+
+    // Event callback for when an exercise is added
+    [Parameter] public EventCallback<AddExerciseResource> OnExerciseAdded { get; set; }
 
     private AddExerciseResource exercise = new();
     private GetExerciseTypeResource? typeToAdd;
@@ -120,8 +123,9 @@
     }
     private async Task<Guid> GetLastWorkoutIdOrNewIfNoWorkoutForSelectedDate(DateTime? selectedDate)
     {
-        // Fetch the workouts for the trainee
-        var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>($"/workouts?traineeId={traineeId}");
+    // Fetch the workouts for the trainee (if traineeId is provided) or all workouts otherwise
+    var workoutsUrl = traineeId != null ? $"/workouts?traineeId={traineeId}" : "/workouts";
+    var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>(workoutsUrl);
 
         // Get the workout for the selected date (ordered by descending date to get the latest workout)
         var workoutForSelectedDate = workouts?
@@ -135,8 +139,9 @@
             var postResource = new WorkoutPostResource
             {
                 Type = "default",
-                UserId = traineeId ?? string.Empty,
-                Date = selectedDate.HasValue ? selectedDate.Value : DateTime.Now
+                // If traineeId is null, send null so backend won't try to set an invalid FK value
+                UserId = traineeId,
+                Date = selectedDate ?? DateTime.Now
             };
             var response = await Http.PostAsJsonAsync("/Workouts", postResource);
             var newWorkout = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
