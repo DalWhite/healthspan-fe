@@ -1,7 +1,10 @@
 @inject HttpClient Http
 
+<EditForm EditContext="editContext" OnValidSubmit="AddExerciseToTheForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
 
-<MudContainer>
+    <MudContainer>
     <MudDatePicker Label="Fecha"
                    @bind-Date="workoutToAdd.Date"
                    Variant="Variant.Outlined"
@@ -10,7 +13,8 @@
                      Label="Ejercicio"
                      Variant="Variant.Outlined"
                      class="ma-2"
-                     @bind-Value="typeToAdd"
+                     Value="typeToAdd"
+                     ValueChanged="OnTypeChanged"
                      ToStringFunc="@(et => et?.Name ?? string.Empty)"
                      SearchFunc="SearchExerciseTypes"
                      CoerceText="true"
@@ -28,37 +32,44 @@
                      Variant="Variant.Outlined"
                      InputType="InputType.Number"
                      />
-    @if (exercise.WeightType == ExerciseWeightType.BodyWeight)
-    {
-        <MudNumericField class="ma-2"
-                         @bind-Value="exercise.BodyWeight"
-                         Label="Peso corporal"
-                         Variant="Variant.Outlined"
-                         InputType="InputType.Number"
-                         HelperText="Tu peso actual."
-                         />
-        <MudNumericField class="ma-2"
-                         @bind-Value="exercise.AddedWeight"
-                         Label="Peso añadido"
-                         Variant="Variant.Outlined"
-                         InputType="InputType.Number"
-                         HelperText="Peso extra usado en el ejercicio."
-                         />
-    }
-    else if (exercise.WeightType == ExerciseWeightType.Standard)
-    {
-        <MudNumericField class="ma-2"
-                         @bind-Value="exercise.Weight"
-                         Label="Peso"
-                         Variant="Variant.Outlined"
-                         Step=".5M"
-                         InputType="InputType.Number"
-                         HelperText="Peso usado en el ejercicio."
-                         />
-    }
-</MudContainer>
+        @if (exercise.WeightType == ExerciseWeightType.BodyWeight)
+        {
+            <MudNumericField class="ma-2"
+                             @bind-Value="exercise.BodyWeight"
+                             ValueExpression="() => exercise.BodyWeight"
+                             Label="Peso corporal"
+                             Variant="Variant.Outlined"
+                             InputType="InputType.Number"
+                             HelperText="Tu peso actual."
+                             Immediate="true"
+                             />
 
-<MudFab @onclick="AddExerciseToTheForm"
+            <MudNumericField class="ma-2"
+                             @bind-Value="exercise.AddedWeight"
+                             ValueExpression="() => exercise.AddedWeight"
+                             Label="Peso añadido"
+                             Variant="Variant.Outlined"
+                             InputType="InputType.Number"
+                             HelperText="Peso extra usado en el ejercicio."
+                             Immediate="true"
+                             />
+        }
+        else
+        {
+            <MudNumericField class="ma-2"
+                             @bind-Value="exercise.Weight"
+                             Label="Peso"
+                             Variant="Variant.Outlined"
+                             Step=".5M"
+                             InputType="InputType.Number"
+                             HelperText="Peso usado en el ejercicio."
+                             />
+        }
+    </MudContainer>
+
+</EditForm>
+
+<MudFab @onclick="OnFabClick"
     Color="Color.Primary"
     StartIcon="@Icons.Material.Filled.Add"
     style="float: right;"
@@ -69,6 +80,8 @@
     public string createTypeButton = "CreateNew";
     // ...existing code...
     [Parameter] public GetExerciseTypeResource[]? ExerciseTypes { get; set; }
+    // Current user's bodyweight (prefill for bodyweight exercises)
+    [Parameter] public decimal? CurrentUserBodyWeight { get; set; }
     [Parameter] public Guid WorkoutId { get; set; }
     [Parameter] public string? traineeId { get; set; }
 
@@ -78,6 +91,7 @@
     private AddExerciseResource exercise = new();
     private GetExerciseTypeResource? typeToAdd;
     private WorkoutPostResource workoutToAdd = new(){Date = DateTime.Now};
+    private EditContext? editContext;
 
     // Search function for MudAutocomplete
     private Task<IEnumerable<GetExerciseTypeResource>> SearchExerciseTypes(string value)
@@ -95,15 +109,37 @@
     {
         if (typeToAdd != null)
         {
-            exercise.WeightType = typeToAdd.WeightType;
+            exercise.TypeId = typeToAdd.Id;
+            exercise.WeightType = typeToAdd.WeightType ?? ExerciseWeightType.Standard;
         }
         else
         {
+            exercise.TypeId = null;
             exercise.WeightType = ExerciseWeightType.Standard;
         }
+        // If the selected type is bodyweight, prefill bodyweight and default added weight
+        if (exercise.WeightType == ExerciseWeightType.BodyWeight)
+        {
+            if (exercise.BodyWeight == null && CurrentUserBodyWeight != null)
+                exercise.BodyWeight = CurrentUserBodyWeight;
+            exercise.AddedWeight ??= 0m;
+        }
+
+        StateHasChanged();
     }
     private async Task AddExerciseToTheForm()
     {
+        // If bodyweight exercise, compute total weight as BodyWeight + AddedWeight
+        if (exercise.WeightType == ExerciseWeightType.BodyWeight)
+        {
+            // Prefill bodyweight from CurrentUserBodyWeight if not set
+            if (exercise.BodyWeight == null && CurrentUserBodyWeight != null)
+                exercise.BodyWeight = CurrentUserBodyWeight;
+
+            exercise.AddedWeight ??= 0m;
+            exercise.Weight = (exercise.BodyWeight ?? 0m) + (exercise.AddedWeight ?? 0m);
+        }
+
         if (WorkoutId == Guid.Empty)
         {
             WorkoutId = await GetLastWorkoutIdOrNewIfNoWorkoutForSelectedDate(workoutToAdd.Date);
@@ -120,6 +156,8 @@
 
         exercise = new();
         typeToAdd = null;
+        // recreate EditContext for the new model so validation resets
+        editContext = new EditContext(exercise);
     }
     private async Task<Guid> GetLastWorkoutIdOrNewIfNoWorkoutForSelectedDate(DateTime? selectedDate)
     {
@@ -163,5 +201,22 @@
     {
         typeToAdd = newType;
         UpdateWeightType();
+    }
+
+    private async Task OnFabClick()
+    {
+        if (editContext == null)
+            editContext = new EditContext(exercise);
+
+        // Validate the form and if valid submit
+        if (editContext.Validate())
+        {
+            await AddExerciseToTheForm();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        editContext = new EditContext(exercise);
     }
 }
