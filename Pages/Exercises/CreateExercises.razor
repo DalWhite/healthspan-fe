@@ -7,40 +7,36 @@
 
 <MudPaper Class="pa-4">
     <MudContainer MaxWidth="MaxWidth.Medium">
-
         <ExerciseCreationForm ExerciseTypes="@exerciseTypes"
                               WorkoutId="@workoutId"
-                              OnExerciseAdded="HandleExerciseAdded"
+                              OnExerciseAdded="OnExerciseAdded"
                               traineeId="@traineeId" />
+
         <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
                    Color="Color.Primary"
                    Variant="Variant.Outlined"
                    Class="ml-8 rounded-button"
-                   OnClick="GoBack">
+                   OnClick="NavigateBack">
             Back
         </MudButton>
     </MudContainer>
 </MudPaper>
 
-
 @code {
-    [Parameter]
-    public string? traineeId { get; set; }
-    private GetExerciseTypeResource[] exerciseTypes;
-    private Guid workoutId;
+    [Parameter] public string? traineeId { get; set; }
+
+    private GetExerciseTypeResource[] exerciseTypes = Array.Empty<GetExerciseTypeResource>();
+    private Guid workoutId = Guid.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
-        workoutId = Guid.Empty;
+        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>(("/ExerciseTypes"))
+                        ?? Array.Empty<GetExerciseTypeResource>();
     }
 
-    private void HandleExerciseAdded(AddExerciseResource exercise)
-    {
-        Snackbar.Add("Exercise added successfully!", Severity.Success);
-    }
-    private void GoBack()
-    {
-        NavigationManager.NavigateTo("/Exercises", forceLoad: false);
-    }
+    private void OnExerciseAdded(AddExerciseResource resource)
+        => Snackbar.Add("Exercise added successfully!", Severity.Success);
+
+    private void NavigateBack()
+        => NavigationManager.NavigateTo("/Exercises", forceLoad: false);
 }
