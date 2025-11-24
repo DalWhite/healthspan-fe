@@ -29,7 +29,9 @@
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
-        <script>navigator.serviceWorker.register('service-worker.js');</script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="js/googleAuth.js"></script>
+    <script>navigator.serviceWorker.register('service-worker.js');</script>
 </body>
 
 </html>

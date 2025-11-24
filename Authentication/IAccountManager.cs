@@ -4,6 +4,7 @@ namespace Healthspan.Authentication;
 public interface IAccountManagement
 {
     Task<FormResult> LoginAsync(string email, string password);
+    Task<FormResult> LoginWithGoogleAsync(string idToken);
     Task LogoutAsync();
     Task<FormResult> RegisterAsync(string email, string password);
     Task<bool> CheckAuthenticatedAsync();

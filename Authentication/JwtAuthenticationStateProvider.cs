@@ -105,6 +105,43 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         };
     }
 
+    public async Task<FormResult> LoginWithGoogleAsync(string idToken)
+    {
+        const string defaultError = "Unable to sign in with Google right now.";
+
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                "auth/google/exchange",
+                new
+                {
+                    idToken
+                });
+
+            if (response.IsSuccessStatusCode)
+            {
+                await ExtractAccessTokenAndStoreInLocalStorage(response);
+                NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+                return new FormResult { Succeeded = true };
+            }
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            return new FormResult
+            {
+                Succeeded = false,
+                ErrorList = ExtractProblemDetails(responseContent, defaultError)
+            };
+        }
+        catch
+        {
+            return new FormResult
+            {
+                Succeeded = false,
+                ErrorList = [defaultError]
+            };
+        }
+    }
+
     private async Task ExtractAccessTokenAndStoreInLocalStorage(HttpResponseMessage result)
     {
         var responseContent = await result.Content.ReadAsStringAsync();
@@ -217,6 +254,62 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result?.accessToken);
         return new FormResult() { Succeeded = true };
+    }
+
+    private static string[] ExtractProblemDetails(string? rawResponse, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(rawResponse))
+        {
+            return [fallback];
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(rawResponse);
+
+            if (document.RootElement.TryGetProperty("errors", out var errorsElement) &&
+                errorsElement.ValueKind == JsonValueKind.Object)
+            {
+                var errors = new List<string>();
+                foreach (var errorEntry in errorsElement.EnumerateObject())
+                {
+                    if (errorEntry.Value.ValueKind == JsonValueKind.String)
+                    {
+                        errors.Add(errorEntry.Value.GetString() ?? string.Empty);
+                    }
+                    else if (errorEntry.Value.ValueKind == JsonValueKind.Array)
+                    {
+                        errors.AddRange(
+                            errorEntry.Value.EnumerateArray()
+                                .Select(e => e.GetString() ?? string.Empty)
+                                .Where(e => !string.IsNullOrWhiteSpace(e)));
+                    }
+                }
+
+                if (errors.Count > 0)
+                {
+                    return [.. errors];
+                }
+            }
+
+            if (document.RootElement.TryGetProperty("detail", out var detailElement) &&
+                detailElement.ValueKind == JsonValueKind.String)
+            {
+                return [detailElement.GetString() ?? fallback];
+            }
+
+            if (document.RootElement.TryGetProperty("title", out var titleElement) &&
+                titleElement.ValueKind == JsonValueKind.String)
+            {
+                return [titleElement.GetString() ?? fallback];
+            }
+        }
+        catch
+        {
+            // Fall through to fallback
+        }
+
+        return [fallback];
     }
 }
 public class AuthLoginResponse

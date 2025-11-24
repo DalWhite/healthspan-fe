@@ -1,10 +1,14 @@
 @layout LoginLayout
 @page "/login"
 @using Healthspan.Authentication
+@using Microsoft.JSInterop
 @inject IAccountManagement Acct
 @inject NavigationManager Navigation
+@inject IConfiguration Configuration
+@inject IJSRuntime JSRuntime
 
 @using MudBlazor
+@implements IAsyncDisposable
 
 <PageTitle>Login</PageTitle>
 
@@ -76,6 +80,9 @@
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Secondary"
                                StartIcon="@Icons.Custom.Brands.Google"
+                               Disabled="@(!GoogleButtonEnabled)"
+                               Loading="@googleBusy"
+                               OnClick="StartGoogleLoginAsync"
                                FullWidth="true"
                                Class="google-button rounded-button">
                         Continue with Google
@@ -99,15 +106,51 @@
     private string email = string.Empty;
     private string password = string.Empty;
     private string[] errorList = [];
-    bool isShow;
-    InputType PasswordInput = InputType.Password;
-    string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+    private bool isShow;
+    private InputType PasswordInput = InputType.Password;
+    private string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+    private DotNetObjectReference<Login>? dotNetRef;
+    private bool googleInitialized;
+    private bool googleBusy;
+    private string? googleClientId;
+
+    private bool GoogleButtonEnabled => googleInitialized && !googleBusy;
 
     void ButtonTestclick()
     {
         isShow = !isShow;
         PasswordInputIcon = isShow ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff;
         PasswordInput = isShow ? InputType.Text : InputType.Password;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        googleClientId = Configuration["GoogleClientId"];
+
+        if (string.IsNullOrWhiteSpace(googleClientId))
+        {
+            return;
+        }
+
+        dotNetRef = DotNetObjectReference.Create(this);
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("healthspanAuth.initialize", dotNetRef, googleClientId);
+            googleInitialized = true;
+            StateHasChanged();
+        }
+        catch (JSException)
+        {
+            errors = true;
+            errorList = ["Google Sign-In could not be initialized. Please refresh and try again."];
+            StateHasChanged();
+        }
     }
 
     public async Task DoLoginAsync()
@@ -142,8 +185,91 @@
         }
     }
 
+    private async Task StartGoogleLoginAsync()
+    {
+        if (!GoogleButtonEnabled)
+        {
+            return;
+        }
+
+        errors = false;
+        errorList = Array.Empty<string>();
+        googleBusy = true;
+        StateHasChanged();
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("healthspanAuth.prompt");
+        }
+        catch (JSException)
+        {
+            googleBusy = false;
+            errors = true;
+            errorList = ["Unable to start Google Sign-In. Please try again later."];
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public async Task HandleGoogleCredentialAsync(string credential)
+    {
+        googleBusy = false;
+        StateHasChanged();
+
+        if (string.IsNullOrWhiteSpace(credential))
+        {
+            errors = true;
+            errorList = ["Google did not return a credential. Please try again."];
+            StateHasChanged();
+            return;
+        }
+
+        var result = await Acct.LoginWithGoogleAsync(credential);
+
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("/exercises");
+        }
+        else
+        {
+            errors = true;
+            errorList = result.ErrorList.ToArray();
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public Task HandleGooglePromptStatusAsync(string reason)
+    {
+        googleBusy = false;
+
+        if (!string.IsNullOrWhiteSpace(reason) &&
+            reason.StartsWith("not_displayed", System.StringComparison.OrdinalIgnoreCase))
+        {
+            errors = true;
+            errorList = ["Google Sign-In was blocked by the browser. Please allow pop-ups and try again."];
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
     private void NavigateToRegister()
     {
         Navigation.NavigateTo("/register");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        dotNetRef?.Dispose();
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("healthspanAuth.dispose");
+        }
+        catch
+        {
+            // Ignore disposal errors
+        }
     }
 }
