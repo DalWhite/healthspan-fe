@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 public record UpdateExerciseTypeResource
 {
     public int Id { get; set; }
@@ -7,4 +9,5 @@ public record UpdateExerciseTypeResource
     public int? PrimaryMuscleId { get; set; }
     public int? SecondaryMuscleId { get; set; }
     public bool IsFavourite { get; set; }
+    public List<ExerciseTag>? Tags { get; set; } = new List<ExerciseTag>();
 }

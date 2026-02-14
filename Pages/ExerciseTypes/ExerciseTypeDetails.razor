@@ -13,29 +13,36 @@
     .exercise-history-table thead { display: table-header-group !important; }
     .exercise-history-table tbody { display: table-row-group !important; }
     .exercise-history-table tr { display: table-row !important; }
-    .exercise-history-table th, .exercise-history-table td { display: table-cell !important; padding: 12px 8px !important; vertical-align: middle !important; }
-    /* prevent breaks inside these cells */
+    .exercise-history-table th, .exercise-history-table td { display: table-cell !important; padding: 8px 6px !important; vertical-align: middle !important; font-size: 0.9rem; }
     .exercise-history-table td.no-break, .exercise-history-table span.no-break { white-space: nowrap !important; word-break: keep-all !important; overflow: visible !important; }
-    .exercise-history-table thead th { text-align: left; font-weight: 600; }
-    /* make header labels smaller on narrow screens to save space -- escaped to avoid Razor interpreting media */
-    @@media (max-width: 640px) {
-        .exercise-history-table th { font-size: 0.85rem; }
-        .exercise-history-table td { font-size: 0.95rem; }
+    .exercise-history-table thead th { text-align: left; font-weight: 600; font-size: 0.85rem; }
 
-        /* stacked row layout: hide header and show each cell as label above value (less cramped) */
-        .exercise-history-table thead { display: none !important; }
-        .exercise-history-table tbody { display: block !important; }
-    /* compact: try to show date + 1RM on first line, details on second line */
-    .exercise-history-table tr { display: grid !important; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; margin: 0 0 8px 0; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
-    .exercise-history-table td { display: block !important; padding: 0 !important; }
-    .exercise-history-table td[data-label="Date"] { grid-column: 1 / 2; }
-    .exercise-history-table td[data-label="1RM"] { grid-column: 2 / 3; text-align: right; }
-    .exercise-history-table td[data-label="Details"] { grid-column: 1 / 3; margin-top: 6px; }
-    .exercise-history-table td::before { content: none; }
-    .exercise-history-table td .value { display: block; }
-    .exercise-history-table td[data-label="Details"] .value { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-        /* still avoid breaking numeric/date chunks if possible */
-        .exercise-history-table td.no-break, .exercise-history-table span.no-break { white-space: nowrap !important; word-break: keep-all !important; }
+    /* List view defaults to hidden, shown only on mobile */
+    .exercise-history-list { display: none; }
+
+    @@media (max-width: 640px) {
+        /* Hide table on mobile */
+        .desktop-view { display: none !important; }
+
+        /* Show list on mobile */
+        .exercise-history-list { list-style: none; padding: 0; margin: 0; display: block; }
+        .exercise-history-list li { padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.06); display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; }
+        .exercise-history-list li:last-child { border-bottom: none; }
+        .exercise-history-list .date-details { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        .exercise-history-list .date { font-size: 0.85rem; font-weight: 500; color: var(--mud-palette-text-secondary); }
+        .exercise-history-list .details { font-size: 0.9rem; }
+        .exercise-history-list .rm { font-size: 0.85rem; font-weight: 500; text-align: right; white-space: nowrap; }
+        .exercise-history-list .rm.max { font-weight: bold; color: var(--mud-palette-primary); }
+    }
+
+    @@media (min-width: 641px) {
+        /* Hide list on desktop */
+        .exercise-history-list { display: none !important; }
+
+        /* Show table on desktop */
+        .desktop-view { display: block !important; }
+        .exercise-history-table th { font-size: 0.85rem; }
+        .exercise-history-table td { font-size: 0.9rem; }
     }
 </style>
 
@@ -53,59 +60,32 @@
 
         <MudGrid>
 <MudItem xs="12">
-    <MudText Typo="Typo.h6" Class="mb-2">Performance Summary</MudText>
-    <MudGrid Spacing="2" Class="mt-2">
-        <!-- Max RM Card - Top Left -->
+    <MudText Typo="Typo.subtitle1" Class="mb-2">Performance Summary</MudText>
+    <MudGrid Spacing="1" Class="mt-1">
+        <!-- Max RM Card -->
         <MudItem xs="12" sm="6">
-            <MudPaper Elevation="0" Style="background-color: #1976d2; color: white; height: 100%; min-height: 100px; cursor: pointer; border-radius: 8px; padding: 16px;"
+            <MudPaper Elevation="0" Style="background-color: #1976d2; color: white; border-radius: 8px; padding: 8px; cursor: pointer;"
                      @onclick="() => ScrollToExerciseDate(kpis.MaxRMDate)">
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.h4" Style="color: white;">@kpis.MaxRM.ToString("F1") kg</MudText>
-                    <MudText Typo="Typo.subtitle2" Style="color: rgba(255,255,255,0.8);">Theoretical Max RM</MudText>
-                    <MudStack Row="true" AlignItems="AlignItems.Center">
-                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="MudBlazor.Size.Small" Style="color: rgba(255,255,255,0.7);" />
-                        <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.7);">@kpis.MaxRMDate.ToShortDateString()</MudText>
-                    </MudStack>
+                    <MudText Typo="Typo.h6" Style="color: white;">@kpis.MaxRM.ToString("F1") kg</MudText>
+                    <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.8);">Theoretical Max RM</MudText>
+                    <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.7); font-size: 0.75rem;">@kpis.MaxRMDate.ToShortDateString()</MudText>
                 </MudStack>
             </MudPaper>
         </MudItem>
 
-        <!-- Current 1RM Card - Top Right -->
+        <!-- Current 1RM Card -->
         <MudItem xs="12" sm="6">
-            <MudPaper Elevation="0" Style="background-color: white; height: 100%; min-height: 100px; border-radius: 8px; border: 1px solid #e0e0e0; padding: 16px;">
+            <MudPaper Elevation="0" Style="background-color: white; border-radius: 8px; border: 1px solid #e0e0e0; padding: 8px;">
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.h4">@kpis.Current1RM.ToString("F1") kg</MudText>
-                    <MudText Typo="Typo.subtitle2">Current 1RM</MudText>
-                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h6">@kpis.Current1RM.ToString("F1") kg</MudText>
+                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">Current 1RM</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
                         <MudIcon Icon="@(kpis.RMDiferentialInLast3Months >= 0 ? @Icons.Material.Filled.TrendingUp : @Icons.Material.Filled.TrendingDown)"
+                                Size="MudBlazor.Size.Small"
                                 Color="@(kpis.RMDiferentialInLast3Months >= 0 ? MudBlazor.Color.Success : MudBlazor.Color.Error)" />
-                        <MudText Typo="Typo.caption">@Math.Abs(kpis.RMDiferentialInLast3Months) kg in last 3 months</MudText>
+                        <MudText Typo="Typo.caption" Style="font-size: 0.8rem;">@Math.Abs(kpis.RMDiferentialInLast3Months) kg</MudText>
                     </MudStack>
-                </MudStack>
-            </MudPaper>
-        </MudItem>
-
-        <!-- Weekly Frequency Card - Bottom Left -->
-        <MudItem xs="12" sm="6">
-            <MudPaper Elevation="0" Style="background-color: white; height: 100%; min-height: 80px; border-radius: 8px; border: 1px solid #e0e0e0; padding: 16px;">
-                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="0">
-                    <MudText Typo="Typo.h4">@kpis.WeeklyFrequency</MudText>
-                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">Weekly Frequency</MudText>
-                </MudStack>
-            </MudPaper>
-        </MudItem>
-
-        <!-- Perceived Effort Card - Bottom Right -->
-        <MudItem xs="12" sm="6">
-            <MudPaper Elevation="0" Style="background-color: white; height: 100%; min-height: 80px; border-radius: 8px; border: 1px solid #e0e0e0; padding: 16px;">
-                <MudText Typo="Typo.caption" Align="MudBlazor.Align.Center">Last Session PE</MudText>
-                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Style="flex-wrap: wrap; margin-top: 4px;">
-                    @for (int i = 1; i <= 10; i++)
-                    {
-                        <MudIcon Icon="@Icons.Material.Filled.Star" Size="MudBlazor.Size.Small"
-                               Color="@(i <= kpis.PerceibedEffortLastSession ? MudBlazor.Color.Warning : MudBlazor.Color.Dark)"
-                               Style="margin: 0 2px;" />
-                    }
                 </MudStack>
             </MudPaper>
         </MudItem>
@@ -116,7 +96,7 @@
                 <MudItem xs="12" Class="mt-3">
                     <MudText Typo="Typo.h6" Class="mb-2">Performance Trends</MudText>
                     <div Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 8px; overflow: hidden;">
-                        @if (_rmTrends != null && _volumeTrends != null && _intensityTrends != null)
+                        @if (_rmTrends != null && _volumeTrends != null)
                         {
                             <div style="height: 300px; padding: 8px;">
                                 <ApexChart @ref="rmChart"
@@ -126,19 +106,13 @@
                                                     Items="_rmTrends"
                                                     Name="RM"
                                                     SeriesType="ApexCharts.SeriesType.Line"
-                                                    XValue='e => e.Time.ToShortDateString()'
+                                                    XValue='e => e.Time.ToString("yyyy-MM-dd")'
                                                     YAggregate="e => e.Average(e=> e.Data)" />
                                     <ApexPointSeries TItem="DataPoint"
                                                     Items="_volumeTrends"
                                                     Name="Volume"
                                                     SeriesType="ApexCharts.SeriesType.Line"
-                                                    XValue='e => e.Time.ToShortDateString()'
-                                                    YAggregate="e => e.Average(e=> e.Data)" />
-                                    <ApexPointSeries TItem="DataPoint"
-                                                    Items="_intensityTrends"
-                                                    Name="Intensity"
-                                                    SeriesType="ApexCharts.SeriesType.Line"
-                                                    XValue='e => e.Time.ToShortDateString()'
+                                                    XValue='e => e.Time.ToString("yyyy-MM-dd")'
                                                     YAggregate="e => e.Average(e=> e.Data)" />
                                 </ApexChart>
                             </div>
@@ -148,26 +122,26 @@
 
                 <!-- Exercise History -->
                 <MudItem xs="12" Class="mt-4">
-                    <MudPaper Elevation="2" Class="pa-4">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                            <MudText Typo="Typo.h6">Exercise History</MudText>
-                            <MudButton Variant="Variant.Outlined"
+                    <MudPaper Elevation="2" Class="px-3 py-2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2">
+                            <MudText Typo="Typo.subtitle1">Exercise History</MudText>
+                            <MudButton Variant="Variant.Text"
                                       Color="MudBlazor.Color.Primary"
+                                      Size="MudBlazor.Size.Small"
                                       OnClick="OnExpandCollapseClick"
                                       EndIcon="@(_expanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)">
                                 @(_expanded ? "Collapse" : "Expand")
                             </MudButton>
                         </MudStack>
-                        <MudDivider Class="my-2" />
 
                         <MudCollapse Expanded="_expanded">
-                            <div style="max-height: 500px; overflow-y: auto;">
-                                <!-- make table responsive: allow horizontal scroll within the panel, and force fixed layout so columns respect widths -->
-                                <div style="overflow-x: auto;">
+                            <div style="max-height: 500px; overflow-y: auto; margin-top: 8px;">
+                                <!-- Desktop: Table view -->
+                                <div style="overflow-x: auto; display: none;" class="desktop-view">
                                     <table class="exercise-history-table">
                                         <colgroup>
-                                            <col style="width: 28%;" />
-                                            <col style="width: 52%;" />
+                                            <col style="width: 30%;" />
+                                            <col style="width: 50%;" />
                                             <col style="width: 20%;" />
                                         </colgroup>
                                         <thead>
@@ -182,7 +156,7 @@
                                         {
                                             <tr>
                                                 <td class="no-break" data-label="Date" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                                    <MudText id="@($"exercise-{context.Workout.Date.Value.ToString("yyyyMMdd")}")">
+                                                    <MudText id="@($"exercise-{context.Workout.Date.Value.ToString("yyyyMMdd")}")" Typo="Typo.body2">
                                                             <span class="no-break value">@context.Workout.Date.Value.ToString("d MMM")</span>
                                                     </MudText>
                                                 </td>
@@ -199,12 +173,28 @@
                                         </tbody>
                                     </table>
                                 </div>
+
+                                <!-- Mobile: Simple list view -->
+                                <ul class="exercise-history-list">
+                                @foreach (var context in exercises.OrderByDescending(e => e.Workout.Date))
+                                {
+                                    <li id="@($"exercise-{context.Workout.Date.Value.ToString("yyyyMMdd")}")">
+                                        <div class="date-details">
+                                            <span class="date">@context.Workout.Date.Value.ToString("d MMM")</span>
+                                            <span class="details">@context.Series×@context.Repetitions×@context.Weight kg</span>
+                                        </div>
+                                        <span class="rm @(context.Workout.Date.Value.Date == kpis.MaxRMDate.Date ? "max" : "")">
+                                            @string.Format(System.Globalization.CultureInfo.CurrentCulture, "{0:F1} kg", context.MaxRepetition)
+                                        </span>
+                                    </li>
+                                }
+                                </ul>
                             </div>
                         </MudCollapse>
 
                         @if (!_expanded && exercises.Length > 0)
                         {
-                            <MudText Typo="Typo.caption" Class="mt-2">@exercises.Length sessions available. Click Expand to view all.</MudText>
+                            <MudText Typo="Typo.caption" Class="mt-1">@exercises.Length sessions</MudText>
                         }
                     </MudPaper>
                 </MudItem>
@@ -302,7 +292,7 @@
 
         options.Title = new Title
         {
-            Text = "Performance Metrics Over Time"
+            Text = ""
         };
 
         options.Tooltip = new Tooltip
@@ -320,7 +310,7 @@
         options.Yaxis = new List<YAxis>();
 
         // Colors for the series
-        options.Colors = new List<string> { "#2196F3", "#00E396", "#FFA500" };
+        options.Colors = new List<string> { "#2196F3", "#00E396" };
 
         options.Yaxis.Add(new YAxis
             {
@@ -340,19 +330,19 @@
                     return Number(value).toLocaleString() + ' kg';
                 }" }
             });
-        options.Yaxis.Add(new YAxis
-            {
-                Title = new AxisTitle { Text = "Intensity (%)" },
-                SeriesName = "Intensity",
-                DecimalsInFloat = 0,
-                Opposite = true,
-                Labels = new YAxisLabels { Formatter = @"function (value) {
-                    return Number(value).toLocaleString() + '%';
-                }" }
-            });
 
         options.Legend = new Legend
         {
+        };
+
+        // Configure X-axis with minimal labels
+        options.Xaxis = new XAxis
+        {
+            Labels = new XAxisLabels
+            {
+                ShowDuplicates = false,
+                OffsetX = 0
+            }
         };
 
         // Mobile-specific options
@@ -366,7 +356,16 @@
         mobileOptions.Legend = new Legend { };
 
         mobileOptions.Yaxis = new List<YAxis>();
-        mobileOptions.Xaxis = new XAxis { Labels = new XAxisLabels { Rotate = -45, RotateAlways = true, MaxHeight = 60 } };
+        mobileOptions.Xaxis = new XAxis
+        {
+            Labels = new XAxisLabels
+            {
+                Rotate = -45,
+                RotateAlways = true,
+                MaxHeight = 60,
+                ShowDuplicates = false
+            }
+        };
 
         mobileOptions.Yaxis.Add(new YAxis
             {
@@ -383,15 +382,6 @@
                 DecimalsInFloat = 0,
                 Show = false,
                 Labels = new YAxisLabels { Formatter = @"function (value) { return Number(value).toLocaleString() + ' kg'; }" }
-            });
-        mobileOptions.Yaxis.Add(new YAxis
-            {
-                Title = new AxisTitle { Text = "" },
-                SeriesName = "Intensity",
-                DecimalsInFloat = 0,
-                Opposite = true,
-                Show = false,
-                Labels = new YAxisLabels { Formatter = @"function (value) { return Number(value).toLocaleString() + '%'; }" }
             });
 
         // Responsive design

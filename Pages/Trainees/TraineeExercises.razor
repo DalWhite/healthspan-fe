@@ -146,7 +146,7 @@ else
             GroupName = "Date",
             Indentation = true,
             Expandable = false,
-            Selector = (e) => e.Workout?.Date.Value.ToShortDateString()
+            Selector = (e) => e.Workout?.Date?.ToString("d") ?? "No Date"
         };
 
     protected override async Task OnInitializedAsync()

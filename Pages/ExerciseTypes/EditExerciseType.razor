@@ -1,0 +1,381 @@
+@page "/exercises/types/{ExerciseTypeId:int}/edit"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject TitleService TitleService
+
+<PageTitle>Edit Exercise Type</PageTitle>
+
+<style>
+    .edit-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    .form-section {
+        margin-bottom: 32px;
+    }
+
+    .form-section h3 {
+        margin-bottom: 16px;
+        color: #667eea;
+        font-weight: 600;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 12px;
+        margin-top: 32px;
+        flex-wrap: wrap;
+    }
+
+    .delete-button {
+        margin-left: auto;
+    }
+
+    .loading-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 400px;
+    }
+
+    .error-state {
+        padding: 24px;
+        background: #ffebee;
+        border-radius: 8px;
+        color: #c62828;
+        margin-bottom: 16px;
+    }
+
+    .success-state {
+        padding: 16px;
+        background: #e8f5e9;
+        border-radius: 8px;
+        color: #2e7d32;
+        margin-bottom: 16px;
+    }
+
+    .image-preview {
+        width: 200px;
+        height: 150px;
+        border-radius: 8px;
+        object-fit: cover;
+        margin-top: 12px;
+        border: 2px solid #e0e0e0;
+    }
+
+    .muscle-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    @@media (max-width: 600px) {
+        .edit-container {
+            padding: 12px;
+        }
+
+        .muscle-info {
+            grid-template-columns: 1fr;
+        }
+
+        .button-group {
+            flex-direction: column;
+        }
+
+        .delete-button {
+            margin-left: 0;
+        }
+    }
+</style>
+
+<div class="edit-container">
+    @if (_isLoading)
+    {
+        <div class="loading-state">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="error-state">
+            <strong>Error:</strong> @_errorMessage
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => NavigationManager.NavigateTo("/exercises/types"))">
+            Back to Exercise Types
+        </MudButton>
+    }
+    else if (_exerciseType != null)
+    {
+        @if (!string.IsNullOrEmpty(_successMessage))
+        {
+            <div class="success-state">@_successMessage</div>
+        }
+
+        <MudCard>
+            <MudCardContent>
+                <!-- Basic Info Section -->
+                <div class="form-section">
+                    <h3>Basic Information</h3>
+                    <MudTextField @bind-Value="_exerciseType.Name"
+                                  Label="Exercise Type Name"
+                                  Variant="Variant.Outlined"
+                                  FullWidth="true"
+                                  Class="mb-4" />
+
+                    <MudTextField @bind-Value="_exerciseType.Description"
+                                  Label="Description"
+                                  Variant="Variant.Outlined"
+                                  FullWidth="true"
+                                  Lines="4"
+                                  Class="mb-4" />
+
+                    <MudTextField @bind-Value="_exerciseType.ImageRoute"
+                                  Label="Image URL"
+                                  Variant="Variant.Outlined"
+                                  FullWidth="true"
+                                  Class="mb-4"
+                                  HelperText="Optional: URL to exercise image" />
+
+                    @if (!string.IsNullOrEmpty(_exerciseType.ImageRoute))
+                    {
+                        <div>
+                            <small>Image Preview:</small>
+                            <img src="@_exerciseType.ImageRoute" alt="@_exerciseType.Name" class="image-preview" />
+                        </div>
+                    }
+                </div>
+
+                <!-- Muscle Groups Section -->
+                <div class="form-section">
+                    <h3>Target Muscles</h3>
+                    <div class="muscle-info">
+                        <div>
+                            <MudSelect T="int?"
+                                       @bind-Value="_exerciseType.PrimaryMuscleId"
+                                       Label="Primary Muscle Group"
+                                       Variant="Variant.Outlined"
+                                       FullWidth="true">
+                                <MudSelectItem T="int?" Value="null">None</MudSelectItem>
+                                @foreach (var muscle in _muscles)
+                                {
+                                    <MudSelectItem T="int?" Value="@muscle.Id">@muscle.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </div>
+
+                        <div>
+                            <MudSelect T="int?"
+                                       @bind-Value="_exerciseType.SecondaryMuscleId"
+                                       Label="Secondary Muscle Group"
+                                       Variant="Variant.Outlined"
+                                       FullWidth="true">
+                                <MudSelectItem T="int?" Value="null">None</MudSelectItem>
+                                @foreach (var muscle in _muscles)
+                                {
+                                    <MudSelectItem T="int?" Value="@muscle.Id">@muscle.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exercise Weight Type Section -->
+                <div class="form-section">
+                    <h3>Weight Type</h3>
+                    <MudSelect T="ExerciseWeightType?"
+                               @bind-Value="_exerciseType.WeightType"
+                               Label="Weight Type"
+                               Variant="Variant.Outlined"
+                               FullWidth="true">
+                        <MudSelectItem T="ExerciseWeightType?" Value="ExerciseWeightType.Standard">Standard</MudSelectItem>
+                        <MudSelectItem T="ExerciseWeightType?" Value="ExerciseWeightType.BodyWeight">BodyWeight</MudSelectItem>
+                        <MudSelectItem T="ExerciseWeightType?" Value="ExerciseWeightType.None">None</MudSelectItem>
+                    </MudSelect>
+                </div>
+
+                <!-- Favorite Toggle -->
+                <div class="form-section">
+                    <MudSwitch @bind-Checked="_exerciseType.IsFavourite"
+                               Label="Mark as Favorite"
+                               Color="Color.Primary" />
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="button-group">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@SaveExerciseType">
+                        <MudIcon Icon="@Icons.Material.Filled.Save" Class="mr-2" />
+                        Save Changes
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@CancelEdit">
+                        <MudIcon Icon="@Icons.Material.Filled.Cancel" Class="mr-2" />
+                        Cancel
+                    </MudButton>
+
+                    @if (_showDeleteConfirm)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" Class="delete-button" OnClick="@DeleteExerciseType">
+                            <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" />
+                            Confirm Delete
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="@(() => _showDeleteConfirm = false)">
+                            Cancel Delete
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" Class="delete-button" OnClick="@ShowDeleteConfirmation">
+                            <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" />
+                            Delete Exercise Type
+                        </MudButton>
+                    }
+                </div>
+
+                @if (_showDeleteConfirm)
+                {
+                    <div style="margin-top: 12px; padding: 12px; background: #fff3e0; border-radius: 4px; color: #e65100;\">
+                        <strong>⚠️ Warning:</strong> Click "Confirm Delete" to permanently delete '@_exerciseType?.Name'. This action cannot be undone.
+                    </div>
+                }
+            </MudCardContent>
+        </MudCard>
+    }
+    else
+    {
+        <MudText Color="Color.Error">Exercise type not found</MudText>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int ExerciseTypeId { get; set; }
+
+    [CascadingParameter]
+    private MudDialogInstance? MudDialog { get; set; }
+
+    private GetExerciseTypeResource? _exerciseType;
+    private List<Muscle> _muscles = new();
+    private bool _isLoading = true;
+    private string _errorMessage = "";
+    private string _successMessage = "";
+    private bool _showDeleteConfirm = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Load muscles
+            _muscles = await Http.GetFromJsonAsync<List<Muscle>>("api/muscles") ?? new();
+
+            // Load exercise type
+            _exerciseType = await Http.GetFromJsonAsync<GetExerciseTypeResource>($"/ExerciseTypes/{ExerciseTypeId}");
+
+            if (_exerciseType != null)
+            {
+                TitleService.Title = $"Edit - {_exerciseType.Name}";
+            }
+            else
+            {
+                _errorMessage = "Exercise type not found";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error loading exercise type: {ex.Message}";
+            Console.WriteLine($"Error: {ex}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveExerciseType()
+    {
+        if (_exerciseType == null) return;
+
+        try
+        {
+            var updateResource = new UpdateExerciseTypeResource
+            {
+                Id = _exerciseType.Id,
+                Name = _exerciseType.Name,
+                Description = _exerciseType.Description,
+                ImageRoute = _exerciseType.ImageRoute,
+                PrimaryMuscleId = _exerciseType.PrimaryMuscleId,
+                SecondaryMuscleId = _exerciseType.SecondaryMuscleId,
+                IsFavourite = _exerciseType.IsFavourite,
+                Tags = _exerciseType.Tags
+            };
+
+            var response = await Http.PutAsJsonAsync($"/ExerciseTypes", updateResource);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _successMessage = "Exercise type saved successfully!";
+                await Task.Delay(2000);
+                NavigationManager.NavigateTo("/exercises/types");
+            }
+            else
+            {
+                _errorMessage = "Failed to save exercise type. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error saving exercise type: {ex.Message}";
+            Console.WriteLine($"Error: {ex}");
+        }
+    }
+
+    private async Task ShowDeleteConfirmation()
+    {
+        _showDeleteConfirm = !_showDeleteConfirm;
+        if (_showDeleteConfirm)
+        {
+            StateHasChanged();
+            // Reset the confirmation state after 5 seconds if not confirmed
+            await Task.Delay(5000);
+            if (_showDeleteConfirm)
+            {
+                _showDeleteConfirm = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task DeleteExerciseType()
+    {
+        if (_exerciseType == null) return;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"/ExerciseTypes/{_exerciseType.Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                _successMessage = "Exercise type deleted successfully!";
+                await Task.Delay(1500);
+                NavigationManager.NavigateTo("/exercises/types");
+            }
+            else
+            {
+                _errorMessage = "Failed to delete exercise type. Please try again.";
+                _showDeleteConfirm = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error deleting exercise type: {ex.Message}";
+            _showDeleteConfirm = false;
+            Console.WriteLine($"Error: {ex}");
+        }
+    }
+
+    private void CancelEdit()
+    {
+        NavigationManager.NavigateTo("/exercises/types");
+    }
+}

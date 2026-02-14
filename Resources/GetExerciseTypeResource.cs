@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 public record GetExerciseTypeResource
 {
     public int Id { get; set; }
@@ -8,4 +10,5 @@ public record GetExerciseTypeResource
     public int? SecondaryMuscleId {get;set;}
     public bool IsFavourite { get; set; }
     public ExerciseWeightType? WeightType { get; set; } = ExerciseWeightType.Standard;
+    public List<ExerciseTag>? Tags { get; set; } = new List<ExerciseTag>();
 }
