@@ -1,0 +1,25 @@
+@* Shared empty-state display. Use this wherever a list/grid has no results. *@
+
+<div class="hs-empty-state">
+    <MudIcon Icon="@Icon" Style="font-size: 3.5rem; opacity: 0.35;" />
+    <MudText Typo="Typo.h6" Class="mt-3">@Title</MudText>
+    @if (!string.IsNullOrEmpty(Subtitle))
+    {
+        <MudText Typo="Typo.body2" Color="MudBlazor.Color.Dark" Style="opacity: 0.6;" Class="mt-1">@Subtitle</MudText>
+    }
+    @if (!string.IsNullOrEmpty(ActionLabel) && OnAction.HasDelegate)
+    {
+        <MudButton Variant="Variant.Filled"
+                   Color="MudBlazor.Color.Primary"
+                   Class="mt-4"
+                   OnClick="OnAction">@ActionLabel</MudButton>
+    }
+</div>
+
+@code {
+    [Parameter] public string Icon { get; set; } = Icons.Material.Filled.SearchOff;
+    [Parameter] public string Title { get; set; } = "No results found";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? ActionLabel { get; set; }
+    [Parameter] public EventCallback OnAction { get; set; }
+}

@@ -4,26 +4,22 @@
 @using Healthspan.Authentication
 @inject IAccountManagement Acct
 @inject TitleService TitleService
-@inject Blazored.LocalStorage.ISyncLocalStorageService localStorage
+@inject Blazored.LocalStorage.ISyncLocalStorageService LocalStorage
 
-<MudThemeProvider @bind-IsDarkMode="@_isDarkMode"
-                  Theme="_currentTheme" />
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_theme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu"
-                       Color="Color.Inherit"
+                       Color="MudBlazor.Color.Inherit"
                        Edge="Edge.Start"
-                       OnClick="@ToggleDrawer" />
-        <MudText Typo="Typo.h6">
-            @TitleService.Title
-        </MudText>
+                       OnClick="ToggleDrawer" />
+        <MudText Typo="Typo.h6">@TitleService.Title</MudText>
     </MudAppBar>
-    <MudDrawer @bind-Open="@open"
-               Elevation="1"
-               Class="drawer-responsive">
+
+    <MudDrawer @bind-Open="@_drawerOpen" Elevation="1" Class="drawer-responsive">
         <MudDrawerHeader>
             <MudText Typo="Typo.h6">Healthspan</MudText>
         </MudDrawerHeader>
@@ -33,82 +29,63 @@
         <AuthorizeView>
             <Authorized>
                 <div class="d-inline object-bottom ml-6 mb-6">
-                    <MudAvatar Color="Color.Primary">@context.User?.Identity?.Name[0].ToString().ToUpper()</MudAvatar>
-                    <MudIconButton OnClick="@GoToSettings"
+                    <MudAvatar Color="MudBlazor.Color.Primary">
+                        @context.User?.Identity?.Name?[0].ToString().ToUpper()
+                    </MudAvatar>
+                    <MudIconButton OnClick="GoToSettings"
                                    Icon="@Icons.Material.Filled.Settings"
-                                   aria-label="settings">
-                    </MudIconButton>
+                                   aria-label="settings" />
                 </div>
             </Authorized>
         </AuthorizeView>
     </MudDrawer>
+
     <MudMainContent Class="main-content">
         <MudContainer Class="mt-6">
             @Body
         </MudContainer>
     </MudMainContent>
-
 </MudLayout>
 
-
 @code {
-    private MudTheme _theme = new();
     private bool _isDarkMode;
-    bool open = false;
+    private bool _drawerOpen = false;
 
-    private readonly MudTheme _currentTheme = new()
+    private readonly MudTheme _theme = new()
+    {
+        Palette = new PaletteLight
         {
-            Palette = new PaletteLight
-            {
-                Primary = "#ae1d0d",
-                Secondary = "#035960",
-                AppbarBackground = "#02363a"
-            },
-            PaletteDark = new PaletteDark
-            {
-                Primary = "#ae1d0d",
-                Secondary = "#05a0ac",
-                AppbarBackground = "#108b37"
-            }
-        };
+            Primary = "#ae1d0d",
+            Secondary = "#035960",
+            AppbarBackground = "#02363a"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#ae1d0d",
+            Secondary = "#05a0ac",
+            AppbarBackground = "#108b37"
+        }
+    };
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity?.IsAuthenticated ?? false)
-        {
-            NavigationManager.NavigateTo("/exercises");
-        }
-        else
-        {
-            NavigationManager.NavigateTo("/login");
-        }
-    }
-
-    void ToggleDrawer()
-    {
-        open = !open;
-    }
-
-    void GoToSettings()
-    {
-        NavigationManager.NavigateTo("/settings");
-    }
-
-    protected override void OnInitialized()
-    {
+        // Subscribe to title changes
         TitleService.OnChange += StateHasChanged;
 
-        if (localStorage.ContainKey("_isDarkMode"))
-        {
-            _isDarkMode = localStorage.GetItem<bool>("_isDarkMode");
-        }
+        // Restore dark mode preference
+        if (LocalStorage.ContainKey("_isDarkMode"))
+            _isDarkMode = LocalStorage.GetItem<bool>("_isDarkMode");
+
+        // Redirect based on auth state
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+            NavigationManager.NavigateTo("/exercises");
+        else
+            NavigationManager.NavigateTo("/login");
     }
 
-    public void Dispose()
-    {
-        TitleService.OnChange -= StateHasChanged;
-    }
+    public void Dispose() => TitleService.OnChange -= StateHasChanged;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void GoToSettings() => NavigationManager.NavigateTo("/settings");
 }

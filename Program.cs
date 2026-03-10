@@ -14,6 +14,7 @@ builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddAuthorizationCore();
 
 builder.Services.AddScoped<TitleService>();
+builder.Services.AddScoped<AppStateService>();
 
 builder.Services.AddScoped<IAccountManagement, JwtAuthenticationStateProvider>();
 builder.Services.AddScoped<JwtAuthenticationStateProvider>();

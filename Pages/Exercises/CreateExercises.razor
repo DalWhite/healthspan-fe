@@ -1,4 +1,4 @@
-@page "/exercises/create/{traineeId?}"
+@page "/exercises/create/{TraineeId?}"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -7,15 +7,15 @@
 
 <MudPaper Class="pa-4">
     <MudContainer MaxWidth="MaxWidth.Medium">
-        <ExerciseCreationForm ExerciseTypes="@exerciseTypes"
-                              WorkoutId="@workoutId"
-                              OnExerciseAdded="OnExerciseAdded"
-                              traineeId="@traineeId" />
+        <ExerciseForm Exercise="_exercise"
+                      @bind-Date="_workoutDate"
+                      ExerciseTypes="@_exerciseTypes"
+                      OnSubmit="HandleSubmit" />
 
         <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
-                   Color="Color.Primary"
+                   Color="MudBlazor.Color.Primary"
                    Variant="Variant.Outlined"
-                   Class="ml-8 rounded-button"
+                   Class="ml-8 mt-4 rounded-button"
                    OnClick="NavigateBack">
             Back
         </MudButton>
@@ -23,19 +23,50 @@
 </MudPaper>
 
 @code {
-    [Parameter] public string? traineeId { get; set; }
+    [Parameter] public string? TraineeId { get; set; }
 
-    private GetExerciseTypeResource[] exerciseTypes = Array.Empty<GetExerciseTypeResource>();
-    private Guid workoutId = Guid.Empty;
+    private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
+    private AddExerciseResource _exercise = new();
+    private DateTime? _workoutDate = DateTime.Now;
 
     protected override async Task OnInitializedAsync()
     {
-        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>(("/ExerciseTypes"))
-                        ?? Array.Empty<GetExerciseTypeResource>();
+        _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes")
+                         ?? Array.Empty<GetExerciseTypeResource>();
     }
 
-    private void OnExerciseAdded(AddExerciseResource resource)
-        => Snackbar.Add("Exercise added successfully!", Severity.Success);
+    private async Task HandleSubmit(AddExerciseResource exercise)
+    {
+        // Resolve workout ID logic here if required, or let API handle it
+        exercise.WorkoutId = await ResolveWorkoutIdAsync(_workoutDate);
+        var response = await Http.PostAsJsonAsync("/Exercises", exercise);
+        
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Exercise added successfully!", Severity.Success);
+            NavigateBack();
+        }
+        else
+        {
+            Snackbar.Add("Failed to add exercise.", Severity.Error);
+        }
+    }
+
+    private async Task<Guid> ResolveWorkoutIdAsync(DateTime? date)
+    {
+        var url = TraineeId != null ? $"/workouts?traineeId={TraineeId}" : "/workouts";
+        var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>(url);
+
+        var existing = workouts?.FirstOrDefault(w =>
+            w.Date.HasValue && date.HasValue && w.Date.Value.Date == date.Value.Date);
+
+        if (existing != null) return existing.Id;
+
+        var newWorkout = new WorkoutPostResource { Type = "default", UserId = TraineeId, Date = date ?? DateTime.Now };
+        var resp = await Http.PostAsJsonAsync("/Workouts", newWorkout);
+        var created = await resp.Content.ReadFromJsonAsync<GetWorkoutResource>();
+        return created?.Id ?? Guid.NewGuid();
+    }
 
     private void NavigateBack()
         => NavigationManager.NavigateTo("/Exercises", forceLoad: false);

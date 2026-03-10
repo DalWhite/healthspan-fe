@@ -1,0 +1,168 @@
+@*
+    ExerciseTypeGrid — reusable component that renders a grid of exercise type cards.
+
+    Replaces: FavExerciseTypes.razor, TraineeFavExerciseTypes.razor
+    Also reused by: ExerciseTypes.razor
+
+    Parameters:
+      - TraineeId: optional; null = current user's data
+      - FavouritesOnly: whether to pre-filter to favourites only
+      - ShowSearch: show the search text field at the top
+*@
+@inject HttpClient Http
+@inject AppStateService AppState
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+@if (_isLoading)
+{
+    <LoadingState Message="Loading exercises..." />
+}
+else if (_filtered == null || !_filtered.Any())
+{
+    <EmptyState Icon="@Icons.Material.Filled.FitnessCenter"
+                Title="No exercises found"
+                Subtitle="Try adjusting your search or add a new exercise type."
+                ActionLabel="Add Exercise Type"
+                OnAction="GoToCreateExerciseType" />
+}
+else
+{
+    @if (ShowSearch)
+    {
+        <MudTextField Value="_search"
+                      ValueChanged="@((string v) => OnSearchChanged(v))"
+                      Placeholder="Search exercises..."
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      IconSize="MudBlazor.Size.Medium"
+                      Variant="Variant.Outlined"
+                      Class="mb-4" />
+    }
+
+    <MudGrid Spacing="2">
+        @foreach (var et in _filtered)
+        {
+            <MudItem xs="12" sm="6" md="4" lg="3">
+                <MudCard Class="exercise-card hs-et-card" @onclick="() => OnCardClick(et)" Style="cursor: pointer;">
+                    <MudCardMedia Image="@GetImageUrl(et)" Alt="@et.Name" Height="140" />
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">@et.Name</MudText>
+                        <MudText Typo="Typo.body2" Color="MudBlazor.Color.Dark">
+                            @AppState.GetMuscleName(et.PrimaryMuscleId)
+                        </MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudIconButton Icon="@(et.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)"
+                                       Color="@(et.IsFavourite ? Color.Error : Color.Default)"
+                                       Class="hs-favourite-btn"
+                                       OnClick="@((e) => ToggleFavourite(e, et))" />
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public string? TraineeId { get; set; }
+    [Parameter] public bool FavouritesOnly { get; set; } = false;
+    [Parameter] public bool ShowSearch { get; set; } = true;
+    [Parameter] public EventCallback<GetExerciseTypeResource> OnCardClicked { get; set; }
+
+    private GetExerciseTypeResource[]? _all;
+    private IEnumerable<GetExerciseTypeResource>? _filtered;
+    private bool _isLoading = true;
+    private string _search = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AppState.GetMusclesAsync(); // ensure muscle cache is warm
+
+        try
+        {
+            var url = FavouritesOnly
+                ? $"/ExerciseTypes?favourite=true{(TraineeId != null ? $"&userId={TraineeId}" : "")}"
+                : $"/ExerciseTypes{(TraineeId != null ? $"?userId={TraineeId}" : "")}";
+
+            _all = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>(url);
+        }
+        catch
+        {
+            _all = Array.Empty<GetExerciseTypeResource>();
+            Snackbar.Add("Failed to load exercise types.", Severity.Error);
+        }
+
+        ApplyFilter();
+        _isLoading = false;
+    }
+
+    private void OnSearchChanged(string value)
+    {
+        _search = value;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        _filtered = _all?
+            .Where(et => AppStateService.MatchesSearch(et, _search))
+            ?? Enumerable.Empty<GetExerciseTypeResource>();
+    }
+
+    private string GetImageUrl(GetExerciseTypeResource et)
+        => !string.IsNullOrEmpty(et.ImageRoute)
+            ? et.ImageRoute
+            : $"ExerciseImages/{et.Name}.jpg";
+
+    private async Task OnCardClick(GetExerciseTypeResource et)
+    {
+        if (OnCardClicked.HasDelegate)
+            await OnCardClicked.InvokeAsync(et);
+        else
+        {
+            var route = TraineeId != null
+                ? $"/exercises/types/{et.Id}/details/{TraineeId}"
+                : $"/exercises/types/{et.Id}/edit";
+            NavigationManager.NavigateTo(route);
+        }
+    }
+
+    private async Task ToggleFavourite(MouseEventArgs _, GetExerciseTypeResource et)
+    {
+        try
+        {
+            var payload = new UpdateExerciseTypeResource
+            {
+                Id = et.Id,
+                Name = et.Name,
+                Description = et.Description,
+                ImageRoute = et.ImageRoute,
+                PrimaryMuscleId = et.PrimaryMuscleId,
+                SecondaryMuscleId = et.SecondaryMuscleId,
+                IsFavourite = !et.IsFavourite,
+                Tags = et.Tags
+            };
+
+            var response = await Http.PutAsJsonAsync("/ExerciseTypes", payload);
+
+            if (response.IsSuccessStatusCode)
+            {
+                et.IsFavourite = !et.IsFavourite;
+                AppState.InvalidateExerciseTypes();
+                StateHasChanged();
+            }
+            else
+            {
+                Snackbar.Add("Failed to update favourite.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void GoToCreateExerciseType()
+        => NavigationManager.NavigateTo("/exercises/types/create");
+}
