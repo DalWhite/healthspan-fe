@@ -1,350 +1,173 @@
 ﻿@page "/exercises"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@using healthspan_fe_wasm_pwa.Shared
-@using static healthspan_fe_wasm_pwa.Components.ExerciseFilterDialog
 @inject TitleService TitleService
+@inject AppStateService AppState
 @inject IDialogService DialogService
+@using static healthspan_fe_wasm_pwa.Components.ExerciseFilterDialog
 
 <PageTitle>Exercises</PageTitle>
 
-<div class="container">
-    <div class="sort-controls mb-3">
-        <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
-            <MudButton OnClick="@(() => SortExercisesBy("date"))" Variant="@GetSortButtonVariant("date")">Date</MudButton>
-            <MudButton OnClick="OpenFilterDialog" Variant="@(isFilterActive ? Variant.Filled : Variant.Outlined)">
-                <MudIcon Icon="@Icons.Material.Filled.FilterList" Class="mr-2" />Filter
+<!-- Sort & Filter Controls -->
+<div class="sort-controls mb-3">
+    <MudButtonGroup Color="MudBlazor.Color.Primary" Variant="Variant.Outlined" Size="MudBlazor.Size.Small">
+        <MudButton OnClick="@(() => SortExercisesBy("date"))" Variant="@GetSortButtonVariant("date")">Date</MudButton>
+        <MudButton OnClick="OpenFilterDialog" Variant="@(_isFilterActive ? Variant.Filled : Variant.Outlined)">
+            <MudIcon Icon="@Icons.Material.Filled.FilterList" Class="mr-2" />Filter
+        </MudButton>
+    </MudButtonGroup>
+    <MudIconButton Icon="@(_sortDescending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                   OnClick="ToggleSortDirection"
+                   Size="MudBlazor.Size.Small"
+                   Class="ml-2" />
+
+    @if (_isFilterActive)
+    {
+        <div class="d-flex flex-wrap mt-2">
+            @if (!string.IsNullOrEmpty(_selectedExerciseType))
+            {
+                <MudChip Class="mr-2 mb-1" Variant="Variant.Filled" Color="MudBlazor.Color.Primary"
+                         Size="MudBlazor.Size.Small" OnClose="ClearExerciseTypeFilter">
+                    Exercise: @_selectedExerciseType
+                </MudChip>
+            }
+            @foreach (var muscle in _selectedMuscleGroups)
+            {
+                <MudChip Class="mr-2 mb-1" Variant="Variant.Filled" Color="MudBlazor.Color.Secondary"
+                         Size="MudBlazor.Size.Small" OnClose="() => RemoveMuscleFilter(muscle)">
+                    Muscle: @muscle
+                </MudChip>
+            }
+            <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Error" Size="MudBlazor.Size.Small"
+                       OnClick="ClearAllFilters" StartIcon="@Icons.Material.Filled.Clear">
+                Clear All
             </MudButton>
-        </MudButtonGroup>
-        <MudIconButton Icon="@(sortDescending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
-                       OnClick="ToggleSortDirection"
-                       Size="Size.Small"
-                       Class="ml-2" />
+        </div>
+    }
+</div>
 
-        @if (isFilterActive)
+<!-- Content -->
+@if (_isLoading)
+{
+    <LoadingState Message="Loading exercises..." />
+}
+else if (_pagedData?.Items == null || !_pagedData.Items.Any())
+{
+    <EmptyState Icon="@Icons.Material.Filled.FitnessCenter"
+                Title="No exercises found"
+                Subtitle="Try adjusting your filters or add a new exercise."
+                ActionLabel="Add Exercise"
+                OnAction="GoToCreateExercise" />
+}
+else
+{
+    @foreach (var dateGroup in GetDateGroups())
+    {
+        @if (DateTime.TryParse(dateGroup.Key, out DateTime groupDate))
         {
-            <div class="d-flex flex-wrap mt-2">
-                @if (!string.IsNullOrEmpty(selectedExerciseType))
-                {
-                    <MudChip Class="mr-2 mb-1"
-                             Variant="Variant.Filled"
-                             Color="Color.Primary"
-                             Size="Size.Small"
-                             OnClose="ClearExerciseTypeFilter">
-                        Exercise: @selectedExerciseType
-                    </MudChip>
-                }
-                @if (selectedMuscleGroups.Any())
-                {
-                    @foreach (var muscle in selectedMuscleGroups)
+            var daysAgo = (DateTime.Now - groupDate).Days;
+            var volumeSummary = GetVolumeSummaryByMuscleForDate(dateGroup.Key, dateGroup.ToList());
+            var isExpanded = _expandedDates.GetValueOrDefault(dateGroup.Key, true);
+
+            <!-- Date Header — clickable expand/collapse, responsive -->
+            <div class="date-header mb-3" @onclick="() => ToggleDateExpand(dateGroup.Key)">
+                <div class="d-flex justify-space-between align-center flex-wrap gap-2">
+                    <div class="d-flex align-center gap-2">
+                        <MudText Typo="Typo.h5" Class="mb-0">@dateGroup.Key</MudText>
+                        <MudText Typo="Typo.body2" Color="MudBlazor.Color.Dark" Class="ml-1">(@daysAgo days ago)</MudText>
+                        <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                 Size="MudBlazor.Size.Medium" />
+                    </div>
+
+                    @if (volumeSummary.Any())
                     {
-                        <MudChip Class="mr-2 mb-1"
-                                 Variant="Variant.Filled"
-                                 Color="Color.Secondary"
-                                 Size="Size.Small"
-                                 OnClose="() => RemoveMuscleFilter(muscle)">
-                            Muscle: @muscle
-                        </MudChip>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var muscleGroup in volumeSummary.Take(3))
+                            {
+                                <MudChip Color="MudBlazor.Color.Error" Variant="Variant.Filled"
+                                         Size="MudBlazor.Size.Small" Class="hs-volume-chip">
+                                    @muscleGroup.Key: @muscleGroup.Value kg
+                                </MudChip>
+                            }
+                            @if (volumeSummary.Count > 3)
+                            {
+                                <MudChip Color="MudBlazor.Color.Default" Variant="Variant.Filled"
+                                         Size="MudBlazor.Size.Small" Class="hs-volume-chip">
+                                    +@(volumeSummary.Count - 3) more
+                                </MudChip>
+                            }
+                        </div>
                     }
-                }
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Error"
-                           Size="Size.Small"
-                           OnClick="ClearAllFilters"
-                           StartIcon="@Icons.Material.Filled.Clear">
-                    Clear All
-                </MudButton>
+                </div>
             </div>
-        }
-    </div>
 
-    @if (isLoading)
-    {
-        <div class="d-flex justify-center my-4">
-            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        </div>
-    }
-    else if (pagedData?.Items == null || !pagedData.Items.Any())
-    {
-        <MudAlert Severity="Severity.Info" Class="my-4">No exercises found. Try adjusting your search or add a new exercise.</MudAlert>
-    }
-    else
-    {
-        <!-- Desktop View -->
-        <div class="hide-on-mobile desktop-card-view">
-            @{
-                // Group by date, but only include dates that have matching exercises
-                var dateGroups = pagedData.Items
-                    .GroupBy(e => e.Workout?.Date.Value.ToShortDateString())
-                    .OrderByDescending(g => DateTime.Parse(g.Key));
-            }
-
-            @foreach (var dateGroup in dateGroups)
+            @if (isExpanded)
             {
-                @if (DateTime.TryParse(dateGroup.Key, out DateTime groupDate))
-                {
-                    var daysAgo = (DateTime.Now - groupDate).Days;
-                    var volumeSummary = GetVolumeSummaryByMuscleForDate(dateGroup.Key, dateGroup.ToList());
-                    var isExpanded = expandedDates.ContainsKey(dateGroup.Key) ? expandedDates[dateGroup.Key] : true;
-
-                    <div class="date-header mb-3">
-                        <div class="d-flex justify-space-between align-center" @onclick="() => ToggleDateExpand(dateGroup.Key)">
-                            <div class="d-flex align-center gap-2">
-                                <MudText Typo="Typo.h5" Class="mb-0">@dateGroup.Key</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Dark" Class="ml-1">(@daysAgo days ago)</MudText>
-                                <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                                         Size="Size.Medium" />
-                            </div>
-
-                            @if (volumeSummary.Any())
-                            {
-                                <div class="d-flex gap-2">
-                                    @foreach (var muscleGroup in volumeSummary.Take(3))
-                                    {
-                                        <MudChip Color="Color.Error"
-                                                 Variant="Variant.Filled"
-                                                 Size="Size.Small"
-                                                 Class="muscle-volume-chip-desktop px-3 py-1">
-                                            @muscleGroup.Key: @muscleGroup.Value kg
-                                        </MudChip>
-                                    }
-                                    @if (volumeSummary.Count > 3)
-                                    {
-                                        <MudChip Color="Color.Default"
-                                                 Variant="Variant.Filled"
-                                                 Size="Size.Small"
-                                                 Class="muscle-volume-chip-desktop px-3 py-1">
-                                            +@(volumeSummary.Count - 3) more
-                                        </MudChip>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-
-                @if (expandedDates.ContainsKey(dateGroup.Key) && expandedDates[dateGroup.Key])
-                {
-                    var mainExercise = FindMainExerciseForDate(dateGroup.Key, dateGroup.ToList());
-
-                    <div class="desktop-exercise-grid">
-                        @foreach (var exerciseTypeGroup in dateGroup.GroupBy(e => e.Type?.Name))
-                        {
-                            bool isMainExercise = exerciseTypeGroup.Key == mainExercise;
-                            string cardClass = isMainExercise ? "exercise-card main-exercise-card" : "exercise-card";
-                            var exerciseType = exerciseTypeGroup.FirstOrDefault()?.Type;
-                            var exerciseId = exerciseTypeGroup.FirstOrDefault()?.Id;
-
-                            <MudCard Class="@cardClass">
-                                <MudCardContent Class="py-3 px-4">
-                                    <div class="d-flex justify-space-between align-center mb-3">
-                                        <div class="d-flex align-center exercise-title-container">
-                                            @if (isMainExercise)
-                                            {
-                                                <MudIcon Icon="@Icons.Material.Filled.Star"
-                                                        Color="Color.Warning"
-                                                        Size="Size.Medium"
-                                                        Class="mr-2 flex-shrink-0" />
-                                            }
-                                            <MudText Typo="Typo.h6" Class="exercise-title text-truncate mb-0">
-                                                @exerciseTypeGroup.Key
-                                            </MudText>
-                                        </div>
-                                        <div class="d-flex gap-2">
-                                            <MudIconButton Icon="@Icons.Material.Filled.TrendingUp"
-                                                        Color="Color.Primary"
-                                                        Size="Size.Small"
-                                                        Variant="Variant.Filled"
-                                                        OnClick="() => GoToExerciseTypeDetails(exerciseType?.Id)"
-                                                        Class="action-button-desktop"
-                                                        Title="View History & Trends" />
-
-                                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                                        Color="Color.Secondary"
-                                                        Size="Size.Small"
-                                                        Variant="Variant.Filled"
-                                                        OnClick="() => GoToEditExercise(exerciseId)"
-                                                        Class="action-button-desktop"
-                                                        Title="Edit Exercise" />
-                                        </div>
-                                    </div>
-
-                                    <div class="exercise-instances">
-                                        @foreach (var exercise in exerciseTypeGroup.Take(3)) // Limit to 3 instances for performance
-                                        {
-                                            <div class="d-flex flex-wrap gap-2 mt-2">
-                                                <MudChip Variant="Variant.Outlined" Size="Size.Medium" Class="rep-chip-desktop">
-                                                    @($"{exercise.Series} sets")
-                                                </MudChip>
-                                                <MudChip Variant="Variant.Outlined" Size="Size.Medium" Class="rep-chip-desktop">
-                                                    @($"{exercise.Repetitions} reps")
-                                                </MudChip>
-                                                <MudChip Variant="Variant.Outlined" Size="Size.Medium" Class="rep-chip-desktop">
-                                                    @($"{exercise.Weight} kg")
-                                                </MudChip>
-                                            </div>
-                                        }
-                                        @if (exerciseTypeGroup.Count() > 3)
-                                        {
-                                            <MudButton Color="Color.Default" Variant="Variant.Text" Size="Size.Small" Class="mt-2">
-                                                Show @(exerciseTypeGroup.Count() - 3) more
-                                            </MudButton>
-                                        }
-                                    </div>
-
-                                    <div class="d-flex justify-space-between mt-4">
-                                        <div>
-                                            <MudText Typo="Typo.caption" Class="text-muted">1RM</MudText>
-                                            <MudText Typo="Typo.h6" Class="font-weight-bold">
-                                                @exerciseTypeGroup.Max(e => e.MaxRepetition)?.ToString("N1") kg
-                                            </MudText>
-                                        </div>
-                                        <div>
-                                            <MudText Typo="Typo.caption" Class="text-muted">Volume</MudText>
-                                            <MudText Typo="Typo.h6" Class="font-weight-bold">
-                                                @exerciseTypeGroup.Sum(e => e.Volume) kg
-                                            </MudText>
-                                        </div>
-                                    </div>
-                                </MudCardContent>
-                            </MudCard>
-                        }
-                    </div>
-                }
-            }
-        </div>
-
-        <!-- Mobile View -->
-        <div class="only-mobile">
-            @{
-                // Group by date, but only include dates that have matching exercises
-                var filteredDateGroups = pagedData.Items
-                    .GroupBy(e => e.Workout?.Date.Value.ToShortDateString())
-                    .OrderByDescending(g => DateTime.Parse(g.Key));
-            }
-
-            @foreach (var dateGroup in filteredDateGroups)
-            {
-                @if (DateTime.TryParse(dateGroup.Key, out DateTime groupDate))
-                {
-                    var daysAgo = (DateTime.Now - groupDate).Days;
-                    var volumeSummary = GetVolumeSummaryByMuscleForDate(dateGroup.Key, dateGroup.ToList());
-                    var isExpanded = expandedDates.ContainsKey(dateGroup.Key) ? expandedDates[dateGroup.Key] : true;
-
-                    <div class="date-header mb-2">
-                        <div class="d-flex justify-space-between align-center" @onclick="() => ToggleDateExpand(dateGroup.Key)">
-                            <div class="d-flex align-center gap-1">
-                                <MudText Typo="Typo.h6" Class="mb-0">@dateGroup.Key</MudText>
-                                <MudText Typo="Typo.caption" Color="Color.Dark" Class="ml-1 mt-1">(@daysAgo days ago)</MudText>
-                                <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                                         Size="Size.Small" />
-                            </div>
-
-                            @if (volumeSummary.Any())
-                            {
-                                <div class="d-flex overflow-x-auto volume-tags-container">
-                                    @foreach (var muscleGroup in volumeSummary.Take(2))
-                                    {
-                                        <MudChip Color="Color.Error"
-                                                 Variant="Variant.Filled"
-                                                 Size="Size.Small"
-                                                 Class="muscle-volume-chip px-2 py-0 ml-1">
-                                            @muscleGroup.Key: @muscleGroup.Value kg
-                                        </MudChip>
-                                    }
-                                    @if (volumeSummary.Count > 2)
-                                    {
-                                        <MudChip Color="Color.Default"
-                                                 Variant="Variant.Filled"
-                                                 Size="Size.Small"
-                                                 Class="muscle-volume-chip px-2 py-0 ml-1">
-                                            +@(volumeSummary.Count - 2)
-                                        </MudChip>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-
-                @if (expandedDates.ContainsKey(dateGroup.Key) && expandedDates[dateGroup.Key])
-                {
-                    var mainExercise = FindMainExerciseForDate(dateGroup.Key, dateGroup.ToList());
-
+                var mainExercise = FindMainExerciseForDate(dateGroup.Key, dateGroup.ToList());
+                <div class="hs-exercise-grid">
                     @foreach (var exerciseTypeGroup in dateGroup.GroupBy(e => e.Type?.Name))
                     {
-                        bool isMainExercise = exerciseTypeGroup.Key == mainExercise;
-                        string cardClass = isMainExercise ? "mb-4 exercise-card main-exercise-card" : "mb-4 exercise-card";
+                        bool isMain = exerciseTypeGroup.Key == mainExercise;
                         var exerciseType = exerciseTypeGroup.FirstOrDefault()?.Type;
                         var exerciseId = exerciseTypeGroup.FirstOrDefault()?.Id;
 
-                        <MudCard Class="@cardClass">
-                            <MudCardContent Class="py-2 px-3">
-                                <div class="d-flex justify-space-between align-center mb-2">
-                                    <div class="d-flex align-center exercise-title-container">
-                                        @if (isMainExercise)
+                        <MudCard Class="@($"exercise-card {(isMain ? "hs-main-exercise-card" : "")} mb-3")">
+                            <MudCardContent Class="py-3 px-4">
+                                <!-- Title Row -->
+                                <div class="d-flex justify-space-between align-center mb-3">
+                                    <div class="d-flex align-center hs-exercise-title">
+                                        @if (isMain)
                                         {
-                                            <MudIcon Icon="@Icons.Material.Filled.Star"
-                                                     Color="Color.Warning"
-                                                     Size="Size.Small"
-                                                     Class="mr-1 flex-shrink-0" />
+                                            <MudIcon Icon="@Icons.Material.Filled.Star" Color="MudBlazor.Color.Warning"
+                                                     Size="MudBlazor.Size.Small" Class="mr-1 flex-shrink-0" />
                                         }
-                                        <MudText Typo="Typo.h6" Class="exercise-title text-truncate mb-0">
-                                            @exerciseTypeGroup.Key
-                                        </MudText>
+                                        <MudText Typo="Typo.h6" Class="text-truncate mb-0">@exerciseTypeGroup.Key</MudText>
                                     </div>
-                                    <div class="d-flex gap-1 ml-2 flex-shrink-0">
+                                    <div class="d-flex gap-1">
                                         <MudIconButton Icon="@Icons.Material.Filled.TrendingUp"
-                                                      Color="Color.Primary"
-                                                      Size="Size.Small"
-                                                      Variant="Variant.Filled"
-                                                      OnClick="() => GoToExerciseTypeDetails(exerciseType?.Id)"
-                                                      Class="action-button"
-                                                      Title="View History & Trends" />
-
+                                                       Color="MudBlazor.Color.Primary" Size="MudBlazor.Size.Small" Variant="Variant.Filled"
+                                                       OnClick="() => GoToExerciseTypeDetails(exerciseType?.Id)"
+                                                       Title="View History & Trends" />
                                         <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                                      Color="Color.Secondary"
-                                                      Size="Size.Small"
-                                                      Variant="Variant.Filled"
-                                                      OnClick="() => GoToEditExercise(exerciseId)"
-                                                      Class="action-button"
-                                                      Title="Edit Exercise" />
+                                                       Color="MudBlazor.Color.Secondary" Size="MudBlazor.Size.Small" Variant="Variant.Filled"
+                                                       OnClick="() => GoToEditExercise(exerciseId)"
+                                                       Title="Edit Exercise" />
                                     </div>
                                 </div>
 
+                                <!-- Sets/Reps chips — desktop shows 3 items, mobile shows 2 -->
                                 <div class="exercise-instances">
-                                    @foreach (var exercise in exerciseTypeGroup.Take(2)) // Limit to 2 for mobile
+                                    @foreach (var exercise in exerciseTypeGroup.Take(3))
                                     {
                                         <div class="d-flex flex-wrap gap-2 mt-2">
-                                            <MudChip Variant="Variant.Outlined" Size="Size.Small" Class="rep-chip">
+                                            <MudChip Variant="Variant.Outlined" Size="MudBlazor.Size.Small" Class="hs-rep-chip">
                                                 @($"{exercise.Series} sets")
                                             </MudChip>
-                                            <MudChip Variant="Variant.Outlined" Size="Size.Small" Class="rep-chip">
+                                            <MudChip Variant="Variant.Outlined" Size="MudBlazor.Size.Small" Class="hs-rep-chip">
                                                 @($"{exercise.Repetitions} reps")
                                             </MudChip>
-                                            <MudChip Variant="Variant.Outlined" Size="Size.Small" Class="rep-chip">
+                                            <MudChip Variant="Variant.Outlined" Size="MudBlazor.Size.Small" Class="hs-rep-chip">
                                                 @($"{exercise.Weight} kg")
                                             </MudChip>
                                         </div>
                                     }
-                                    @if (exerciseTypeGroup.Count() > 2)
+                                    @if (exerciseTypeGroup.Count() > 3)
                                     {
-                                        <MudText Typo="Typo.caption" Class="mt-1">
-                                            +@(exerciseTypeGroup.Count() - 2) more sets
-                                        </MudText>
+                                        <MudText Typo="Typo.caption" Class="mt-1">+@(exerciseTypeGroup.Count() - 3) more sets</MudText>
                                     }
                                 </div>
 
+                                <!-- Stats Row -->
                                 <div class="d-flex justify-space-between mt-3">
                                     <div>
-                                        <MudText Typo="Typo.caption" Class="text-muted">1RM</MudText>
-                                        <MudText Typo="Typo.body1" Class="font-weight-bold">
+                                        <MudText Typo="Typo.caption">1RM</MudText>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold">
                                             @exerciseTypeGroup.Max(e => e.MaxRepetition)?.ToString("N1") kg
                                         </MudText>
                                     </div>
                                     <div>
-                                        <MudText Typo="Typo.caption" Class="text-muted">Volume</MudText>
-                                        <MudText Typo="Typo.body1" Class="font-weight-bold">
+                                        <MudText Typo="Typo.caption">Volume</MudText>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold">
                                             @exerciseTypeGroup.Sum(e => e.Volume) kg
                                         </MudText>
                                     </div>
@@ -352,769 +175,296 @@
                             </MudCardContent>
                         </MudCard>
                     }
-                }
+                </div>
             }
-        </div>
-
-        <!-- Pagination Controls -->
-        <div class="d-flex justify-center my-4">
-            <MudPagination Count="@pagedData.TotalPages"
-                           SelectedChanged="OnPageChanged"
-                           Selected="@currentPage"
-                           Class="mt-4" />
-        </div>
+        }
     }
-</div>
+
+    <!-- Pagination -->
+    <div class="d-flex justify-center my-4">
+        <MudPagination Count="@_pagedData.TotalPages" SelectedChanged="OnPageChanged"
+                       Selected="@_currentPage" Class="mt-4" />
+    </div>
+}
 
 <MudFab @onclick="GoToCreateExercise"
-        Color="Color.Error"
+        Color="MudBlazor.Color.Primary"
         StartIcon="@Icons.Material.Filled.Add"
         Class="fixed-create-button" />
 
-<style>
-    .exercise-card {
-        border-radius: 12px;
-        border: none;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        transition: all 0.2s ease;
-        will-change: transform, box-shadow;
-        contain: layout style paint;
-    }
-
-    .main-exercise-card {
-        border-left: 4px solid #FFA000;
-        box-shadow: 0 4px 12px rgba(255, 160, 0, 0.2);
-    }
-
-    .date-header {
-        padding: 8px 10px;
-        border-bottom: 1px solid #eee;
-        background-color: #f5f5f5;
-        border-radius: 8px;
-        cursor: pointer;
-        contain: layout style;
-    }
-
-    .exercise-title-container {
-        max-width: 70%;
-        min-width: 0;
-    }
-
-    .exercise-title {
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .volume-tags-container {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-        max-width: 50%;
-    }
-
-    .volume-tags-container::-webkit-scrollbar {
-        display: none;
-    }
-
-    .muscle-volume-chip {
-        background-color: #b71c1c !important;
-        color: white !important;
-        border-radius: 20px;
-        font-weight: 500;
-        height: 20px;
-        font-size: 11px;
-        white-space: nowrap;
-    }
-
-    .rep-chip {
-        border-radius: 30px;
-        height: 28px;
-        font-size: 12px;
-    }
-
-    .action-button {
-        border-radius: 8px;
-        min-width: 28px;
-        width: 28px;
-        height: 28px;
-    }
-
-    /* Desktop specific styles */
-    .desktop-exercise-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-        gap: 16px;
-        margin-bottom: 24px;
-        contain: style layout;
-    }
-
-    .action-button-desktop {
-        border-radius: 8px;
-        min-width: 36px;
-        width: 36px;
-        height: 36px;
-    }
-
-    .muscle-volume-chip-desktop {
-        background-color: #b71c1c !important;
-        color: white !important;
-        border-radius: 20px;
-        font-weight: 500;
-        height: 26px;
-    }
-
-    .rep-chip-desktop {
-        border-radius: 30px;
-        min-width: 70px;
-        text-align: center;
-    }
-
-    .desktop-card-view .date-header {
-        padding: 12px 16px;
-        background-color: #f5f5f5;
-        border-radius: 8px;
-        margin-bottom: 16px;
-        cursor: pointer;
-    }
-
-    .sort-controls {
-        display: flex;
-        align-items: center;
-        background-color: white;
-        padding: 8px 16px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        z-index: 1;
-        position: sticky;
-        top: 56px; /* Adjust if needed based on your search bar height */
-    }
-
-    /* Media queries */
-    @@media (max-width: 768px) {
-        .hide-on-mobile {
-            display: none !important;
-        }
-
-        .only-mobile {
-            display: block;
-        }
-    }
-
-    @@media (min-width: 769px) {
-        .hide-on-mobile {
-            display: block;
-        }
-
-        .only-mobile {
-            display: none !important;
-        }
-    }
-
-    .fixed-create-button {
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        z-index: 10;
-        background-color: #b71c1c !important;
-    }
-
-    .search-section {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background-color: white;
-        padding: 8px 0;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-    }
-
-    /* Only render what's visible */
-    .virtualized-container {
-        contain: strict;
-    }
-</style>
-
 @code {
-    // Models
-    private class PagedResult<T>
-    {
-        public List<T> Items { get; set; }
-        public int TotalCount { get; set; }
-        public int PageSize { get; set; }
-        public int CurrentPage { get; set; }
-        public int TotalPages { get; set; }
-    }
+    // ── State ──────────────────────────────────────────────────────────────────
 
-    private class ExerciseTypeResource
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
-        public int? PrimaryMuscleId { get; set; }
-    }
+    private PagedResult<GetExerciseResource>? _pagedData;
+    private List<Muscle> _muscles = new();
+    private Dictionary<int, string> _muscleNames = new();
+    private List<string> _exerciseTypeOptions = new();
 
-    private class Muscle
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Position { get; set; } // front or back
-        public string MuscleGroup { get; set; } // e.g., Arms, Legs, etc.
-    }
+    private bool _isLoading = true;
+    private int _currentPage = 1;
+    private int _pageSize = 20;
+    private string _sortBy = "date";
+    private string _currentSortField = "date";
+    private bool _sortDescending = true;
 
-    // State variables
-    private PagedResult<GetExerciseResource> pagedData;
-    private string selectedExerciseType = "";
-    private List<string> selectedMuscleGroups = new List<string>();
-    private List<string> exerciseTypeOptions = new List<string>();
-    private List<string> muscleGroupOptions = new List<string>();
-    private string sortBy = "date";
-    private bool sortDescending = true;
-    private int currentPage = 1;
-    private int pageSize = 20;
-    private bool isLoading = true;
-    private bool isFilterActive => !string.IsNullOrEmpty(selectedExerciseType) || selectedMuscleGroups.Any();
-    private Dictionary<string, bool> expandedDates = new Dictionary<string, bool>();
-    private string currentSortField = "date";
+    private string _selectedExerciseType = "";
+    private List<string> _selectedMuscleGroups = new();
+    private bool _isFilterActive => !string.IsNullOrEmpty(_selectedExerciseType) || _selectedMuscleGroups.Any();
 
-    // Muscles data from API
-    private List<Muscle> muscles = new List<Muscle>();
-    private Dictionary<int, string> muscleNames = new Dictionary<int, string>();
-    private Dictionary<string, int> muscleIdByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, bool> _expandedDates = new();
 
-    // Lifecycle methods
+    // ── Lifecycle ──────────────────────────────────────────────────────────────
+
     protected override async Task OnInitializedAsync()
     {
         TitleService.Title = "Exercises";
 
-        // Load muscles first so we have the data for everything else
-        await LoadMusclesData();
-        await LoadFilterOptions();
+        // Load muscles and exercise type options (both cached in AppStateService)
+        _muscles = await AppState.GetMusclesAsync();
+        _muscleNames = _muscles
+            .Where(m => m.Id.HasValue)
+            .ToDictionary(m => m.Id!.Value, m => m.Name ?? $"Muscle {m.Id}");
+
+        var allTypes = await AppState.GetExerciseTypesAsync();
+        _exerciseTypeOptions = allTypes.Select(t => t.Name ?? "").OrderBy(n => n).ToList();
+
         await LoadExercises();
     }
 
-    private async Task LoadMusclesData()
-    {
-        try
-        {
-            // Get muscles from API
-            muscles = await Http.GetFromJsonAsync<List<Muscle>>("api/muscles");
+    // ── Data Loading ───────────────────────────────────────────────────────────
 
-            if (muscles != null && muscles.Any())
-            {
-                // Build the muscle name lookup dictionary
-                muscleNames = muscles.ToDictionary(m => m.Id, m => m.Name);
-
-                // Build reverse lookup (name to id)
-                muscleIdByName = muscles.ToDictionary(
-                    m => m.Name,
-                    m => m.Id,
-                    StringComparer.OrdinalIgnoreCase
-                );
-
-                // Extract unique muscle groups for filter options
-                muscleGroupOptions = muscles
-                    .Select(m => m.MuscleGroup)
-                    .Distinct()
-                    .OrderBy(g => g)
-                    .ToList();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error loading muscles: {ex.Message}");
-
-            // Fallback to default muscle groups if API fails
-            muscleGroupOptions = new List<string>
-            {
-                "Chest", "Back", "Legs", "Shoulders", "Arms", "Core"
-            };
-        }
-    }
-
-    private async Task LoadFilterOptions()
-    {
-        try
-        {
-            // Load exercise types
-            var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
-            if (allTypes != null)
-            {
-                exerciseTypeOptions = allTypes.Select(t => t.Name).OrderBy(n => n).ToList();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error loading filter options: {ex.Message}");
-        }
-    }
-
-    // Data loading
     private async Task LoadExercises()
     {
-        isLoading = true;
-        StateHasChanged();
-
+        _isLoading = true;
         try
         {
-            var url = $"/Exercises?page={currentPage}&pageSize={pageSize}&sortBy={sortBy}&descending={sortDescending}";
-
-            // Add exercise type filter
-            if (!string.IsNullOrWhiteSpace(selectedExerciseType))
-            {
-                // Get the exercise type ID by the name
-                var exerciseType = await GetExerciseTypeByName(selectedExerciseType);
-                if (exerciseType != null)
-                {
-                    url += $"&exerciseTypeId={exerciseType.Id}";
-                }
-            }
-
-            // Add muscle group filters
-            if (selectedMuscleGroups.Any())
-            {
-                // Find muscle IDs that belong to the selected muscle groups
-                var muscleIdsInSelectedGroups = muscles
-                    .Where(m => selectedMuscleGroups.Contains(m.MuscleGroup, StringComparer.OrdinalIgnoreCase))
-                    .Select(m => m.Id);
-
-                foreach (var muscleId in muscleIdsInSelectedGroups)
-                {
-                    url += $"&muscleId={muscleId}";
-                }
-            }
-
-            pagedData = await Http.GetFromJsonAsync<PagedResult<GetExerciseResource>>(url);
-
-            // Initialize expanded state for dates if not already done
-            if (pagedData?.Items != null)
-            {
-                var dates = pagedData.Items
-                    .Select(e => e.Workout?.Date.Value.ToShortDateString())
-                    .Where(d => !string.IsNullOrEmpty(d))
-                    .Distinct();
-
-                foreach (var date in dates)
-                {
-                    if (!expandedDates.ContainsKey(date))
-                    {
-                        expandedDates[date] = true;
-                    }
-                }
-            }
+            var url = BuildExercisesUrl();
+            _pagedData = await Http.GetFromJsonAsync<PagedResult<GetExerciseResource>>(url);
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error loading exercises: {ex.Message}");
-            pagedData = new PagedResult<GetExerciseResource>
-            {
-                Items = new List<GetExerciseResource>(),
-                TotalCount = 0,
-                PageSize = pageSize,
-                CurrentPage = 1,
-                TotalPages = 0
-            };
+            _pagedData = null;
         }
-
-        isLoading = false;
-        StateHasChanged();
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
-    private int? GetMuscleIdByName(string muscleName)
+    private string BuildExercisesUrl()
     {
-        // Use the dictionary populated from the API
-        if (muscleIdByName.TryGetValue(muscleName, out int muscleId))
+        var query = new System.Text.StringBuilder($"/Exercises?page={_currentPage}&pageSize={_pageSize}&sortBy={_sortBy}&sortDescending={_sortDescending}");
+
+        if (!string.IsNullOrEmpty(_selectedExerciseType))
         {
-            return muscleId;
+            var exerciseType = AppState.GetExerciseTypesAsync().Result
+                .FirstOrDefault(t => t.Name == _selectedExerciseType);
+            if (exerciseType != null)
+                query.Append($"&exerciseTypeId={exerciseType.Id}");
         }
 
-        // If the muscle group name is provided instead of muscle name,
-        // take the first muscle from that group
-        var musclesInGroup = muscles.FirstOrDefault(m =>
-            string.Equals(m.MuscleGroup, muscleName, StringComparison.OrdinalIgnoreCase));
-
-        if (musclesInGroup != null)
+        if (_selectedMuscleGroups.Any())
         {
-            return musclesInGroup.Id;
+            foreach (var muscle in _selectedMuscleGroups)
+                query.Append($"&muscleGroup={Uri.EscapeDataString(muscle)}");
         }
 
-        return null;
+        return query.ToString();
     }
 
-    // Implementation for the GetExerciseTypeByName function
-    private async Task<ExerciseTypeResource> GetExerciseTypeByName(string name)
-    {
-        try
-        {
-            // If we have a cached list of exercise types, use that instead of making a new API call
-            if (exerciseTypeOptions.Count > 0)
-            {
-                // We'll need to get the full exercise type resource with ID
-                var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
-                return allTypes?.FirstOrDefault(t => t.Name == name);
-            }
-            else
-            {
-                // If we don't have the cached list yet, make the API call
-                var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
+    // ── Filter / Sort ──────────────────────────────────────────────────────────
 
-                // Cache the exercise type names for future use
-                exerciseTypeOptions = allTypes?.Select(t => t.Name).OrderBy(n => n).ToList() ?? new List<string>();
-
-                return allTypes?.FirstOrDefault(t => t.Name == name);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error getting exercise type: {ex.Message}");
-            return null;
-        }
-    }
-
-    // Dialog for filtering
     private async Task OpenFilterDialog()
     {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
         var parameters = new DialogParameters
         {
-            ["ExerciseTypes"] = exerciseTypeOptions,
-            ["MuscleGroups"] = muscleGroupOptions,
-            ["SelectedExerciseType"] = selectedExerciseType,
-            ["SelectedMuscleGroups"] = selectedMuscleGroups
-        };
-
-        var options = new DialogOptions
-        {
-            CloseButton = true,
-            MaxWidth = MaxWidth.Medium,
-            FullWidth = true,
-            DisableBackdropClick = true
+            { "ExerciseTypes", _exerciseTypeOptions },
+            { "SelectedExerciseType", _selectedExerciseType },
+            { "SelectedMuscleGroups", new List<string>(_selectedMuscleGroups) }
         };
 
         var dialog = await DialogService.ShowAsync<ExerciseFilterDialog>("Filter Exercises", parameters, options);
         var result = await dialog.Result;
 
-        if (!result.Canceled)
+        if (!result.Canceled && result.Data is FilterSettings filterSettings)
         {
-            var filterSettings = (FilterSettings)result.Data;
-
-            // Update filter state
-            selectedExerciseType = filterSettings.ExerciseType;
-            selectedMuscleGroups = filterSettings.MuscleGroups;
-
-            // Apply filters
-            currentPage = 1;
-            await LoadExercises();
-        }
-    }
-
-    // Event handlers
-    private async Task OnPageChanged(int page)
-    {
-        if (currentPage != page)
-        {
-            currentPage = page;
-            await LoadExercises();
-        }
-    }
-
-    private async Task<IEnumerable<string>> SearchExerciseTypes(string value)
-    {
-        // Search locally to avoid API call for each keystroke
-        if (string.IsNullOrEmpty(value))
-            return exerciseTypeOptions;
-
-        return exerciseTypeOptions
-            .Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase))
-            .OrderBy(x => x)
-            .Take(10); // Limit results for performance
-    }
-
-    private async Task ApplyFilter()
-    {
-        if (!string.IsNullOrWhiteSpace(selectedExerciseType))
-        {
-            currentPage = 1; // Reset to first page on new filter
-            await LoadExercises();
-        }
-    }
-
-    private async Task ClearFilter()
-    {
-        if (!string.IsNullOrEmpty(selectedExerciseType))
-        {
-            selectedExerciseType = "";
-            currentPage = 1;
+            _selectedExerciseType = filterSettings.ExerciseType;
+            _selectedMuscleGroups = filterSettings.MuscleGroups;
+            _currentPage = 1;
             await LoadExercises();
         }
     }
 
     private async Task SortExercisesBy(string field)
     {
-        if (field == currentSortField)
-        {
-            // Toggle sort direction if same field clicked
-            sortDescending = !sortDescending;
-        }
+        if (field == _currentSortField)
+            _sortDescending = !_sortDescending;
         else
         {
-            currentSortField = field;
-            sortBy = field;
-            sortDescending = true; // Default to descending for new field
+            _currentSortField = field;
+            _sortBy = field;
+            _sortDescending = true;
         }
-
         await LoadExercises();
     }
 
     private async Task ToggleSortDirection()
     {
-        sortDescending = !sortDescending;
+        _sortDescending = !_sortDescending;
         await LoadExercises();
     }
 
-    private void ToggleDateExpand(string date)
+    private async Task OnPageChanged(int page)
     {
-        if (!expandedDates.ContainsKey(date))
-            expandedDates[date] = false;
-        else
-            expandedDates[date] = !expandedDates[date];
-
-        StateHasChanged();
-    }
-
-    private Variant GetSortButtonVariant(string field)
-    {
-        return field == currentSortField ? Variant.Filled : Variant.Outlined;
-    }
-
-    // Navigation methods
-    private void GoToCreateExercise()
-    {
-        NavigationManager.NavigateTo("/exercises/create");
-    }
-
-    private void GoToExerciseTypeDetails(int? exerciseTypeId)
-    {
-        if (exerciseTypeId.HasValue)
+        if (_currentPage != page)
         {
-            NavigationManager.NavigateTo($"/exercises/types/{exerciseTypeId}/details");
-        }
-    }
-
-    private void GoToEditExercise(Guid? exerciseId)
-    {
-        if (exerciseId.HasValue)
-        {
-            NavigationManager.NavigateTo($"/exercises/edit/{exerciseId}");
+            _currentPage = page;
+            await LoadExercises();
         }
     }
 
     private async Task ClearExerciseTypeFilter()
     {
-        selectedExerciseType = "";
-        currentPage = 1;
+        _selectedExerciseType = "";
+        _currentPage = 1;
         await LoadExercises();
     }
 
-    // Function to remove a specific muscle filter
     private async Task RemoveMuscleFilter(string muscle)
     {
-        selectedMuscleGroups.Remove(muscle);
-        currentPage = 1;
+        _selectedMuscleGroups.Remove(muscle);
+        _currentPage = 1;
         await LoadExercises();
     }
 
-    // Function to clear all filters at once
     private async Task ClearAllFilters()
     {
-        selectedExerciseType = "";
-        selectedMuscleGroups.Clear();
-        currentPage = 1;
+        _selectedExerciseType = "";
+        _selectedMuscleGroups.Clear();
+        _currentPage = 1;
         await LoadExercises();
     }
 
-    // Helper methods
-    private string GetMuscleName(int muscleId)
-    {
-        // Use the dictionary populated from the API
-        if (muscleNames.ContainsKey(muscleId))
-        {
-            return muscleNames[muscleId];
-        }
+    // ── UI Helpers ─────────────────────────────────────────────────────────────
 
-        // Fallback to generic name if not found
-        return $"Muscle {muscleId}";
+    private void ToggleDateExpand(string date)
+        => _expandedDates[date] = !_expandedDates.GetValueOrDefault(date, true);
+
+    private Variant GetSortButtonVariant(string field)
+        => field == _currentSortField ? Variant.Filled : Variant.Outlined;
+
+    // ── Navigation ─────────────────────────────────────────────────────────────
+
+    private void GoToCreateExercise() => NavigationManager.NavigateTo("/exercises/create");
+    private void GoToExerciseTypeDetails(int? id)
+    {
+        if (id.HasValue) NavigationManager.NavigateTo($"/exercises/types/{id}/details");
+    }
+    private void GoToEditExercise(Guid? id)
+    {
+        if (id.HasValue) NavigationManager.NavigateTo($"/exercises/edit/{id}");
     }
 
-    // Find the exercise type name with the highest 1RM for a given date
-    private string FindMainExerciseForDate(string date, List<GetExerciseResource> exercises)
-    {
-        if (exercises == null || !exercises.Any())
-            return null;
+    // ── Date/Volume Helpers ────────────────────────────────────────────────────
 
-        var dateExercises = exercises
-            .Where(e => e.Workout?.Date.Value.ToShortDateString() == date && e.MaxRepetition.HasValue)
-            .ToList();
-
-        if (!dateExercises.Any())
-            return null;
-
-        // Cache the result to avoid recalculation
-        var mainExercise = dateExercises
+    private string? FindMainExerciseForDate(string date, List<GetExerciseResource> exercises)
+        => exercises
+            .Where(e => e.Workout?.Date?.ToShortDateString() == date && e.MaxRepetition.HasValue)
             .OrderByDescending(e => e.MaxRepetition)
-            .FirstOrDefault();
+            .FirstOrDefault()?.Type?.Name;
 
-        return mainExercise?.Type?.Name;
-    }
-
-    // Get volume summary for exercises on a specific date
     private Dictionary<string, int> GetVolumeSummaryByMuscleForDate(string date, List<GetExerciseResource> exercises)
     {
         var summary = new Dictionary<string, int>();
-
-        if (exercises == null || !exercises.Any())
-            return summary;
-
-        var dateExercises = exercises.Where(e => e.Workout?.Date.Value.ToShortDateString() == date);
-
-        // If no muscle ID is found, group by exercise type name instead as a fallback
+        var dateExercises = exercises.Where(e => e.Workout?.Date?.ToShortDateString() == date);
         var hasMuscleData = dateExercises.Any(e => e.Type?.PrimaryMuscleId.HasValue == true);
 
         if (hasMuscleData)
         {
-            // Group exercises by primary muscle ID and sum volumes
             var muscleGroups = dateExercises
                 .Where(e => e.Type?.PrimaryMuscleId.HasValue == true && e.Volume.HasValue)
-                .GroupBy(e => e.Type.PrimaryMuscleId.Value);
+                .GroupBy(e => e.Type!.PrimaryMuscleId!.Value);
 
-            foreach (var group in muscleGroups)
-            {
-                string muscleName = GetMuscleName(group.Key);
-
-                // Add emoji based on muscle group
-                string muscleNameWithEmoji = AddEmojiToMuscleName(muscleName);
-
-                int totalVolume = group.Sum(e => e.Volume ?? 0);
-                summary[muscleNameWithEmoji] = totalVolume;
-            }
+            foreach (var g in muscleGroups)
+                summary[AddEmojiToMuscleName(GetMuscleNameById(g.Key))] = g.Sum(e => e.Volume ?? 0);
         }
         else
         {
-            // Fallback: group by exercise type instead
             var typeGroups = dateExercises
                 .Where(e => e.Type?.Name != null && e.Volume.HasValue)
-                .GroupBy(e => e.Type.Name);
+                .GroupBy(e => e.Type!.Name!);
 
-            foreach (var group in typeGroups)
+            foreach (var g in typeGroups)
             {
-                string typeName = group.Key ?? "Unknown";
-                int totalVolume = group.Sum(e => e.Volume ?? 0);
-
-                // Infer muscle group from exercise name
-                string muscleWithEmoji = InferMuscleFromExerciseName(typeName);
-
-                // Add or update volume for this muscle
-                if (summary.ContainsKey(muscleWithEmoji))
-                    summary[muscleWithEmoji] += totalVolume;
-                else
-                    summary[muscleWithEmoji] = totalVolume;
+                var key = InferMuscleFromExerciseName(g.Key);
+                summary[key] = summary.GetValueOrDefault(key, 0) + g.Sum(e => e.Volume ?? 0);
             }
         }
 
-        return summary.OrderByDescending(x => x.Value)
-                     .ToDictionary(x => x.Key, x => x.Value);
+        return summary.OrderByDescending(x => x.Value).ToDictionary(x => x.Key, x => x.Value);
     }
 
-    // Helper method to add emoji to muscle name
+    private IEnumerable<IGrouping<string, GetExerciseResource>> GetDateGroups()
+    {
+        if (_pagedData?.Items == null)
+            return Enumerable.Empty<IGrouping<string, GetExerciseResource>>();
+
+        return _pagedData.Items
+            .GroupBy(e => e.Workout?.Date?.ToShortDateString() ?? "No Date")
+            .OrderByDescending(g => { DateTime.TryParse(g.Key, out var d); return d; });
+    }
+
+    private string GetMuscleNameById(int muscleId)
+        => _muscleNames.GetValueOrDefault(muscleId, $"Muscle {muscleId}");
+
     private string AddEmojiToMuscleName(string muscleName)
     {
-        if (string.IsNullOrEmpty(muscleName))
-            return "🔘 Other";
-
-        // Find the muscle group for this muscle
-        var muscle = muscles.FirstOrDefault(m => m.Name.Equals(muscleName, StringComparison.OrdinalIgnoreCase));
-        string muscleGroup = muscle?.MuscleGroup ?? "";
-
-        if (string.IsNullOrEmpty(muscleGroup))
-        {
-            // Try to infer the group from the muscle name
-            return InferMuscleGroupEmoji(muscleName) + " " + muscleName;
-        }
-        else
-        {
-            // We have the muscle group from the API
-            return GetEmojiForMuscleGroup(muscleGroup) + " " + muscleName;
-        }
+        if (string.IsNullOrEmpty(muscleName)) return "🔘 Other";
+        var muscle = _muscles.FirstOrDefault(m => m.Name?.Equals(muscleName, StringComparison.OrdinalIgnoreCase) == true);
+        return (!string.IsNullOrEmpty(muscle?.MuscleGroup)
+               ? GetEmojiForMuscleGroup(muscle.MuscleGroup)
+               : InferMuscleGroupEmoji(muscleName)) + " " + muscleName;
     }
 
-    // Helper method to get emoji for a muscle group
-    private string GetEmojiForMuscleGroup(string muscleGroup)
+    private static string GetEmojiForMuscleGroup(string g) => g.ToLower() switch
     {
-        if (string.IsNullOrEmpty(muscleGroup))
-            return "🔘";
+        "chest" => "👕", "back" => "🔄", "legs" => "🦿",
+        "shoulders" => "🛡️", "arms" => "💪", "core" => "🧱",
+        _ => "🔘"
+    };
 
-        switch (muscleGroup.ToLower())
-        {
-            case "chest": return "👕";
-            case "back": return "🔄";
-            case "legs": return "🦿";
-            case "shoulders": return "🛡️";
-            case "arms": return "💪";
-            case "core": return "🧱";
-            default: return "🔘";
-        }
-    }
-
-    // Helper method to infer emoji based on muscle name
-    private string InferMuscleGroupEmoji(string muscleName)
+    private static string InferMuscleGroupEmoji(string name)
     {
-        if (string.IsNullOrEmpty(muscleName))
-            return "🔘";
-
-        muscleName = muscleName.ToLower();
-
-        if (muscleName.Contains("bicep") || muscleName.Contains("tricep") || muscleName.Contains("arm"))
-            return "💪";
-        else if (muscleName.Contains("chest") || muscleName.Contains("pec"))
-            return "👕";
-        else if (muscleName.Contains("shoulder") || muscleName.Contains("delt"))
-            return "🛡️";
-        else if (muscleName.Contains("abs") || muscleName.Contains("core") || muscleName.Contains("abdomin"))
-            return "🧱";
-        else if (muscleName.Contains("back") || muscleName.Contains("lat") || muscleName.Contains("trap"))
-            return "🔄";
-        else if (muscleName.Contains("leg") || muscleName.Contains("quad") || muscleName.Contains("hamstring") ||
-                muscleName.Contains("glute") || muscleName.Contains("calf"))
-            return "🦿";
-        else
-            return "🔘";
+        name = name.ToLower();
+        if (name.Contains("bicep") || name.Contains("tricep") || name.Contains("arm")) return "💪";
+        if (name.Contains("chest") || name.Contains("pec")) return "👕";
+        if (name.Contains("shoulder") || name.Contains("delt")) return "🛡️";
+        if (name.Contains("abs") || name.Contains("core") || name.Contains("abdomin")) return "🧱";
+        if (name.Contains("back") || name.Contains("lat") || name.Contains("trap")) return "🔄";
+        if (name.Contains("leg") || name.Contains("quad") || name.Contains("hamstring") || name.Contains("glute") || name.Contains("calf")) return "🦿";
+        return "🔘";
     }
 
-    // Helper method to infer muscle group from exercise name
-    private string InferMuscleFromExerciseName(string exerciseName)
+    private static string InferMuscleFromExerciseName(string name)
     {
-        if (string.IsNullOrEmpty(exerciseName))
-            return "🔘 Other";
-
-        exerciseName = exerciseName.ToLower();
-
-        if (exerciseName.Contains("bench") || exerciseName.Contains("chest") || exerciseName.Contains("pec"))
-            return "👕 Chest";
-        else if (exerciseName.Contains("squat") || exerciseName.Contains("leg") || exerciseName.Contains("calf") ||
-                exerciseName.Contains("lunge") || exerciseName.Contains("deadlift"))
-            return "🦿 Legs";
-        else if (exerciseName.Contains("shoulder") || exerciseName.Contains("press") || exerciseName.Contains("delt"))
-            return "🛡️ Shoulders";
-        else if (exerciseName.Contains("bicep") || exerciseName.Contains("curl") || exerciseName.Contains("tricep") ||
-                exerciseName.Contains("extension"))
-            return "💪 Arms";
-        else if (exerciseName.Contains("back") || exerciseName.Contains("row") || exerciseName.Contains("pull") ||
-                exerciseName.Contains("lat"))
-            return "🔄 Back";
-        else if (exerciseName.Contains("ab") || exerciseName.Contains("core") || exerciseName.Contains("crunch"))
-            return "🧱 Core";
-        else
-            return "🔘 Other";
+        name = name.ToLower();
+        if (name.Contains("bench") || name.Contains("chest") || name.Contains("pec")) return "👕 Chest";
+        if (name.Contains("squat") || name.Contains("leg") || name.Contains("lunge") || name.Contains("deadlift")) return "🦿 Legs";
+        if (name.Contains("shoulder") || name.Contains("press") || name.Contains("delt")) return "🛡️ Shoulders";
+        if (name.Contains("bicep") || name.Contains("curl") || name.Contains("tricep") || name.Contains("extension")) return "💪 Arms";
+        if (name.Contains("back") || name.Contains("row") || name.Contains("pull") || name.Contains("lat")) return "🔄 Back";
+        if (name.Contains("ab") || name.Contains("core") || name.Contains("crunch")) return "🧱 Core";
+        return "🔘 Other";
     }
-}
+
+    // ── Local DTO (API-specific, not shared) ───────────────────────────────────
+
+    public class PagedResult<T>
+    {
+        public List<T> Items { get; set; } = new();
+        public int TotalPages { get; set; }
+        public int TotalCount { get; set; }
+    }
 }

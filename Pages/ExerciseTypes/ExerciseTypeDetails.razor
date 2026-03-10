@@ -1,454 +1,324 @@
-@page "/exercises/types/{ExerciseTypeId:int}/details/{traineeId?}"
+@page "/exercises/types/{ExerciseTypeId:int}/details/{TraineeId?}"
 @inject HttpClient Http
 @using ApexCharts
 @inject TitleService TitleService
 @inject IJSRuntime JSRuntime
 @rendermode RenderMode.InteractiveWebAssembly
-
 @implements IAsyncDisposable
 
 <style>
-    /* Exercise history table: ensure cells wrap and avoid forcing page horizontal scroll */
-    .exercise-history-table { width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; display: table !important; }
-    .exercise-history-table thead { display: table-header-group !important; }
-    .exercise-history-table tbody { display: table-row-group !important; }
-    .exercise-history-table tr { display: table-row !important; }
-    .exercise-history-table th, .exercise-history-table td { display: table-cell !important; padding: 8px 6px !important; vertical-align: middle !important; font-size: 0.9rem; }
-    .exercise-history-table td.no-break, .exercise-history-table span.no-break { white-space: nowrap !important; word-break: keep-all !important; overflow: visible !important; }
-    .exercise-history-table thead th { text-align: left; font-weight: 600; font-size: 0.85rem; }
-
-    /* List view defaults to hidden, shown only on mobile */
-    .exercise-history-list { display: none; }
+    /* Desktop: table visible, mobile list hidden */
+    .hs-history-list { display: none; }
 
     @@media (max-width: 640px) {
-        /* Hide table on mobile */
-        .desktop-view { display: none !important; }
-
-        /* Show list on mobile */
-        .exercise-history-list { list-style: none; padding: 0; margin: 0; display: block; }
-        .exercise-history-list li { padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.06); display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; }
-        .exercise-history-list li:last-child { border-bottom: none; }
-        .exercise-history-list .date-details { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-        .exercise-history-list .date { font-size: 0.85rem; font-weight: 500; color: var(--mud-palette-text-secondary); }
-        .exercise-history-list .details { font-size: 0.9rem; }
-        .exercise-history-list .rm { font-size: 0.85rem; font-weight: 500; text-align: right; white-space: nowrap; }
-        .exercise-history-list .rm.max { font-weight: bold; color: var(--mud-palette-primary); }
+        .hs-desktop-view { display: none !important; }
+        .hs-history-list {
+            list-style: none; padding: 0; margin: 0; display: block;
+        }
+        .hs-history-list li {
+            padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.06);
+            display: flex; gap: 12px; justify-content: space-between; align-items: flex-start;
+        }
+        .hs-history-list li:last-child { border-bottom: none; }
+        .hs-history-list .hs-date-detail { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        .hs-history-list .hs-date { font-size: 0.85rem; font-weight: 500; color: var(--mud-palette-text-secondary); }
+        .hs-history-list .hs-detail { font-size: 0.9rem; }
+        .hs-history-list .hs-rm { font-size: 0.85rem; font-weight: 500; text-align: right; white-space: nowrap; }
+        .hs-history-list .hs-rm.hs-max { font-weight: bold; color: var(--mud-palette-primary); }
     }
 
     @@media (min-width: 641px) {
-        /* Hide list on desktop */
-        .exercise-history-list { display: none !important; }
-
-        /* Show table on desktop */
-        .desktop-view { display: block !important; }
-        .exercise-history-table th { font-size: 0.85rem; }
-        .exercise-history-table td { font-size: 0.9rem; }
+        .hs-history-list { display: none !important; }
+        .hs-desktop-view { display: block !important; }
+        .hs-history-table th { font-size: 0.85rem; }
+        .hs-history-table td { font-size: 0.9rem; }
     }
+
+    .hs-history-table {
+        width: 100%; table-layout: fixed; border-collapse: collapse; display: table;
+    }
+    .hs-history-table thead { display: table-header-group; }
+    .hs-history-table tbody { display: table-row-group; }
+    .hs-history-table tr { display: table-row; }
+    .hs-history-table th, .hs-history-table td {
+        display: table-cell; padding: 8px 6px; vertical-align: middle; font-size: 0.9rem;
+    }
+    .hs-history-table thead th { text-align: left; font-weight: 600; font-size: 0.85rem; }
+    .hs-history-table td.no-break { white-space: nowrap; }
 </style>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
-    @if (exercises == null || kpis == null)
+    @if (_exercises == null || _kpis == null)
     {
-        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-8">
-            <MudProgressCircular Color="MudBlazor.Color.Primary" Indeterminate="true" Size="MudBlazor.Size.Large" />
-            <MudText>Loading exercise data...</MudText>
-        </MudStack>
+        <LoadingState Message="Loading exercise data..." Size="MudBlazor.Size.Large" />
     }
     else
     {
-        <MudText Typo="Typo.h4" Class="mb-2" Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">@Title</MudText>
+        <MudText Typo="Typo.h4" Class="mb-2"
+                 Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">
+            @_title
+        </MudText>
 
         <MudGrid>
-<MudItem xs="12">
-    <MudText Typo="Typo.subtitle1" Class="mb-2">Performance Summary</MudText>
-    <MudGrid Spacing="1" Class="mt-1">
-        <!-- Max RM Card -->
-        <MudItem xs="12" sm="6">
-            <MudPaper Elevation="0" Style="background-color: #1976d2; color: white; border-radius: 8px; padding: 8px; cursor: pointer;"
-                     @onclick="() => ScrollToExerciseDate(kpis.MaxRMDate)">
-                <MudStack Spacing="0">
-                    <MudText Typo="Typo.h6" Style="color: white;">@kpis.MaxRM.ToString("F1") kg</MudText>
-                    <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.8);">Theoretical Max RM</MudText>
-                    <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.7); font-size: 0.75rem;">@kpis.MaxRMDate.ToShortDateString()</MudText>
-                </MudStack>
-            </MudPaper>
-        </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Performance Summary</MudText>
+                <MudGrid Spacing="1" Class="mt-1">
+                    <!-- Max RM -->
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Elevation="0"
+                                  Style="background-color: var(--mud-palette-primary); color: white; border-radius: 8px; padding: 8px; cursor: pointer;"
+                                  @onclick="() => ScrollToExerciseDateAsync(_kpis.MaxRMDate)">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.h6" Style="color: white;">@_kpis.MaxRM.ToString("F1") kg</MudText>
+                                <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.8);">Theoretical Max RM</MudText>
+                                <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.7); font-size: 0.75rem;">
+                                    @_kpis.MaxRMDate.ToShortDateString()
+                                </MudText>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                    <!-- Current 1RM -->
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Elevation="0" Style="border-radius: 8px; border: 1px solid var(--mud-palette-lines-default); padding: 8px;">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.h6">@_kpis.Current1RM.ToString("F1") kg</MudText>
+                                <MudText Typo="Typo.caption" Color="MudBlazor.Color.Dark">Current 1RM</MudText>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                                    <MudIcon Icon="@(_kpis.RMDiferentialInLast3Months >= 0 ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown)"
+                                             Size="MudBlazor.Size.Small"
+                                             Color="@(_kpis.RMDiferentialInLast3Months >= 0 ? MudBlazor.Color.Success : MudBlazor.Color.Error)" />
+                                    <MudText Typo="Typo.caption">@Math.Abs(_kpis.RMDiferentialInLast3Months) kg (3 mo)</MudText>
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudItem>
 
-        <!-- Current 1RM Card -->
-        <MudItem xs="12" sm="6">
-            <MudPaper Elevation="0" Style="background-color: white; border-radius: 8px; border: 1px solid #e0e0e0; padding: 8px;">
-                <MudStack Spacing="0">
-                    <MudText Typo="Typo.h6">@kpis.Current1RM.ToString("F1") kg</MudText>
-                    <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">Current 1RM</MudText>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
-                        <MudIcon Icon="@(kpis.RMDiferentialInLast3Months >= 0 ? @Icons.Material.Filled.TrendingUp : @Icons.Material.Filled.TrendingDown)"
-                                Size="MudBlazor.Size.Small"
-                                Color="@(kpis.RMDiferentialInLast3Months >= 0 ? MudBlazor.Color.Success : MudBlazor.Color.Error)" />
-                        <MudText Typo="Typo.caption" Style="font-size: 0.8rem;">@Math.Abs(kpis.RMDiferentialInLast3Months) kg</MudText>
+            <!-- Chart -->
+            <MudItem xs="12" Class="mt-3">
+                <MudText Typo="Typo.h6" Class="mb-2">Performance Trends</MudText>
+                <div Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 8px; overflow: hidden;">
+                    @if (_rmTrends != null && _volumeTrends != null)
+                    {
+                        <div style="height: 300px; padding: 8px;">
+                            <ApexChart @ref="_rmChart" TItem="DataPoint" Options="_chartOptions">
+                                <ApexPointSeries TItem="DataPoint" Items="_rmTrends" Name="RM"
+                                                 SeriesType="SeriesType.Line"
+                                                 XValue='e => e.Time.ToString("yyyy-MM-dd")'
+                                                 YAggregate="e => e.Average(x => x.Data)" />
+                                <ApexPointSeries TItem="DataPoint" Items="_volumeTrends" Name="Volume"
+                                                 SeriesType="SeriesType.Line"
+                                                 XValue='e => e.Time.ToString("yyyy-MM-dd")'
+                                                 YAggregate="e => e.Average(x => x.Data)" />
+                            </ApexChart>
+                        </div>
+                    }
+                </div>
+            </MudItem>
+
+            <!-- Exercise History -->
+            <MudItem xs="12" Class="mt-4">
+                <MudPaper Elevation="2" Class="px-3 py-2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2">
+                        <MudText Typo="Typo.subtitle1">Exercise History</MudText>
+                        <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Primary" Size="MudBlazor.Size.Small"
+                                   OnClick="ToggleExpand"
+                                   EndIcon="@(_expanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)">
+                            @(_expanded ? "Collapse" : "Expand")
+                        </MudButton>
                     </MudStack>
-                </MudStack>
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
-</MudItem>
 
-                <!-- Evolution Chart -->
-                <MudItem xs="12" Class="mt-3">
-                    <MudText Typo="Typo.h6" Class="mb-2">Performance Trends</MudText>
-                    <div Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 8px; overflow: hidden;">
-                        @if (_rmTrends != null && _volumeTrends != null)
-                        {
-                            <div style="height: 300px; padding: 8px;">
-                                <ApexChart @ref="rmChart"
-                                           TItem="DataPoint"
-                                           Options="options">
-                                    <ApexPointSeries TItem="DataPoint"
-                                                    Items="_rmTrends"
-                                                    Name="RM"
-                                                    SeriesType="ApexCharts.SeriesType.Line"
-                                                    XValue='e => e.Time.ToString("yyyy-MM-dd")'
-                                                    YAggregate="e => e.Average(e=> e.Data)" />
-                                    <ApexPointSeries TItem="DataPoint"
-                                                    Items="_volumeTrends"
-                                                    Name="Volume"
-                                                    SeriesType="ApexCharts.SeriesType.Line"
-                                                    XValue='e => e.Time.ToString("yyyy-MM-dd")'
-                                                    YAggregate="e => e.Average(e=> e.Data)" />
-                                </ApexChart>
-                            </div>
-                        }
-                    </div>
-                </MudItem>
-
-                <!-- Exercise History -->
-                <MudItem xs="12" Class="mt-4">
-                    <MudPaper Elevation="2" Class="px-3 py-2">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2">
-                            <MudText Typo="Typo.subtitle1">Exercise History</MudText>
-                            <MudButton Variant="Variant.Text"
-                                      Color="MudBlazor.Color.Primary"
-                                      Size="MudBlazor.Size.Small"
-                                      OnClick="OnExpandCollapseClick"
-                                      EndIcon="@(_expanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)">
-                                @(_expanded ? "Collapse" : "Expand")
-                            </MudButton>
-                        </MudStack>
-
-                        <MudCollapse Expanded="_expanded">
-                            <div style="max-height: 500px; overflow-y: auto; margin-top: 8px;">
-                                <!-- Desktop: Table view -->
-                                <div style="overflow-x: auto; display: none;" class="desktop-view">
-                                    <table class="exercise-history-table">
-                                        <colgroup>
-                                            <col style="width: 30%;" />
-                                            <col style="width: 50%;" />
-                                            <col style="width: 20%;" />
-                                        </colgroup>
-                                        <thead>
-                                            <tr>
-                                                <th>Date</th>
-                                                <th>Details</th>
-                                                <th style="text-align: right;">1RM</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                        @foreach (var context in exercises.OrderByDescending(e => e.Workout.Date))
+                    <MudCollapse Expanded="_expanded">
+                        <div style="max-height: 500px; overflow-y: auto; margin-top: 8px;">
+                            <!-- Desktop table -->
+                            <div style="overflow-x: auto; display: none;" class="hs-desktop-view">
+                                <table class="hs-history-table">
+                                    <colgroup>
+                                        <col style="width: 30%;" />
+                                        <col style="width: 50%;" />
+                                        <col style="width: 20%;" />
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Details</th>
+                                            <th style="text-align: right;">1RM</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var e in _exercises.OrderByDescending(e => e.Workout?.Date))
                                         {
                                             <tr>
-                                                <td class="no-break" data-label="Date" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                                    <MudText id="@($"exercise-{context.Workout.Date.Value.ToString("yyyyMMdd")}")" Typo="Typo.body2">
-                                                            <span class="no-break value">@context.Workout.Date.Value.ToString("d MMM")</span>
+                                                <td class="no-break">
+                                                    <MudText id="@($"exercise-{e.Workout?.Date?.ToString("yyyyMMdd")}")" Typo="Typo.body2">
+                                                        @e.Workout?.Date?.ToString("d MMM")
                                                     </MudText>
                                                 </td>
-                                                <td data-label="Details">
-                                                    <MudText Typo="Typo.body2"><span class="value">@context.Series × @context.Repetitions × @context.Weight kg</span></MudText>
+                                                <td>
+                                                    <MudText Typo="Typo.body2">@e.Series × @e.Repetitions × @e.Weight kg</MudText>
                                                 </td>
-                                                <td class="no-break" data-label="1RM" style="text-align: right;">
-                                                    <MudText Typo="Typo.body2" Style="@(context.Workout.Date.Value.Date == kpis.MaxRMDate.Date ? "font-weight: bold; color: var(--mud-palette-primary);" : "")">
-                                                        <span class="no-break value">@string.Format(System.Globalization.CultureInfo.CurrentCulture, "{0:F1}\u00A0kg", context.MaxRepetition)</span>
+                                                <td class="no-break" style="text-align: right;">
+                                                    <MudText Typo="Typo.body2"
+                                                             Style="@(e.Workout?.Date?.Date == _kpis.MaxRMDate.Date ? "font-weight: bold; color: var(--mud-palette-primary);" : "")">
+                                                        @string.Format("{0:F1} kg", e.MaxRepetition)
                                                     </MudText>
                                                 </td>
                                             </tr>
                                         }
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <!-- Mobile: Simple list view -->
-                                <ul class="exercise-history-list">
-                                @foreach (var context in exercises.OrderByDescending(e => e.Workout.Date))
+                                    </tbody>
+                                </table>
+                            </div>
+                            <!-- Mobile list -->
+                            <ul class="hs-history-list">
+                                @foreach (var e in _exercises.OrderByDescending(e => e.Workout?.Date))
                                 {
-                                    <li id="@($"exercise-{context.Workout.Date.Value.ToString("yyyyMMdd")}")">
-                                        <div class="date-details">
-                                            <span class="date">@context.Workout.Date.Value.ToString("d MMM")</span>
-                                            <span class="details">@context.Series×@context.Repetitions×@context.Weight kg</span>
+                                    <li id="@($"exercise-{e.Workout?.Date?.ToString("yyyyMMdd")}")">
+                                        <div class="hs-date-detail">
+                                            <span class="hs-date">@e.Workout?.Date?.ToString("d MMM")</span>
+                                            <span class="hs-detail">@e.Series×@e.Repetitions×@e.Weight kg</span>
                                         </div>
-                                        <span class="rm @(context.Workout.Date.Value.Date == kpis.MaxRMDate.Date ? "max" : "")">
-                                            @string.Format(System.Globalization.CultureInfo.CurrentCulture, "{0:F1} kg", context.MaxRepetition)
+                                        <span class="hs-rm @(e.Workout?.Date?.Date == _kpis.MaxRMDate.Date ? "hs-max" : "")">
+                                            @string.Format("{0:F1} kg", e.MaxRepetition)
                                         </span>
                                     </li>
                                 }
-                                </ul>
-                            </div>
-                        </MudCollapse>
+                            </ul>
+                        </div>
+                    </MudCollapse>
 
-                        @if (!_expanded && exercises.Length > 0)
-                        {
-                            <MudText Typo="Typo.caption" Class="mt-1">@exercises.Length sessions</MudText>
-                        }
-                    </MudPaper>
-                </MudItem>
-            </MudGrid>
-        }
-    </MudContainer>
+                    @if (!_expanded && _exercises.Length > 0)
+                    {
+                        <MudText Typo="Typo.caption" Class="mt-1">@_exercises.Length sessions</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
 
 @code {
-    [Parameter]
-    public int ExerciseTypeId { get; set; }
+    [Parameter] public int ExerciseTypeId { get; set; }
+    [Parameter] public string? TraineeId { get; set; }
 
-    [Parameter]
-    public string? traineeId { get; set; }
+    private string _title = "Exercise Details";
+    private ApexChart<DataPoint>? _rmChart;
+    private ApexChartOptions<DataPoint> _chartOptions = new();
 
-    private string Title { get; set; } = "Exercise Details";
-    private ApexChart<DataPoint> rmChart;
-    private ApexChartOptions<DataPoint> options { get; set; } = new();
-    private ApexChartOptions<DataPoint> mobileOptions { get; set; } = new();
+    private List<DataPoint>? _rmTrends;
+    private List<DataPoint>? _volumeTrends;
 
-    private List<DataPoint> _rmTrends { get; set; }
-    private List<DataPoint> _volumeTrends { get; set; }
-    private List<DataPoint> _intensityTrends { get; set; }
-
-    private GetExerciseResource[]? exercises;
-    private GetExerciseTypeKpis? kpis;
-    bool _expanded = false;
+    private GetExerciseResource[]? _exercises;
+    private ExerciseKpis? _kpis;
+    private bool _expanded = false;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDataAsync();
         InitializeChartOptions();
-        await base.OnInitializedAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        {
-            await JSRuntime.InvokeVoidAsync("eval", @"
-                window.scrollToElement = function(elementId) {
-                    const element = document.getElementById(elementId);
-                    if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        element.parentElement.parentElement.style.backgroundColor = 'rgba(var(--mud-palette-primary-rgb), 0.1)';
-                        setTimeout(() => {
-                            element.parentElement.parentElement.style.backgroundColor = '';
-                        }, 2000);
-                    }
+        if (!firstRender) return;
+        await JSRuntime.InvokeVoidAsync("eval", @"
+            window.scrollToElement = function(id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const row = el.closest('tr') ?? el.closest('li');
+                if (row) {
+                    row.style.backgroundColor = 'rgba(var(--mud-palette-primary-rgb), 0.1)';
+                    setTimeout(() => row.style.backgroundColor = '', 2000);
                 }
-            ");
-        }
+            }
+        ");
     }
 
     public async ValueTask DisposeAsync()
     {
-        try {
-            await JSRuntime.InvokeVoidAsync("eval", "delete window.scrollToElement");
-        } catch {}
+        try { await JSRuntime.InvokeVoidAsync("eval", "delete window.scrollToElement"); } catch { }
     }
 
     private async Task LoadDataAsync()
     {
-        var exercisesTask = Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?exerciseTypeId={ExerciseTypeId}&userId={traineeId}");
-        var kpisTask = Http.GetFromJsonAsync<GetExerciseTypeKpis>($"/Exercises/{ExerciseTypeId}/kpis?userId={traineeId}");
-        var rmTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=RM&userId={traineeId}");
-        var volumeTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Volume&userId={traineeId}");
-        var intensityTrendsTask = Http.GetFromJsonAsync<GetExerciseTypeTrends>($"/Exercises/{ExerciseTypeId}/trends?type=Intensity&userId={traineeId}");
+        var userParam = TraineeId != null ? $"&userId={TraineeId}" : "";
+        var exercisesTask = Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?exerciseTypeId={ExerciseTypeId}{userParam}");
+        var kpisTask = Http.GetFromJsonAsync<ExerciseKpis>($"/Exercises/{ExerciseTypeId}/kpis?userId={TraineeId}");
+        var rmTask = Http.GetFromJsonAsync<TrendResult>($"/Exercises/{ExerciseTypeId}/trends?type=RM{userParam}");
+        var volTask = Http.GetFromJsonAsync<TrendResult>($"/Exercises/{ExerciseTypeId}/trends?type=Volume{userParam}");
 
-        var rmTrendsResult = await rmTrendsTask;
-        var volumeTrendsResult = await volumeTrendsTask;
-        var intensityTrendsResult = await intensityTrendsTask;
-        exercises = await exercisesTask;
-        kpis = await kpisTask;
+        _exercises = await exercisesTask ?? Array.Empty<GetExerciseResource>();
+        _kpis = await kpisTask;
+        _rmTrends = (await rmTask)?.Points ?? new();
+        _volumeTrends = (await volTask)?.Points ?? new();
 
-
-
-        _rmTrends = rmTrendsResult?.Points ?? new List<DataPoint>();
-        _volumeTrends = volumeTrendsResult?.Points ?? new List<DataPoint>();
-        _intensityTrends = intensityTrendsResult?.Points ?? new List<DataPoint>();
-
-        if (exercises?.Length > 0 && exercises.FirstOrDefault()?.Type != null)
+        if (_exercises.Length > 0 && _exercises[0].Type != null)
         {
-            Title = exercises.First().Type.Name;
-            TitleService.Title = Title;
+            _title = _exercises[0].Type!.Name ?? "Exercise Details";
+            TitleService.Title = _title;
         }
     }
 
     private void InitializeChartOptions()
     {
-        options.Chart = new Chart
+        _chartOptions.Chart = new Chart { Height = 350, Toolbar = new Toolbar { Show = true } };
+        _chartOptions.Tooltip = new Tooltip { Shared = true, Intersect = false };
+        _chartOptions.Grid = new Grid { BorderColor = "#f1f1f1" };
+        _chartOptions.Stroke = new Stroke { Curve = Curve.Smooth, Width = 3 };
+        _chartOptions.Colors = new List<string> { "#2196F3", "#00E396" };
+
+        _chartOptions.Yaxis = new List<YAxis>
         {
-            Height = 350,
-            Toolbar = new Toolbar { Show = true }
+            new() { Title = new AxisTitle { Text = "RM (kg)" }, SeriesName = "RM", DecimalsInFloat = 0,
+                Labels = new YAxisLabels { Formatter = "function(v){return Number(v).toLocaleString()+' kg';}" } },
+            new() { Title = new AxisTitle { Text = "Volume (kg)" }, SeriesName = "Volume", DecimalsInFloat = 0,
+                Labels = new YAxisLabels { Formatter = "function(v){return Number(v).toLocaleString()+' kg';}" } }
         };
 
-        options.Title = new Title
+        _chartOptions.Xaxis = new XAxis { Labels = new XAxisLabels { ShowDuplicates = false } };
+
+        _chartOptions.Responsive = new List<Responsive<DataPoint>>
         {
-            Text = ""
-        };
-
-        options.Tooltip = new Tooltip
-        {
-            Shared = true,
-            Intersect = false
-        };
-
-        options.Grid = new Grid
-        {
-            BorderColor = "#f1f1f1"
-        };
-
-        options.Stroke = new Stroke { Curve = Curve.Smooth, Width = 3 };
-        options.Yaxis = new List<YAxis>();
-
-        // Colors for the series
-        options.Colors = new List<string> { "#2196F3", "#00E396" };
-
-        options.Yaxis.Add(new YAxis
+            new()
             {
-                Title = new AxisTitle { Text = "RM (kg)" },
-                SeriesName = "RM",
-                DecimalsInFloat = 0,
-                Labels = new YAxisLabels { Formatter = @"function (value) {
-                    return Number(value).toLocaleString() + ' kg';
-                }" }
-            });
-        options.Yaxis.Add(new YAxis
-            {
-                Title = new AxisTitle { Text = "Volume (kg)" },
-                SeriesName = "Volume",
-                DecimalsInFloat = 0,
-                Labels = new YAxisLabels { Formatter = @"function (value) {
-                    return Number(value).toLocaleString() + ' kg';
-                }" }
-            });
-
-        options.Legend = new Legend
-        {
-        };
-
-        // Configure X-axis with minimal labels
-        options.Xaxis = new XAxis
-        {
-            Labels = new XAxisLabels
-            {
-                ShowDuplicates = false,
-                OffsetX = 0
-            }
-        };
-
-        // Mobile-specific options
-        mobileOptions = new ApexChartOptions<DataPoint>();
-        mobileOptions.Chart = new Chart { Height = 300, Toolbar = new Toolbar { Show = false } };
-        mobileOptions.Title = options.Title;
-        mobileOptions.Tooltip = options.Tooltip;
-        mobileOptions.Grid = options.Grid;
-        mobileOptions.Stroke = options.Stroke;
-        mobileOptions.Colors = options.Colors;
-        mobileOptions.Legend = new Legend { };
-
-        mobileOptions.Yaxis = new List<YAxis>();
-        mobileOptions.Xaxis = new XAxis
-        {
-            Labels = new XAxisLabels
-            {
-                Rotate = -45,
-                RotateAlways = true,
-                MaxHeight = 60,
-                ShowDuplicates = false
-            }
-        };
-
-        mobileOptions.Yaxis.Add(new YAxis
-            {
-                Title = new AxisTitle { Text = "" },
-                SeriesName = "RM",
-                DecimalsInFloat = 0,
-                Show = false,
-                Labels = new YAxisLabels { Formatter = @"function (value) { return Number(value).toLocaleString() + ' kg'; }" }
-            });
-        mobileOptions.Yaxis.Add(new YAxis
-            {
-                Title = new AxisTitle { Text = "" },
-                SeriesName = "Volume",
-                DecimalsInFloat = 0,
-                Show = false,
-                Labels = new YAxisLabels { Formatter = @"function (value) { return Number(value).toLocaleString() + ' kg'; }" }
-            });
-
-        // Responsive design
-        options.Responsive = new List<Responsive<DataPoint>> {
-            new Responsive<DataPoint>() {
                 Breakpoint = 768,
-                Options = mobileOptions
+                Options = new ApexChartOptions<DataPoint>
+                {
+                    Chart = new Chart { Height = 300, Toolbar = new Toolbar { Show = false } },
+                    Yaxis = new List<YAxis>
+                    {
+                        new() { Show = false, SeriesName = "RM" },
+                        new() { Show = false, SeriesName = "Volume" }
+                    },
+                    Xaxis = new XAxis
+                    {
+                        Labels = new XAxisLabels { Rotate = -45, RotateAlways = true, MaxHeight = 60, ShowDuplicates = false }
+                    }
+                }
             }
         };
     }
 
-    private void OnExpandCollapseClick()
-    {
-        _expanded = !_expanded;
-    }
+    private void ToggleExpand() => _expanded = !_expanded;
 
-    private async Task ScrollToExerciseDate(DateTime date)
+    private async Task ScrollToExerciseDateAsync(DateTime date)
     {
         _expanded = true;
-        await Task.Delay(100); // Allow time for the collapse to expand
-        await JSRuntime.InvokeVoidAsync("scrollToElement", $"exercise-{date.ToString("yyyyMMdd")}");
+        StateHasChanged();
+        await Task.Delay(100);
+        await JSRuntime.InvokeVoidAsync("scrollToElement", $"exercise-{date:yyyyMMdd}");
     }
 
-    public class GetExerciseTypeTrends
-    {
-        public List<DataPoint> Points { get; set; }
-    }
-
-    public class DataPoint
-    {
-        public decimal Data { get; set; }
-        public DateTime Time { get; set; }
-    }
-
-    public class GetExerciseTypeKpis
+    // Local DTOs (these are specific to this page's API endpoints)
+    public class TrendResult { public List<DataPoint> Points { get; set; } = new(); }
+    public class DataPoint   { public decimal Data { get; set; }
+    public DateTime Time { get; set; } }
+    public class ExerciseKpis
     {
         public float MaxRM { get; set; }
         public DateTime MaxRMDate { get; set; }
         public float Current1RM { get; set; }
         public int RMDiferentialInLast3Months { get; set; }
-        public int WeeklyFrequency { get; set; }
-        public int PerceibedEffortLastSession { get; set; }
-    }
-
-    public class GetExerciseResource
-    {
-        public Guid? Id { get; set; }
-        public int? Series { get; set; }
-        public int? Repetitions { get; set; }
-        public double? Weight { get; set; }
-        public double? MaxRepetition { get; set; }
-        public int? Volume { get; set; }
-        public double? Intensity { get; set; }
-        public string? Comments { get; set; }
-        public GetExerciseTypeResource? Type { get; set; }
-        public GetWorkoutResource? Workout { get; set; }
-    }
-
-    public class GetExerciseTypeResource
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-    }
-
-    public class GetWorkoutResource
-    {
-        public Guid Id { get; set; }
-        public DateTime? Date { get; set; }
     }
 }

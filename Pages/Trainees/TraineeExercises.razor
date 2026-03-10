@@ -1,51 +1,28 @@
-﻿@page "/trainees/{traineeId}/exercises"
+﻿@page "/trainees/{TraineeId}/exercises"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@using healthspan_fe_wasm_pwa.Shared
 @inject TitleService TitleService
-
-<style>
-    @@media (max-width: 600px) {
-        .hide-on-mobile {
-            display: none;
-        }
-
-        .table-responsive {
-            overflow-x: auto;
-        }
-    }
-
-    .mud-table-cell-custom-group {
-        font-weight: 500;
-    }
-
-    .mud-table-cell-custom-group-footer {
-        padding-bottom: 50px;
-        text-align: right;
-    }
-</style>
 
 <PageTitle>Exercises</PageTitle>
 
-@if (exercises == null)
+@if (_exercises == null)
 {
-    <MudProgressCircular Color="Color.Default"
-                         Indeterminate="true" />
+    <LoadingState Message="Loading exercises..." />
 }
 else
 {
     <div class="table-responsive">
-        <MudTable Items="exercises"
+        <MudTable Items="@_exercises"
                   Hover="true"
                   SortLabel="Sort By"
                   Elevation="0"
                   Breakpoint="Breakpoint.None"
                   Dense="true"
-                  Filter="new Func<GetExerciseResource,bool>(FilterFunc1)"
+                  Filter="@((GetExerciseResource x) => FilterExercise(x))"
                   GroupBy="@_groupDefinition"
                   T="GetExerciseResource"
-                  OnRowClick="GoToEditExercise"
-                  SelectedItem="selectedItem">
+                  OnRowClick="@GoToEditExercise"
+                  SelectedItem="@_selected">
             <ColGroup>
                 <col style="width: 5%;" />
                 <col />
@@ -57,63 +34,29 @@ else
                 <col style="width: 5%;" />
             </ColGroup>
             <ToolBarContent>
-                <MudTextField @bind-Value="searchString1"
-                              Placeholder="Search"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Search"
-                              IconSize="Size.Medium"
-                              Class="mt-0"></MudTextField>
+                <MudTextField @bind-Value="_search" Placeholder="Search"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="MudBlazor.Size.Medium" Class="mt-0" />
             </ToolBarContent>
             <HeaderContent>
-                <MudTh>
-                    <MudTableSortLabel InitialDirection="SortDirection.Descending"
-                                       SortBy="new Func<GetExerciseResource, object>(x=>x.Workout.Date)">Date
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Type.Name)">Type
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Series)">Series
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Repetitions)">Repetitions
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Weight)">Weight
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.MaxRepetition)">1RM
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Volume)">Volume
-                    </MudTableSortLabel>
-                </MudTh>
-                <MudTh>
-                    <MudTableSortLabel SortBy="new Func<GetExerciseResource, object>(x=>x.Intensity)">Intensity
-                    </MudTableSortLabel>
-                </MudTh>
+                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Descending" SortBy="@((GetExerciseResource x) => x.Workout?.Date ?? DateTime.MinValue)">Date</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Type?.Name ?? "")">Type</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Series ?? 0)">Series</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Repetitions ?? 0)">Reps</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Weight ?? 0)">Weight</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.MaxRepetition ?? 0)">1RM</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Volume ?? 0)">Volume</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Intensity ?? 0)">Intensity</MudTableSortLabel></MudTh>
             </HeaderContent>
             <GroupHeaderTemplate>
-                <MudTh Class="mud-table-cell-custom-group"
-                       colspan="8">
+                <MudTh Class="mud-table-cell-custom-group" colspan="8">
                     @{
-                        var currentDate = DateTime.Now;
-                        DateTime groupDate;
-                        if (DateTime.TryParse(context.Key.ToString(), out groupDate))
+                        if (DateTime.TryParse(context.Key?.ToString(), out var groupDate))
                         {
-                            var daysAgo = (currentDate - groupDate).Days;
+                            var daysAgo = (DateTime.Now - groupDate).Days;
                             <text>@($"{context.GroupName}: {context.Key}, ({daysAgo} days ago)")</text>
                         }
-                        else
-                        {
-                            <text>Invalid Date</text>
-                        }
+                        else { <text>Unknown Date</text> }
                     }
                 </MudTh>
             </GroupHeaderTemplate>
@@ -129,58 +72,36 @@ else
             </RowTemplate>
         </MudTable>
     </div>
-    <MudFab @onclick="GoToCreateExercise"
-            Color="Color.Primary"
-            StartIcon="@Icons.Material.Filled.Add"
-            class="fixed-create-button" />
+
+    <MudFab @onclick="GoToCreate" Color="MudBlazor.Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+            Class="fixed-create-button" />
 }
 
 @code {
-     [Parameter]
-    public string traineeId { get; set; }
-    private GetExerciseResource[]? exercises;
-    private GetExerciseResource? selectedItem;
-    private string searchString1 = "";
-    private TableGroupDefinition<GetExerciseResource> _groupDefinition = new()
-        {
-            GroupName = "Date",
-            Indentation = true,
-            Expandable = false,
-            Selector = (e) => e.Workout?.Date?.ToString("d") ?? "No Date"
-        };
+    [Parameter] public string TraineeId { get; set; } = "";
+
+    private GetExerciseResource[]? _exercises;
+    private GetExerciseResource? _selected;
+    private string _search = "";
+
+    private readonly TableGroupDefinition<GetExerciseResource> _groupDefinition = new()
+    {
+        GroupName = "Date",
+        Indentation = true,
+        Expandable = false,
+        Selector = e => e.Workout?.Date?.ToString("d") ?? "No Date"
+    };
 
     protected override async Task OnInitializedAsync()
     {
-        exercises = await Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?userId={traineeId}");
-    }
-    protected override void OnInitialized()
-    {
         TitleService.Title = "Exercises";
+        _exercises = await Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?userId={TraineeId}");
     }
 
-    private bool FilterFunc1(GetExerciseResource element) => FilterFunc(element, searchString1);
+    private bool FilterExercise(GetExerciseResource item) => AppStateService.MatchesSearch(item, _search);
 
-    private bool FilterFunc(GetExerciseResource element, string searchString)
-    {
-        if (string.IsNullOrWhiteSpace(searchString))
-            return true;
-        string dateString = element.Workout.Date.Value.ToString("dd/MM/yyyy");
+    private void GoToCreate() => NavigationManager.NavigateTo($"/exercises/create/{TraineeId}");
 
-        if (dateString.Contains(searchString, StringComparison.OrdinalIgnoreCase))
-            return true;
-        if (element.Type?.Name?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
-            return true;
-        if (element.Type?.Description?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
-            return true;
-
-        return false;
-    }
-    private void GoToCreateExercise()
-    {
-        NavigationManager.NavigateTo($"/exercises/create/{traineeId}");
-    }
-    private void GoToEditExercise(TableRowClickEventArgs<GetExerciseResource> tableRowClickEventArgs)
-    {
-        NavigationManager.NavigateTo($"/exercises/edit/{tableRowClickEventArgs.Item.Id}");
-    }
+    private void GoToEditExercise(TableRowClickEventArgs<GetExerciseResource> args)
+        => NavigationManager.NavigateTo($"/exercises/edit/{args.Item.Id}");
 }

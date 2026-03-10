@@ -1,5 +1,5 @@
 ﻿@inject AuthenticationStateProvider AuthenticationStateProvider
-@inject HttpClient Http
+@inject AppStateService AppState
 
 <MudNavMenu>
     <MudNavLink Href="exercises" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.FitnessCenter">
@@ -10,7 +10,7 @@
         Exercise Types
     </MudNavLink>
 
-    @if (isTrainer)
+    @if (_isTrainer)
     {
         <MudNavLink Href="trainees" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
             Trainees
@@ -19,22 +19,15 @@
 </MudNavMenu>
 
 @code {
-    private bool isTrainer = false;
+    private bool _isTrainer = false;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity.IsAuthenticated)
+        if (authState.User.Identity?.IsAuthenticated == true)
         {
-            var userRoles = await Http.GetFromJsonAsync<string[]>($"/Users/roles");
-
-            if (userRoles.Contains("Trainer"))
-            {
-                isTrainer = true;
-            }
+            var roles = await AppState.GetUserRolesAsync();
+            _isTrainer = roles.Contains("Trainer");
         }
-
     }
 }
