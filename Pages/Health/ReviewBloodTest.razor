@@ -1,0 +1,245 @@
+@page "/health/blood-tests/{BloodTestId:guid}/review"
+@inject HealthspanApiClient ApiClient
+@inject TitleService TitleService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Review Blood Test</PageTitle>
+
+@if (_isLoading)
+{
+    <LoadingState Message="Loading review workflow..." Size="Size.Large" />
+}
+else if (_bloodTest == null)
+{
+    <EmptyState Icon="@Icons.Material.Filled.FactCheck"
+                Title="Blood test not found"
+                Subtitle="The requested blood test could not be loaded for review." />
+}
+else
+{
+    <div class="hs-health-shell">
+        <div class="hs-page-hero">
+            <div>
+                <MudText Typo="Typo.h4">Review OCR suggestions</MudText>
+                <MudText Typo="Typo.body1" Class="hs-muted-copy">Clean up the OCR marker list, correct metadata, and submit the final marker set.</MudText>
+                <MudText Typo="Typo.caption" Class="hs-mobile-note mt-2">Confidence is read-only context only. Final review depends on manual cleanup, not automatic acceptance.</MudText>
+            </div>
+            <MudChipSet>
+                <MudChip Color="Color.Default" Variant="Variant.Outlined">@_markerRows.Count rows</MudChip>
+                <MudChip Color="@(_bloodTest.RequiresReview ? Color.Warning : Color.Success)" Variant="Variant.Outlined">@(_bloodTest.RequiresReview ? "Pending review" : "Already finalized")</MudChip>
+            </MudChipSet>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_errorMessage</MudAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_operationMessage))
+        {
+            <MudAlert Severity="@_operationSeverity" Dense="true">@_operationMessage</MudAlert>
+        }
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" lg="8">
+                <MudPaper Class="hs-health-panel">
+                    <div class="hs-detail-heading">
+                        <div>
+                            <MudText Typo="Typo.h6">Final review payload</MudText>
+                            <MudText Typo="Typo.body2" Class="hs-muted-copy">Edit the test metadata and keep only clinically useful marker rows.</MudText>
+                        </div>
+                        <MudStack Row="true" Class="hs-list-card-actions">
+                            <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="BackToList">Back to blood tests</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isSubmitting || !_bloodTest.RequiresReview)" OnClick="SubmitAsync">
+                                @(_isSubmitting ? "Submitting..." : "Submit reviewed markers")
+                            </MudButton>
+                        </MudStack>
+                    </div>
+
+                    <div class="hs-review-meta-grid mt-3">
+                        <MudDatePicker Label="Test date" @bind-Date="_reviewTestDate" />
+                        <MudTextField @bind-Value="_reviewDraft.LabName" Label="Lab name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </div>
+
+                    <MudTable Items="@_markerRows" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Class="hs-review-table mt-4">
+                        <HeaderContent>
+                            <MudTh>Name</MudTh>
+                            <MudTh>Value</MudTh>
+                            <MudTh>Unit</MudTh>
+                            <MudTh>Raw value</MudTh>
+                            <MudTh>Confidence</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Name">
+                                <MudTextField @bind-Value="context.Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            </MudTd>
+                            <MudTd DataLabel="Value">
+                                <MudNumericField T="double?" @bind-Value="context.Value" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            </MudTd>
+                            <MudTd DataLabel="Unit">
+                                <MudTextField @bind-Value="context.Unit" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            </MudTd>
+                            <MudTd DataLabel="Raw value">
+                                <MudTextField @bind-Value="context.RawValueText" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            </MudTd>
+                            <MudTd DataLabel="Confidence">
+                                <MudText Typo="Typo.body2">@FormatConfidence(context.Confidence)</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Remove">
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveMarker(context)" />
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+
+                    <MudStack Row="true" Class="mt-3 hs-list-card-actions">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="AddMarker">Add marker row</MudButton>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="4">
+                <MudPaper Class="hs-health-panel hs-sticky-panel">
+                    <MudText Typo="Typo.h6">Review context</MudText>
+                    <div class="hs-table-stack mt-3">
+                        <MudText Typo="Typo.body2"><strong>Source:</strong> @(_bloodTest.SourceFileName ?? "Manual entry")</MudText>
+                        <MudText Typo="Typo.body2"><strong>Status:</strong> @HealthDisplayHelpers.GetProcessingStatusLabel(_bloodTest.ProcessingStatus)</MudText>
+                        <MudText Typo="Typo.body2"><strong>Original OCR rows:</strong> @(_bloodTest.Markers?.Count ?? 0)</MudText>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(_bloodTest.ProcessingNotes))
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3 hs-soft-alert">@_bloodTest.ProcessingNotes</MudAlert>
+                    }
+
+                    @if (!_bloodTest.RequiresReview)
+                    {
+                        <MudAlert Severity="Severity.Success" Dense="true" Class="mt-3 hs-soft-alert">This blood test is already finalized. Re-open the detail view if you only need to inspect the saved markers.</MudAlert>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3 hs-soft-alert">Blank rows are ignored on submit. Keep only the final marker set you want associated with this blood test.</MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid BloodTestId { get; set; }
+
+    private GetBloodTestResource? _bloodTest;
+    private ReviewBloodTestResource _reviewDraft = new() { Markers = new() };
+    private DateTime? _reviewTestDate;
+    private bool _isLoading = true;
+    private bool _isSubmitting;
+    private string? _errorMessage;
+    private string? _operationMessage;
+    private Severity _operationSeverity = Severity.Info;
+
+    private List<BloodTestMarkerResource> _markerRows => _reviewDraft.Markers ??= new List<BloodTestMarkerResource>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        TitleService.Title = "Review Blood Test";
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _bloodTest = await ApiClient.GetBloodTestAsync(BloodTestId);
+            if (_bloodTest == null)
+            {
+                _errorMessage = "Unable to load the blood test review payload.";
+                return;
+            }
+
+            _reviewDraft = new ReviewBloodTestResource
+            {
+                TestDate = _bloodTest.TestDate,
+                LabName = _bloodTest.LabName,
+                Markers = _bloodTest.Markers?.Select(CloneMarker).ToList() ?? new List<BloodTestMarkerResource>()
+            };
+
+            _reviewTestDate = _reviewDraft.TestDate;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load blood test review: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_bloodTest == null || !_bloodTest.RequiresReview)
+        {
+            return;
+        }
+
+        _isSubmitting = true;
+        _operationMessage = null;
+        _errorMessage = null;
+
+        try
+        {
+            _reviewDraft.TestDate = _reviewTestDate ?? _bloodTest.TestDate;
+            _reviewDraft.Markers = _markerRows
+                .Where(HasMeaningfulMarkerContent)
+                .Select(CloneMarker)
+                .ToList();
+
+            await ApiClient.ReviewBloodTestAsync(BloodTestId, _reviewDraft);
+            NavigationManager.NavigateTo($"/health/blood-tests?selectedId={BloodTestId}");
+        }
+        catch (Exception ex)
+        {
+            _operationSeverity = Severity.Error;
+            _operationMessage = $"Failed to submit reviewed blood test: {ex.Message}";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private void AddMarker()
+        => _markerRows.Add(new BloodTestMarkerResource());
+
+    private void RemoveMarker(BloodTestMarkerResource marker)
+        => _markerRows.Remove(marker);
+
+    private void BackToList()
+        => NavigationManager.NavigateTo($"/health/blood-tests?selectedId={BloodTestId}");
+
+    private static BloodTestMarkerResource CloneMarker(BloodTestMarkerResource marker)
+        => new()
+        {
+            Name = marker.Name,
+            Value = marker.Value,
+            Unit = marker.Unit,
+            RawValueText = marker.RawValueText,
+            Confidence = marker.Confidence,
+            Status = marker.Status,
+            ReferenceMinValue = marker.ReferenceMinValue,
+            ReferenceMaxValue = marker.ReferenceMaxValue
+        };
+
+    private static bool HasMeaningfulMarkerContent(BloodTestMarkerResource marker)
+        => !string.IsNullOrWhiteSpace(marker.Name)
+           || marker.Value.HasValue
+           || !string.IsNullOrWhiteSpace(marker.Unit)
+           || !string.IsNullOrWhiteSpace(marker.RawValueText);
+
+    private static string FormatConfidence(double? confidence)
+        => confidence.HasValue ? confidence.Value.ToString("P0") : "-";
+}

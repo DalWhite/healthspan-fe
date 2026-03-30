@@ -2,6 +2,24 @@
 @inject AppStateService AppState
 
 <MudNavMenu>
+    <MudNavGroup Title="Health" Icon="@Icons.Material.Filled.MonitorHeart" Expanded="true">
+        <MudNavLink Href="health/dashboard" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.SpaceDashboard">
+            Dashboard
+        </MudNavLink>
+
+        <MudNavLink Href="health/blood-tests" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Biotech">
+            Blood Tests
+        </MudNavLink>
+
+        <MudNavLink Href="health/biomarkers" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.QueryStats">
+            Biomarkers
+        </MudNavLink>
+
+        <MudNavLink Href="health/assessments" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.FactCheck">
+            Assessments
+        </MudNavLink>
+    </MudNavGroup>
+
     <MudNavLink Href="exercises" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.FitnessCenter">
         Exercises
     </MudNavLink>

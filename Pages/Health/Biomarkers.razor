@@ -1,0 +1,243 @@
+@page "/health/biomarkers"
+@inject HealthspanApiClient ApiClient
+@inject TitleService TitleService
+
+<PageTitle>Biomarkers</PageTitle>
+
+@if (_isLoading)
+{
+    <LoadingState Message="Loading biomarkers..." Size="Size.Large" />
+}
+else
+{
+    <div class="hs-health-shell">
+        <div class="hs-page-hero">
+            <div>
+                <MudText Typo="Typo.h4">Biomarkers</MudText>
+                <MudText Typo="Typo.body1" Class="hs-muted-copy">Latest marker snapshots with trend charts filtered by explicit date bounds.</MudText>
+                <MudText Typo="Typo.caption" Class="hs-mobile-note mt-2">Trend charts only include tests where a biomarker was actually measured. Missing points do not imply zero.</MudText>
+            </div>
+            <MudStack Class="hs-filter-stack">
+                <MudSelect T="string" Label="Category" Value="_selectedCategory" ValueChanged="OnCategoryChanged" Variant="Variant.Outlined" Dense="true">
+                    @foreach (var category in _categories)
+                    {
+                        <MudSelectItem Value="@category">@category</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudDatePicker Label="From" @bind-Date="_fromUtc" />
+                <MudDatePicker Label="To" @bind-Date="_toUtc" />
+            </MudStack>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_errorMessage</MudAlert>
+        }
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" lg="7">
+                @if (_filteredMarkers.Count == 0)
+                {
+                    <EmptyState Icon="@Icons.Material.Filled.MonitorHeart"
+                                Title="No biomarker data"
+                                Subtitle="Latest marker snapshots have not been generated yet." />
+                }
+                else
+                {
+                    @foreach (var group in GetGroupedMarkers())
+                    {
+                        <MudPaper Class="hs-health-panel mb-3">
+                            <MudText Typo="Typo.h6">@group.Key</MudText>
+                            <div class="hs-health-card-grid mt-3">
+                                @foreach (var marker in group)
+                                {
+                                    <button type="button" class="hs-biomarker-card @GetMarkerCardClass(marker) @(IsOutOfRange(marker) ? "is-alert" : string.Empty)" @onclick="() => SelectMarkerAsync(marker)">
+                                        <div class="hs-biomarker-header">
+                                            <div>
+                                                <div class="hs-biomarker-name">@(marker.DisplayName ?? marker.MetricKey ?? "Unnamed marker")</div>
+                                                <div class="hs-biomarker-category">@marker.MetricKey</div>
+                                            </div>
+                                            <ClinicalStatusChip Status="@HealthDisplayHelpers.GetMarkerStatusLabel(marker.Status, marker.Value, marker.ReferenceMinValue, marker.ReferenceMaxValue)" />
+                                        </div>
+                                        <div class="hs-biomarker-value">@FormatMarkerValue(marker)</div>
+                                        <div class="hs-biomarker-range">Reference: @FormatReferenceRange(marker.ReferenceMinValue, marker.ReferenceMaxValue, marker.Unit)</div>
+                                        <div class="hs-biomarker-meta">
+                                            <span>@marker.TestDate.ToString("dd MMM yyyy")</span>
+                                            <span>@(IsOutOfRange(marker) ? "Out of range" : "Within range")</span>
+                                        </div>
+                                    </button>
+                                }
+                            </div>
+                        </MudPaper>
+                    }
+                }
+            </MudItem>
+
+            <MudItem xs="12" lg="5">
+                <MudPaper Class="hs-health-panel">
+                    @if (_selectedMarker == null)
+                    {
+                        <EmptyState Icon="@Icons.Material.Filled.ShowChart"
+                                    Title="Select a biomarker"
+                                    Subtitle="Trend data and range context appear here." />
+                    }
+                    else
+                    {
+                        <div class="hs-detail-heading">
+                            <div>
+                                <MudText Typo="Typo.h5">@(_selectedMarker.DisplayName ?? _selectedMarker.MetricKey)</MudText>
+                                <MudText Typo="Typo.body2" Class="hs-muted-copy">@HealthDisplayHelpers.ResolveMarkerCategory(_selectedMarker.MetricKey, _selectedMarker.DisplayName) • @FormatReferenceRange(_selectedMarker.ReferenceMinValue, _selectedMarker.ReferenceMaxValue, _selectedMarker.Unit)</MudText>
+                            </div>
+                            <ClinicalStatusChip Status="@HealthDisplayHelpers.GetMarkerStatusLabel(_selectedMarker.Status, _selectedMarker.Value, _selectedMarker.ReferenceMinValue, _selectedMarker.ReferenceMaxValue)" />
+                        </div>
+
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3 hs-soft-alert">The current trends endpoint returns only measured observations. It does not report which blood tests omitted the marker.</MudAlert>
+
+                        @if (_isTrendLoading)
+                        {
+                            <LoadingState Message="Loading biomarker trend..." />
+                        }
+                        else if (_selectedTrend == null || _selectedTrend.Points.Count == 0)
+                        {
+                            <EmptyState Icon="@Icons.Material.Filled.Timeline"
+                                        Title="No trend points"
+                                        Subtitle="No measured observations were returned for the selected date range." />
+                        }
+                        else
+                        {
+                            <TrendChart Series="new[] { _selectedTrend }"
+                                        YAxisTitle="@(_selectedMarker.DisplayName ?? _selectedMarker.MetricKey)"
+                                        ValueSuffix="@_selectedTrend.Unit"
+                                        Height="320" />
+                        }
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </div>
+}
+
+@code {
+    private readonly List<LatestMarkerSnapshotResource> _allMarkers = new();
+    private List<LatestMarkerSnapshotResource> _filteredMarkers = new();
+    private List<string> _categories = new() { "All" };
+    private LatestMarkerSnapshotResource? _selectedMarker;
+    private TrendSeriesResource? _selectedTrend;
+    private string _selectedCategory = "All";
+    private DateTime? _fromUtc = DateTime.Today.AddMonths(-6);
+    private DateTime? _toUtc = DateTime.Today;
+    private bool _isLoading = true;
+    private bool _isTrendLoading;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TitleService.Title = "Biomarkers";
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _allMarkers.Clear();
+            _allMarkers.AddRange(await ApiClient.GetLatestMarkersAsync());
+            _categories = new[] { "All" }
+                .Concat(_allMarkers.Select(GetCategory).Distinct().OrderBy(x => x))
+                .ToList();
+            ApplyFilter();
+
+            if (_filteredMarkers.Count > 0)
+            {
+                await SelectMarkerAsync(_filteredMarkers[0]);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load biomarker snapshots: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        _filteredMarkers = _allMarkers
+            .Where(x => _selectedCategory == "All" || GetCategory(x) == _selectedCategory)
+            .OrderBy(x => GetCategory(x))
+            .ThenBy(x => x.DisplayName ?? x.MetricKey)
+            .ToList();
+    }
+
+    private async Task OnCategoryChanged(string category)
+    {
+        _selectedCategory = category;
+        ApplyFilter();
+        _selectedMarker = _filteredMarkers.FirstOrDefault();
+        if (_selectedMarker != null)
+        {
+            await SelectMarkerAsync(_selectedMarker);
+        }
+    }
+
+    private async Task SelectMarkerAsync(LatestMarkerSnapshotResource marker)
+    {
+        _selectedMarker = marker;
+        _isTrendLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var trend = await ApiClient.GetMarkerTrendAsync(marker.MetricKey ?? string.Empty, _fromUtc, _toUtc);
+            _selectedTrend = trend == null
+                ? null
+                : new TrendSeriesResource
+                {
+                    Key = trend.MetricKey ?? marker.MetricKey ?? string.Empty,
+                    Label = marker.DisplayName ?? marker.MetricKey ?? string.Empty,
+                    Unit = trend.Points?.FirstOrDefault()?.Unit ?? marker.Unit,
+                    Color = ResolveMarkerColor(marker),
+                    Points = trend.Points?.Select(point => new TrendPointResource
+                    {
+                        Date = point.Time,
+                        Value = (decimal)point.Value
+                    }).ToList() ?? new List<TrendPointResource>()
+                };
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load marker trend: {ex.Message}";
+            _selectedTrend = null;
+        }
+        finally
+        {
+            _isTrendLoading = false;
+        }
+    }
+
+    private IEnumerable<IGrouping<string, LatestMarkerSnapshotResource>> GetGroupedMarkers()
+        => _filteredMarkers.GroupBy(GetCategory);
+
+    private string GetMarkerCardClass(LatestMarkerSnapshotResource marker)
+        => _selectedMarker?.MetricKey == marker.MetricKey ? "is-selected" : string.Empty;
+
+    private static string GetCategory(LatestMarkerSnapshotResource marker)
+        => HealthDisplayHelpers.ResolveMarkerCategory(marker.MetricKey, marker.DisplayName);
+
+    private static bool IsOutOfRange(LatestMarkerSnapshotResource marker)
+        => HealthDisplayHelpers.IsOutOfRange(marker.Value, marker.ReferenceMinValue, marker.ReferenceMaxValue);
+
+    private static string FormatMarkerValue(LatestMarkerSnapshotResource marker)
+        => marker.Value.HasValue ? $"{marker.Value.Value:0.##} {marker.Unit}" : "No value";
+
+    private static string FormatReferenceRange(double? min, double? max, string? unit)
+        => $"{min?.ToString("0.##") ?? "-"} to {max?.ToString("0.##") ?? "-"} {unit}";
+
+    private static string ResolveMarkerColor(LatestMarkerSnapshotResource marker)
+        => IsOutOfRange(marker) ? "#b42318" : "#0f5f67";
+}

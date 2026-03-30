@@ -78,8 +78,14 @@
 
         // Redirect based on auth state
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var isRoot = string.IsNullOrWhiteSpace(relativePath) || relativePath == "/";
+
         if (authState.User.Identity?.IsAuthenticated == true)
-            NavigationManager.NavigateTo("/exercises");
+        {
+            if (isRoot)
+                NavigationManager.NavigateTo("/health/dashboard");
+        }
         else
             NavigationManager.NavigateTo("/login");
     }
