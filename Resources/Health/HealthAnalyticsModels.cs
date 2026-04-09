@@ -27,7 +27,7 @@ public enum MarkerStatus
     InRange = 1,
     Low = 2,
     High = 3,
-    Borderline = 4
+    RequiresReview = 4
 }
 
 public enum GalpinAdaptationType

@@ -908,6 +908,62 @@
   padding-top: 8px;
 }
 
+.hs-upload-panel {
+  border: 1px solid rgba(15, 95, 103, 0.14);
+  animation: hs-slide-down 0.2s ease-out;
+}
+
+@keyframes hs-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hs-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 20px;
+  border: 2px dashed rgba(15, 95, 103, 0.24);
+  border-radius: 16px;
+  background: #f8fbfb;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  text-align: center;
+}
+
+.hs-dropzone:hover {
+  border-color: rgba(15, 95, 103, 0.5);
+  background: #f0f6f6;
+}
+
+.hs-dropzone-btn {
+  padding: 24px 20px !important;
+  border: 2px dashed rgba(15, 95, 103, 0.24) !important;
+  border-radius: 16px !important;
+  background: #f8fbfb !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  min-height: 120px;
+}
+
+.hs-dropzone-btn:hover {
+  border-color: rgba(15, 95, 103, 0.5) !important;
+  background: #f0f6f6 !important;
+}
+
+.hs-manual-markers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.hs-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 @media (max-width: 960px) {
   .hs-sticky-panel {
     position: static;

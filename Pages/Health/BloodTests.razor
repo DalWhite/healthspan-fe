@@ -12,342 +12,235 @@
 else
 {
     <div class="hs-health-shell">
+        @* ── Header ──────────────────────────────────────────────────── *@
         <div class="hs-page-hero">
             <div>
                 <MudText Typo="Typo.h4">Blood Tests</MudText>
-                <MudText Typo="Typo.body1" Class="hs-muted-copy">OCR-assisted upload, pending review cleanup, and manual fallback against the current Healthspan API.</MudText>
-                <MudText Typo="Typo.caption" Class="hs-mobile-note mt-2">Uploads no longer auto-finalize. OCR markers remain suggestions until the final reviewed marker list is submitted.</MudText>
+                <MudText Typo="Typo.body2" Class="hs-muted-copy">Upload lab reports or add results manually. Review pending OCR extractions before they finalize.</MudText>
             </div>
-            <MudChipSet>
-                <MudChip Color="Color.Default" Variant="Variant.Outlined">@_bloodTests.Count tests</MudChip>
-                <MudChip Color="Color.Warning" Variant="Variant.Outlined">@_pendingReview.Count pending review</MudChip>
-                <MudChip Color="Color.Error" Variant="Variant.Outlined">@ProblemStateTests.Count() OCR/problem states</MudChip>
-            </MudChipSet>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" OnClick="ToggleUploadPanel">Upload report</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Edit" OnClick="ToggleManualEntry">Manual entry</MudButton>
+            </MudStack>
         </div>
 
+        @* ── Feedback messages ───────────────────────────────────────── *@
         @if (!string.IsNullOrWhiteSpace(_errorMessage))
         {
-            <MudAlert Severity="Severity.Error" Dense="true">@_errorMessage</MudAlert>
+            <MudAlert Severity="Severity.Error" Dense="true" ShowCloseIcon="true" CloseIconClicked="() => _errorMessage = null">@_errorMessage</MudAlert>
         }
 
         @if (!string.IsNullOrWhiteSpace(_operationMessage))
         {
-            <MudAlert Severity="@_operationSeverity" Dense="true">@_operationMessage</MudAlert>
+            <MudAlert Severity="@_operationSeverity" Dense="true" ShowCloseIcon="true" CloseIconClicked="() => _operationMessage = null">@_operationMessage</MudAlert>
         }
 
-        <MudGrid Spacing="3">
-            <MudItem xs="12" lg="4">
-                <MudPaper Class="hs-health-panel hs-sticky-panel">
-                    <MudText Typo="Typo.h6">Quick actions</MudText>
-                    <MudStack Class="mt-3">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="FocusUploadPanel" FullWidth="true">Upload report</MudButton>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="StartManualEntry" FullWidth="true">Create manual entry</MudButton>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" Disabled="@(!_pendingReview.Any())" OnClick="ReviewNextPendingAsync" FullWidth="true">Review pending test</MudButton>
-                    </MudStack>
+        @* ── Upload panel (collapsible) ──────────────────────────────── *@
+        @if (_showUploadPanel)
+        {
+            <MudPaper Class="hs-health-panel hs-upload-panel">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                    <MudText Typo="Typo.h6">Upload lab report</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _showUploadPanel = false" />
+                </MudStack>
 
-                    @if (_pendingReview.Any())
-                    {
-                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3 hs-soft-alert">@_pendingReview.Count tests still require manual review before OCR suggestions become final results.</MudAlert>
-                    }
+                <MudFileUpload T="IBrowserFile" Accept=".pdf,image/*" FilesChanged="OnFileSelected">
+                    <ButtonTemplate>
+                        <MudButton HtmlTag="label"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Class="hs-dropzone-btn"
+                                   for="@context">
+                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Large" Class="hs-muted-copy" />
+                                <MudText Typo="Typo.body1">@(_selectedFile != null ? _selectedFile.Name : "Click to select a PDF or image")</MudText>
+                                <MudText Typo="Typo.caption" Class="hs-muted-copy">Supports PDF, JPEG, PNG up to 15 MB</MudText>
+                            </MudStack>
+                        </MudButton>
+                    </ButtonTemplate>
+                </MudFileUpload>
 
-                    <MudDivider Class="my-4" />
-
-                    <MudText Typo="Typo.h6">Upload report</MudText>
-                    <MudText Typo="Typo.body2" Class="hs-muted-copy mb-3">Supports PDF and image uploads. After upload, the app routes into review if the created test still requires manual cleanup.</MudText>
-
-                    <MudFileUpload T="IBrowserFile" Accept=".pdf,image/*" FilesChanged="OnFileSelected" Class="mt-3">
-                        <ActivatorContent>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" FullWidth="true">
-                                @(_selectedFile != null ? _selectedFile.Name : "Select file")
-                            </MudButton>
-                        </ActivatorContent>
-                    </MudFileUpload>
-
-                    <MudDatePicker Label="Test date" @bind-Date="_uploadDraft.TestDate" Class="mt-3" />
-                    <MudTextField @bind-Value="_uploadDraft.LabName" Label="Lab name" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_selectedFile == null || _isUploading)" OnClick="UploadAsync" FullWidth="true">
-                        @(_isUploading ? "Uploading..." : "Upload report")
+                <MudStack Row="true" Spacing="2" Class="mt-3">
+                    <MudDatePicker Label="Test date" @bind-Date="_uploadDraft.TestDate" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1" />
+                    <MudTextField @bind-Value="_uploadDraft.LabName" Label="Lab name (optional)" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_selectedFile == null || _isUploading)" OnClick="UploadAsync">
+                        @(_isUploading ? "Uploading..." : "Upload")
                     </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
 
-                    <MudDivider Class="my-4" />
+        @* ── Manual entry panel (collapsible) ────────────────────────── *@
+        @if (_showManualEntry)
+        {
+            <MudPaper Class="hs-health-panel hs-upload-panel">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                    <MudText Typo="Typo.h6">Manual blood test entry</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _showManualEntry = false" />
+                </MudStack>
 
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                        <MudText Typo="Typo.h6">Manual entry</MudText>
-                        <MudSwitch T="bool" @bind-Value="_showManualEntry" Color="Color.Primary" />
-                    </MudStack>
+                <MudStack Row="true" Spacing="2" Class="mb-3">
+                    <MudDatePicker Label="Test date" @bind-Date="_manualTestDate" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1" />
+                    <MudTextField @bind-Value="_manualDraft.LabName" Label="Lab name (optional)" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1" />
+                </MudStack>
 
-                    @if (_showManualEntry)
+                <div class="hs-manual-markers-grid">
+                    @foreach (var marker in _manualMarkers)
                     {
-                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3 hs-soft-alert">Manual entry remains the fastest fallback when OCR suggestions are poor. There is still no edit or delete flow for existing blood tests.</MudAlert>
-                        <MudDatePicker Label="Test date" @bind-Date="_manualTestDate" Class="mt-3" />
-                        <MudTextField @bind-Value="_manualDraft.LabName" Label="Lab name" Variant="Variant.Outlined" Margin="Margin.Dense" />
-
-                        @foreach (var marker in _manualMarkers)
-                        {
-                            <MudPaper Class="hs-subpanel mt-3">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                    <MudText Typo="Typo.subtitle2">Marker</MudText>
-                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveManualMarker(marker)" />
-                                </MudStack>
-                                <MudTextField @bind-Value="marker.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                                <MudGrid Spacing="1">
-                                    <MudItem xs="7">
-                                        <MudNumericField T="double?" @bind-Value="marker.Value" Label="Value" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                                    </MudItem>
-                                    <MudItem xs="5">
-                                        <MudTextField @bind-Value="marker.Unit" Label="Unit" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                                    </MudItem>
-                                    <MudItem xs="6">
-                                        <MudNumericField T="double?" @bind-Value="marker.ReferenceMinValue" Label="Ref min" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                                    </MudItem>
-                                    <MudItem xs="6">
-                                        <MudNumericField T="double?" @bind-Value="marker.ReferenceMaxValue" Label="Ref max" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                                    </MudItem>
-                                </MudGrid>
-                                <MudTextField @bind-Value="marker.RawValueText" Label="Raw value text" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                            </MudPaper>
-                        }
-
-                        <MudStack Row="true" Class="mt-3">
-                            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="AddManualMarker">Add marker</MudButton>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_isCreatingManual" OnClick="CreateManualAsync">
-                                @(_isCreatingManual ? "Saving..." : "Create manual blood test")
-                            </MudButton>
-                        </MudStack>
-                    }
-                </MudPaper>
-            </MudItem>
-
-            <MudItem xs="12" lg="8">
-                <div class="hs-section-stack">
-                    @if (ProcessingTests.Any())
-                    {
-                        <MudPaper Class="hs-health-panel hs-status-section">
-                            <div class="hs-section-heading">
-                                <div>
-                                    <MudText Typo="Typo.h6">Processing</MudText>
-                                    <MudText Typo="Typo.body2" Class="hs-muted-copy">These uploads are being analyzed in the background. Refresh the page to check progress.</MudText>
-                                </div>
-                                <MudChip Color="Color.Info" Variant="Variant.Outlined">@ProcessingTests.Count() items</MudChip>
-                            </div>
-
-                            @foreach (var item in ProcessingTests.OrderByDescending(x => x.TestDate))
-                            {
-                                <div class="hs-list-card hs-status-card-pending @GetSelectedTestClass(item)">
-                                    <div class="hs-list-card-row">
-                                        <div>
-                                            <div class="hs-list-card-title">@item.TestDate.ToString("dd MMM yyyy")</div>
-                                            <div class="hs-list-card-subtitle">@(item.LabName ?? "No lab name")</div>
-                                        </div>
-                                        <ClinicalStatusChip Status="@HealthDisplayHelpers.GetProcessingStatusLabel(item.ProcessingStatus)" />
-                                    </div>
-                                    <div class="hs-list-card-meta mt-2">
-                                        <span>@(item.SourceFileName ?? "Manual entry")</span>
-                                        <MudProgressLinear Color="Color.Info" Indeterminate="true" Size="Size.Small" Class="mt-1" />
-                                    </div>
-                                </div>
-                            }
+                        <MudPaper Class="hs-subpanel">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.subtitle2">Marker</MudText>
+                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => RemoveManualMarker(marker)" />
+                            </MudStack>
+                            <MudTextField @bind-Value="marker.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudStack Row="true" Spacing="1">
+                                <MudNumericField T="double?" @bind-Value="marker.Value" Label="Value" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:2" />
+                                <MudTextField @bind-Value="marker.Unit" Label="Unit" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1" />
+                            </MudStack>
                         </MudPaper>
                     }
-
-                    <MudPaper Class="hs-health-panel hs-status-section">
-                        <div class="hs-section-heading">
-                            <div>
-                                <MudText Typo="Typo.h6">Pending review</MudText>
-                                <MudText Typo="Typo.body2" Class="hs-muted-copy">OCR extracted markers are suggestions until the reviewed payload is submitted.</MudText>
-                            </div>
-                            <MudChip Color="Color.Warning" Variant="Variant.Outlined">@_pendingReview.Count items</MudChip>
-                        </div>
-
-                        @if (_pendingReview.Count == 0)
-                        {
-                            <EmptyState Icon="@Icons.Material.Filled.FactCheck"
-                                        Title="No pending reviews"
-                                        Subtitle="Uploaded blood tests that need manual cleanup will appear here." />
-                        }
-                        else
-                        {
-                            @foreach (var item in _pendingReview.OrderByDescending(x => x.TestDate))
-                            {
-                                <div class="hs-list-card hs-status-card-pending @GetSelectedTestClass(item)">
-                                    <div class="hs-list-card-row">
-                                        <div>
-                                            <div class="hs-list-card-title">@item.TestDate.ToString("dd MMM yyyy")</div>
-                                            <div class="hs-list-card-subtitle">@(item.LabName ?? "No lab name")</div>
-                                        </div>
-                                        <ClinicalStatusChip Status="@HealthDisplayHelpers.GetProcessingStatusLabel(item.ProcessingStatus)" />
-                                    </div>
-                                    <div class="hs-list-card-meta mt-2">
-                                        <span>@(item.SourceFileName ?? "Manual entry")</span>
-                                        <span>@FormatMarkerCount(item)</span>
-                                    </div>
-                                    @if (!string.IsNullOrWhiteSpace(item.ProcessingNotes))
-                                    {
-                                        <div class="hs-list-card-footnote">@item.ProcessingNotes</div>
-                                    }
-                                    <div class="hs-list-card-actions">
-                                        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="() => InspectBloodTestAsync(item.Id)">Inspect details</MudButton>
-                                        <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="() => OpenReview(item.Id)">Review pending test</MudButton>
-                                    </div>
-                                </div>
-                            }
-                        }
-                    </MudPaper>
-
-                    <MudPaper Class="hs-health-panel hs-status-section">
-                        <div class="hs-section-heading">
-                            <div>
-                                <MudText Typo="Typo.h6">OCR / problem states</MudText>
-                                <MudText Typo="Typo.body2" Class="hs-muted-copy">Uploads can still create a blood test record even when OCR quality is poor.</MudText>
-                            </div>
-                            <MudChip Color="Color.Error" Variant="Variant.Outlined">@ProblemStateTests.Count() items</MudChip>
-                        </div>
-
-                        @if (!ProblemStateTests.Any())
-                        {
-                            <MudText Typo="Typo.body2" Class="hs-muted-copy">No OCR/problem states surfaced right now.</MudText>
-                        }
-                        else
-                        {
-                            @foreach (var item in ProblemStateTests.OrderByDescending(x => x.TestDate))
-                            {
-                                <div class="hs-list-card hs-status-card-problem @GetSelectedTestClass(item)">
-                                    <div class="hs-list-card-row">
-                                        <div>
-                                            <div class="hs-list-card-title">@item.TestDate.ToString("dd MMM yyyy")</div>
-                                            <div class="hs-list-card-subtitle">@(item.LabName ?? "No lab name")</div>
-                                        </div>
-                                        <ClinicalStatusChip Status="@HealthDisplayHelpers.GetProcessingStatusLabel(item.ProcessingStatus)" />
-                                    </div>
-                                    <div class="hs-list-card-meta mt-2">
-                                        <span>@(item.SourceFileName ?? "Manual entry")</span>
-                                        <span>@FormatMarkerCount(item)</span>
-                                    </div>
-                                    @if (!string.IsNullOrWhiteSpace(item.ProcessingNotes))
-                                    {
-                                        <div class="hs-list-card-footnote">@item.ProcessingNotes</div>
-                                    }
-                                    <div class="hs-list-card-actions">
-                                        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="() => InspectBloodTestAsync(item.Id)">Inspect details</MudButton>
-                                        @if (item.RequiresReview)
-                                        {
-                                            <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="() => OpenReview(item.Id)">Review pending test</MudButton>
-                                        }
-                                    </div>
-                                </div>
-                            }
-                        }
-                    </MudPaper>
-
-                    <MudPaper Class="hs-health-panel hs-status-section">
-                        <div class="hs-section-heading">
-                            <div>
-                                <MudText Typo="Typo.h6">Processed results</MudText>
-                                <MudText Typo="Typo.body2" Class="hs-muted-copy">Finalized blood tests that no longer require OCR cleanup.</MudText>
-                            </div>
-                            <MudChip Color="Color.Success" Variant="Variant.Outlined">@ProcessedTests.Count() items</MudChip>
-                        </div>
-
-                        @if (!ProcessedTests.Any())
-                        {
-                            <MudText Typo="Typo.body2" Class="hs-muted-copy">No finalized results are available yet.</MudText>
-                        }
-                        else
-                        {
-                            @foreach (var item in ProcessedTests.OrderByDescending(x => x.TestDate))
-                            {
-                                <div class="hs-list-card hs-status-card-processed @GetSelectedTestClass(item)">
-                                    <div class="hs-list-card-row">
-                                        <div>
-                                            <div class="hs-list-card-title">@item.TestDate.ToString("dd MMM yyyy")</div>
-                                            <div class="hs-list-card-subtitle">@(item.LabName ?? "No lab name")</div>
-                                        </div>
-                                        <ClinicalStatusChip Status="@HealthDisplayHelpers.GetProcessingStatusLabel(item.ProcessingStatus)" />
-                                    </div>
-                                    <div class="hs-list-card-meta mt-2">
-                                        <span>@(item.SourceFileName ?? "Manual entry")</span>
-                                        <span>@FormatMarkerCount(item)</span>
-                                    </div>
-                                    @if (!string.IsNullOrWhiteSpace(item.ProcessingNotes))
-                                    {
-                                        <div class="hs-list-card-footnote">@item.ProcessingNotes</div>
-                                    }
-                                    <div class="hs-list-card-actions">
-                                        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="() => InspectBloodTestAsync(item.Id)">Inspect details</MudButton>
-                                    </div>
-                                </div>
-                            }
-                        }
-                    </MudPaper>
                 </div>
 
-                <MudPaper Class="hs-health-panel">
+                <MudStack Row="true" Spacing="2" Class="mt-3">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Add" OnClick="AddManualMarker">Add marker</MudButton>
+                    <MudSpacer />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_isCreatingManual" OnClick="CreateManualAsync">
+                        @(_isCreatingManual ? "Saving..." : "Save blood test")
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @* ── Filter tabs ─────────────────────────────────────────────── *@
+        <MudChipSet SelectedChipChanged="OnFilterChanged" Mandatory="true" Class="hs-filter-chips">
+            <MudChip Default="@(_activeFilter == TestFilter.All)" Value="@TestFilter.All" Variant="Variant.Text" Color="Color.Primary">
+                All @CountBadge(_bloodTests.Count)
+            </MudChip>
+            @if (_pendingReview.Count > 0)
+            {
+                <MudChip Default="@(_activeFilter == TestFilter.PendingReview)" Value="@TestFilter.PendingReview" Variant="Variant.Text" Color="Color.Warning">
+                    Pending review @CountBadge(_pendingReview.Count)
+                </MudChip>
+            }
+            @if (ProcessingTests.Any())
+            {
+                <MudChip Default="@(_activeFilter == TestFilter.Processing)" Value="@TestFilter.Processing" Variant="Variant.Text" Color="Color.Info">
+                    Processing @CountBadge(ProcessingTests.Count())
+                </MudChip>
+            }
+            @if (ProblemStateTests.Any())
+            {
+                <MudChip Default="@(_activeFilter == TestFilter.Issues)" Value="@TestFilter.Issues" Variant="Variant.Text" Color="Color.Error">
+                    Issues @CountBadge(ProblemStateTests.Count())
+                </MudChip>
+            }
+            <MudChip Default="@(_activeFilter == TestFilter.Processed)" Value="@TestFilter.Processed" Variant="Variant.Text" Color="Color.Success">
+                Processed @CountBadge(ProcessedTests.Count())
+            </MudChip>
+        </MudChipSet>
+
+        @* ── Main content: list + detail ─────────────────────────────── *@
+        <MudGrid Spacing="3">
+            <MudItem xs="12" lg="5">
+                <div class="hs-section-stack">
+                    @if (!FilteredTests.Any())
+                    {
+                        <MudPaper Class="hs-health-panel">
+                            <EmptyState Icon="@Icons.Material.Filled.Science"
+                                        Title="No blood tests"
+                                        Subtitle="Upload a lab report or create a manual entry to get started." />
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        @foreach (var item in FilteredTests)
+                        {
+                            <div class="hs-list-card @GetStatusCardClass(item) @GetSelectedTestClass(item)" @onclick="() => InspectBloodTestAsync(item.Id)" style="cursor:pointer">
+                                <div class="hs-list-card-row">
+                                    <div>
+                                        <div class="hs-list-card-title">@item.TestDate.ToString("dd MMM yyyy")</div>
+                                        <div class="hs-list-card-subtitle">@(item.LabName ?? "Unknown lab") · @FormatMarkerCount(item)</div>
+                                    </div>
+                                    <ClinicalStatusChip Status="@HealthDisplayHelpers.GetProcessingStatusLabel(item.ProcessingStatus)" />
+                                </div>
+
+                                @if (item.ProcessingStatus == BloodTestProcessingStatus.Processing)
+                                {
+                                    <MudProgressLinear Color="Color.Info" Indeterminate="true" Size="Size.Small" Class="mt-2" />
+                                }
+
+                                @if (item.RequiresReview || item.ProcessingStatus == BloodTestProcessingStatus.ExtractionFailed)
+                                {
+                                    <div class="hs-list-card-actions">
+                                        @if (item.RequiresReview)
+                                        {
+                                            <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" OnClick="() => OpenReview(item.Id)">Review</MudButton>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </MudItem>
+
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="hs-health-panel hs-sticky-panel">
                     @if (_isDetailLoading)
                     {
-                        <LoadingState Message="Loading blood test detail..." />
+                        <LoadingState Message="Loading details..." />
                     }
                     else if (_selectedDetail == null)
                     {
                         <EmptyState Icon="@Icons.Material.Filled.Biotech"
                                     Title="Select a blood test"
-                                    Subtitle="Open a test to inspect markers, status, and processing notes." />
+                                    Subtitle="Choose a test from the list to view its markers and details." />
                     }
                     else
                     {
                         <div class="hs-detail-heading">
                             <div>
                                 <MudText Typo="Typo.h5">@_selectedDetail.TestDate.ToString("dd MMM yyyy")</MudText>
-                                <MudText Typo="Typo.body2" Class="hs-muted-copy">@(_selectedDetail.LabName ?? "No lab name") • @(_selectedDetail.SourceFileName ?? "Manual entry")</MudText>
+                                <MudText Typo="Typo.body2" Class="hs-muted-copy">@(_selectedDetail.LabName ?? "Unknown lab") · @(_selectedDetail.SourceFileName ?? "Manual entry")</MudText>
                             </div>
                             <div class="hs-detail-chip-group">
                                 <ClinicalStatusChip Status="@HealthDisplayHelpers.GetProcessingStatusLabel(_selectedDetail.ProcessingStatus)" />
                                 @if (_selectedDetail.RequiresReview)
                                 {
-                                    <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="() => OpenReview(_selectedDetail.Id)">Review pending test</MudButton>
+                                    <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" OnClick="() => OpenReview(_selectedDetail.Id)">Review</MudButton>
                                 }
                             </div>
                         </div>
 
                         @if (_selectedDetail.RequiresReview)
                         {
-                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3 hs-soft-alert">This blood test is still pending manual review. The listed markers are editable OCR suggestions, not finalized results.</MudAlert>
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="my-3 hs-soft-alert">Markers are OCR suggestions — review before they finalize.</MudAlert>
                         }
-
-                        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3 hs-soft-alert">If a biomarker does not appear here, it may simply not have been measured in this panel. The frontend does not assume complete coverage across all blood tests.</MudAlert>
 
                         @if (!string.IsNullOrWhiteSpace(_selectedDetail.ProcessingNotes))
                         {
-                            <MudAlert Severity="@GetProcessingSeverity(_selectedDetail.ProcessingStatus)" Dense="true" Class="mb-3">@_selectedDetail.ProcessingNotes</MudAlert>
+                            <MudAlert Severity="@GetProcessingSeverity(_selectedDetail.ProcessingStatus)" Dense="true" Class="my-3 hs-soft-alert">@_selectedDetail.ProcessingNotes</MudAlert>
                         }
 
                         @if (_selectedDetail.Markers == null || _selectedDetail.Markers.Count == 0)
                         {
                             <EmptyState Icon="@Icons.Material.Filled.FactCheck"
-                                        Title="No extracted markers"
-                                        Subtitle="The upload may still be valid. Use manual entry if the OCR result is not clinically useful." />
+                                        Title="No markers extracted"
+                                        Subtitle="Use manual entry to add results for this blood test." />
                         }
                         else
                         {
-                            <div class="hs-marker-grid">
+                            <div class="hs-marker-grid mt-3">
                                 @foreach (var marker in _selectedDetail.Markers)
                                 {
                                     <div class="hs-marker-card">
                                         <div class="hs-marker-card-header">
-                                            <div>
-                                                <div class="hs-biomarker-name">@(marker.Name ?? "Unnamed marker")</div>
-                                                @if (!string.IsNullOrWhiteSpace(marker.RawValueText))
-                                                {
-                                                    <div class="hs-muted-copy">Raw: @marker.RawValueText</div>
-                                                }
-                                            </div>
+                                            <div class="hs-biomarker-name">@(marker.Name ?? "Unnamed marker")</div>
                                             <ClinicalStatusChip Status="@HealthDisplayHelpers.GetMarkerStatusLabel(marker.Status, marker.Value, marker.ReferenceMinValue, marker.ReferenceMaxValue)" />
                                         </div>
                                         <div class="hs-biomarker-value">@FormatMarkerValue(marker)</div>
-                                        <div class="hs-biomarker-range">Reference: @FormatReferenceRange(marker.ReferenceMinValue, marker.ReferenceMaxValue, marker.Unit)</div>
-                                        @if (marker.Confidence.HasValue)
-                                        {
-                                            <div class="hs-coverage-inline">Confidence: @marker.Confidence.Value.ToString("P0")</div>
-                                        }
+                                        <div class="hs-biomarker-range">Ref: @FormatReferenceRange(marker.ReferenceMinValue, marker.ReferenceMaxValue, marker.Unit)</div>
                                     </div>
                                 }
                             </div>
@@ -373,14 +266,18 @@ else
     private bool _isDetailLoading;
     private bool _isUploading;
     private bool _isCreatingManual;
+    private bool _showUploadPanel;
     private bool _showManualEntry;
     private bool _hasLoaded;
     private string? _errorMessage;
     private string? _operationMessage;
     private Severity _operationSeverity = Severity.Info;
+    private TestFilter _activeFilter = TestFilter.All;
 
     [SupplyParameterFromQuery(Name = "selectedId")]
     public Guid? SelectedId { get; set; }
+
+    private enum TestFilter { All, PendingReview, Processing, Issues, Processed }
 
     private IEnumerable<GetBloodTestResource> ProcessedTests
         => _bloodTests.Where(x => !x.RequiresReview && x.ProcessingStatus == BloodTestProcessingStatus.Processed);
@@ -390,6 +287,25 @@ else
 
     private IEnumerable<GetBloodTestResource> ProcessingTests
         => _bloodTests.Where(x => x.ProcessingStatus == BloodTestProcessingStatus.Processing);
+
+    private IEnumerable<GetBloodTestResource> FilteredTests => (_activeFilter switch
+    {
+        TestFilter.PendingReview => _pendingReview.AsEnumerable(),
+        TestFilter.Processing => ProcessingTests,
+        TestFilter.Issues => ProblemStateTests,
+        TestFilter.Processed => ProcessedTests,
+        _ => _bloodTests.AsEnumerable()
+    }).OrderByDescending(x => x.TestDate);
+
+    private static string CountBadge(int count) => count > 0 ? $"({count})" : "";
+
+    private void OnFilterChanged(MudChip? chip)
+    {
+        if (chip?.Value is TestFilter filter)
+        {
+            _activeFilter = filter;
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -476,12 +392,21 @@ else
         _operationMessage = null;
     }
 
+    private void ToggleUploadPanel()
+    {
+        _showUploadPanel = !_showUploadPanel;
+        if (_showUploadPanel) _showManualEntry = false;
+    }
+
+    private void ToggleManualEntry()
+    {
+        _showManualEntry = !_showManualEntry;
+        if (_showManualEntry) _showUploadPanel = false;
+    }
+
     private async Task UploadAsync()
     {
-        if (_selectedFile == null)
-        {
-            return;
-        }
+        if (_selectedFile == null) return;
 
         _isUploading = true;
         _operationMessage = null;
@@ -492,9 +417,10 @@ else
             await ApiClient.UploadBloodReportAsync(_selectedFile, _uploadDraft);
             _selectedFile = null;
             _uploadDraft = new BloodTestUploadRequest { TestDate = DateTime.Today };
+            _showUploadPanel = false;
 
             _operationSeverity = Severity.Success;
-            _operationMessage = "Upload accepted. Processing is running in the background — the test will appear below once extraction completes. Refresh the page to check progress.";
+            _operationMessage = "Upload accepted — processing in the background. Refresh to check progress.";
             await LoadAsync();
         }
         catch (Exception ex)
@@ -524,7 +450,7 @@ else
             if (markers.Count == 0)
             {
                 _operationSeverity = Severity.Warning;
-                _operationMessage = "Add at least one marker with both a name and value.";
+                _operationMessage = "Add at least one marker with a name and value.";
                 return;
             }
 
@@ -532,7 +458,7 @@ else
             _manualDraft.Markers = markers;
             await ApiClient.CreateManualBloodTestAsync(_manualDraft);
             _operationSeverity = Severity.Success;
-            _operationMessage = "Manual blood test created.";
+            _operationMessage = "Blood test created successfully.";
             _manualDraft = new AddBloodTestResource { TestDate = DateTime.Today };
             _manualTestDate = DateTime.Today;
             _manualMarkers.Clear();
@@ -560,28 +486,6 @@ else
     private void AddManualMarker()
         => _manualMarkers.Add(new BloodTestMarkerResource());
 
-    private void FocusUploadPanel()
-        => _showManualEntry = false;
-
-    private void StartManualEntry()
-        => _showManualEntry = true;
-
-    private async Task ReviewNextPendingAsync()
-    {
-        var next = _pendingReview.FirstOrDefault();
-        if (next == null)
-        {
-            return;
-        }
-
-        if (_selectedBloodTestId != next.Id)
-        {
-            await SelectBloodTestAsync(next.Id);
-        }
-
-        OpenReview(next.Id);
-    }
-
     private async Task InspectBloodTestAsync(Guid id)
     {
         await SelectBloodTestAsync(id);
@@ -594,14 +498,19 @@ else
     private void RemoveManualMarker(BloodTestMarkerResource marker)
     {
         _manualMarkers.Remove(marker);
-        if (_manualMarkers.Count == 0)
-        {
-            AddManualMarker();
-        }
+        if (_manualMarkers.Count == 0) AddManualMarker();
     }
 
     private string GetSelectedTestClass(GetBloodTestResource item)
         => item.Id == _selectedBloodTestId ? "is-selected" : string.Empty;
+
+    private static string GetStatusCardClass(GetBloodTestResource item) => item.ProcessingStatus switch
+    {
+        BloodTestProcessingStatus.Processing => "hs-status-card-pending",
+        BloodTestProcessingStatus.ExtractionFailed => "hs-status-card-problem",
+        BloodTestProcessingStatus.Processed => "hs-status-card-processed",
+        _ => item.RequiresReview ? "hs-status-card-pending" : ""
+    };
 
     private static Severity GetProcessingSeverity(BloodTestProcessingStatus status) => status switch
     {
@@ -615,8 +524,8 @@ else
         => $"{item.Markers?.Count ?? 0} markers";
 
     private static string FormatMarkerValue(BloodTestMarkerResource marker)
-        => marker.Value.HasValue ? $"{marker.Value.Value:0.##} {marker.Unit}" : marker.RawValueText ?? "No numeric value";
+        => marker.Value.HasValue ? $"{marker.Value.Value:0.##} {marker.Unit}" : marker.RawValueText ?? "—";
 
     private static string FormatReferenceRange(double? min, double? max, string? unit)
-        => $"{min?.ToString("0.##") ?? "-"} to {max?.ToString("0.##") ?? "-"} {unit}";
+        => $"{min?.ToString("0.##") ?? "—"} – {max?.ToString("0.##") ?? "—"} {unit}";
 }

@@ -29,7 +29,7 @@ public static class HealthDisplayHelpers
             MarkerStatus.InRange => "In range",
             MarkerStatus.Low => "Low",
             MarkerStatus.High => "High",
-            MarkerStatus.Borderline => "Borderline",
+            MarkerStatus.RequiresReview => "Requires review",
             _ => "Review"
         };
     }

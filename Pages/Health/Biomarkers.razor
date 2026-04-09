@@ -24,8 +24,8 @@ else
                         <MudSelectItem Value="@category">@category</MudSelectItem>
                     }
                 </MudSelect>
-                <MudDatePicker Label="From" @bind-Date="_fromUtc" />
-                <MudDatePicker Label="To" @bind-Date="_toUtc" />
+                <MudDatePicker Label="From" Date="_fromUtc" DateChanged="OnFromDateChanged" />
+                <MudDatePicker Label="To" Date="_toUtc" DateChanged="OnToDateChanged" />
             </MudStack>
         </div>
 
@@ -179,6 +179,24 @@ else
         _selectedCategory = category;
         ApplyFilter();
         _selectedMarker = _filteredMarkers.FirstOrDefault();
+        if (_selectedMarker != null)
+        {
+            await SelectMarkerAsync(_selectedMarker);
+        }
+    }
+
+    private async Task OnFromDateChanged(DateTime? date)
+    {
+        _fromUtc = date;
+        if (_selectedMarker != null)
+        {
+            await SelectMarkerAsync(_selectedMarker);
+        }
+    }
+
+    private async Task OnToDateChanged(DateTime? date)
+    {
+        _toUtc = date;
         if (_selectedMarker != null)
         {
             await SelectMarkerAsync(_selectedMarker);
