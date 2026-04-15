@@ -7,6 +7,7 @@ public class AddExerciseTypeResource
     public string? ImageRoute { get; set; }
     public int? PrimaryMuscleId {get;set;}
     public int? SecondaryMuscleId {get;set;}
+    public int? ParentExerciseTypeId { get; set; }
     public ExerciseWeightType? WeightType { get; set; } = ExerciseWeightType.Standard;
     public List<ExerciseTag>? Tags { get; set; } = new List<ExerciseTag>();
 }

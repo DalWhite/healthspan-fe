@@ -1,0 +1,170 @@
+@page "/health"
+@page "/health/dashboard"
+@inject HealthspanApiClient ApiClient
+@inject TitleService TitleService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Health Dashboard</PageTitle>
+
+@if (_isLoading)
+{
+    <LoadingState Message="Loading dashboard..." Size="Size.Large" />
+}
+else
+{
+    <div class="hs-health-shell">
+        <MudPaper Class="hs-dashboard-hero">
+            <div class="hs-dashboard-hero-copy-block">
+                <MudText Typo="Typo.overline" Class="hs-dashboard-eyebrow">Owner Health Console</MudText>
+                <MudText Typo="Typo.h4" Class="hs-dashboard-title">Health Dashboard</MudText>
+                <MudText Typo="Typo.body1" Class="hs-dashboard-hero-copy">A high-level view of blood testing activity, recent workouts, and the latest Galpin assessment signal.</MudText>
+            </div>
+            <div class="hs-dashboard-hero-side">
+                <MudButton Variant="Variant.Outlined" Color="Color.Inherit" OnClick="OpenBloodTests">Upload blood test</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Disabled="@(!_pendingReview.Any())" OnClick="OpenNextPendingReview">Review pending blood test</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Inherit" OnClick="OpenAssessments">Assessments</MudButton>
+            </div>
+        </MudPaper>
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_errorMessage</MudAlert>
+        }
+
+        @if (_summary == null)
+        {
+            <EmptyState Icon="@Icons.Material.Filled.SpaceDashboard"
+                        Title="No dashboard summary yet"
+                        Subtitle="The dashboard endpoint did not return a summary for the current user." />
+        }
+        else
+        {
+            @if (_pendingReview.Any())
+            {
+                <MudPaper Class="hs-health-panel mb-3">
+                    <div class="hs-section-heading">
+                        <div>
+                            <MudText Typo="Typo.h6">Pending blood test review</MudText>
+                            <MudText Typo="Typo.body2" Class="hs-muted-copy">@_pendingReview.Count blood tests are waiting for manual OCR cleanup before finalization.</MudText>
+                        </div>
+                        <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="OpenNextPendingReview">Review next pending test</MudButton>
+                    </div>
+
+                    <div class="hs-section-stack mt-3">
+                        @foreach (var item in _pendingReview.Take(3))
+                        {
+                            <div class="hs-list-card hs-status-card-pending">
+                                <div class="hs-list-card-row">
+                                    <div>
+                                        <div class="hs-list-card-title">@item.TestDate.ToString("dd MMM yyyy")</div>
+                                        <div class="hs-list-card-subtitle">@(item.LabName ?? "No lab name")</div>
+                                    </div>
+                                    <ClinicalStatusChip Status="@HealthDisplayHelpers.GetProcessingStatusLabel(item.ProcessingStatus)" />
+                                </div>
+                                <div class="hs-list-card-meta mt-2">
+                                    <span>@(item.SourceFileName ?? "Manual entry")</span>
+                                    <span>@(item.Markers?.Count ?? 0) markers</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(item.ProcessingNotes))
+                                {
+                                    <div class="hs-list-card-footnote">@item.ProcessingNotes</div>
+                                }
+                                <div class="hs-list-card-actions">
+                                    <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="() => OpenBloodTestDetail(item.Id)">Inspect details</MudButton>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="() => OpenReview(item.Id)">Review pending test</MudButton>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </MudPaper>
+            }
+
+            <div class="hs-dashboard-card-grid">
+                <div class="hs-kpi-card hs-kpi-card-accent hs-kpi-card-dashboard">
+                    <div class="hs-kpi-label">Recent workouts</div>
+                    <div class="hs-kpi-value">@_summary.RecentWorkoutCount</div>
+                    <div class="hs-kpi-subtitle">Recent workout count from the API summary</div>
+                </div>
+                <div class="hs-kpi-card hs-kpi-card-dashboard hs-kpi-card-neutral">
+                    <div class="hs-kpi-label">Blood tests</div>
+                    <div class="hs-kpi-value">@_summary.BloodTestCount</div>
+                    <div class="hs-kpi-subtitle">Recorded blood tests</div>
+                </div>
+                <div class="hs-kpi-card hs-kpi-card-dashboard hs-kpi-card-neutral">
+                    <div class="hs-kpi-label">Latest blood test</div>
+                    <div class="hs-kpi-value">@FormatDate(_summary.LatestBloodTestDate)</div>
+                    <div class="hs-kpi-subtitle">Most recent test date</div>
+                </div>
+                <div class="hs-kpi-card hs-kpi-card-dashboard hs-kpi-card-neutral">
+                    <div class="hs-kpi-label">Out-of-range markers</div>
+                    <div class="hs-kpi-value">@_summary.OutOfRangeMarkersInLatestBloodTest</div>
+                    <div class="hs-kpi-subtitle">Count in the latest blood test</div>
+                </div>
+                <div class="hs-kpi-card hs-kpi-card-dashboard hs-kpi-card-neutral">
+                    <div class="hs-kpi-label">Latest assessment</div>
+                    <div class="hs-kpi-value">@FormatDate(_summary.LatestAssessmentDate)</div>
+                    <div class="hs-kpi-subtitle">Most recent Galpin assessment date</div>
+                </div>
+                <div class="hs-kpi-card hs-kpi-card-dashboard hs-kpi-card-neutral">
+                    <div class="hs-kpi-label">Average assessment score</div>
+                    <div class="hs-kpi-value">@(_summary.LatestAssessmentAverageScore?.ToString("0.0") ?? "-")</div>
+                    <div class="hs-kpi-subtitle">Latest average score from the API</div>
+                </div>
+            </div>
+
+            <MudPaper Class="hs-health-panel mt-3">
+                <MudText Typo="Typo.h6">Current backend limit</MudText>
+                <MudText Typo="Typo.body2" Class="hs-muted-copy mt-2">The dashboard summary endpoint returns the out-of-range marker count, not the specific marker names. Use Blood Tests or Biomarkers for detail.</MudText>
+            </MudPaper>
+        }
+    </div>
+}
+
+@code {
+    private GetHealthDashboardSummaryResource? _summary;
+    private readonly List<GetBloodTestResource> _pendingReview = new();
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TitleService.Title = "Health Dashboard";
+        try
+        {
+            _summary = await ApiClient.GetDashboardSummaryAsync();
+            _pendingReview.Clear();
+            _pendingReview.AddRange(await ApiClient.GetPendingReviewBloodTestsAsync());
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load dashboard summary: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OpenBloodTests() => NavigationManager.NavigateTo("/health/blood-tests");
+
+    private void OpenBloodTestDetail(Guid id) => NavigationManager.NavigateTo($"/health/blood-tests?selectedId={id}");
+
+    private void OpenReview(Guid id) => NavigationManager.NavigateTo($"/health/blood-tests/{id}/review");
+
+    private void OpenNextPendingReview()
+    {
+        var next = _pendingReview.FirstOrDefault();
+        if (next != null)
+        {
+            OpenReview(next.Id);
+            return;
+        }
+
+        OpenBloodTests();
+    }
+
+    private void OpenAssessments() => NavigationManager.NavigateTo("/health/assessments");
+
+    private static string FormatDate(DateTime? value)
+        => value?.ToString("dd MMM yyyy") ?? "Not available";
+}

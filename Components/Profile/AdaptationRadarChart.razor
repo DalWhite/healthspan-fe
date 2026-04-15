@@ -1,0 +1,199 @@
+<div class="hs-radar-shell">
+    <div class="hs-radar-legend">
+        @foreach (var item in Series)
+        {
+            <div class="hs-radar-legend-item">
+                <span class="hs-radar-legend-swatch" style="background:@item.AccentColor"></span>
+                <div>
+                    <div class="hs-radar-legend-label">@item.Label</div>
+                    @if (!string.IsNullOrWhiteSpace(item.Caption))
+                    {
+                        <div class="hs-radar-legend-caption">@item.Caption</div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <svg viewBox="0 0 440 430" class="hs-radar-svg" role="img" aria-label="Physical adaptations radar chart">
+        @for (var ring = 1; ring <= RingCount; ring++)
+        {
+            <polygon points="@BuildRingPoints(ring / (double)RingCount)" class="hs-radar-grid-ring"></polygon>
+        }
+
+        @for (var axisIndex = 0; axisIndex < Axes.Count; axisIndex++)
+        {
+            var point = GetPoint(axisIndex, 1d);
+            <line x1="@CenterX" y1="@CenterY" x2="@point.X" y2="@point.Y" class="hs-radar-axis-line"></line>
+            @((MarkupString)BuildAxisLabel(axisIndex))
+        }
+
+        @for (var ring = 1; ring <= RingCount; ring++)
+        {
+            var radius = ring / (double)RingCount;
+            @((MarkupString)BuildScaleLabel(radius))
+        }
+
+        @foreach (var item in Series)
+        {
+            <polygon points="@BuildSeriesPoints(item)" fill="@ToRgba(item.AccentColor, 0.12)" stroke="@item.AccentColor" stroke-width="3" stroke-linejoin="round"></polygon>
+        }
+
+        @foreach (var item in Series)
+        {
+            @for (var axisIndex = 0; axisIndex < Axes.Count; axisIndex++)
+            {
+                var value = ResolveValue(item, Axes[axisIndex].Key);
+                var point = GetPoint(axisIndex, value / 10d);
+                <circle cx="@point.X" cy="@point.Y" r="4.5" fill="@item.AccentColor" stroke="white" stroke-width="2"></circle>
+            }
+        }
+    </svg>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<AdaptationRadarAxis> Axes { get; set; } = Array.Empty<AdaptationRadarAxis>();
+    [Parameter] public IReadOnlyList<AdaptationRadarSeries> Series { get; set; } = Array.Empty<AdaptationRadarSeries>();
+
+    private const double CenterX = 220d;
+    private const double CenterY = 210d;
+    private const double Radius = 134d;
+    private const int RingCount = 5;
+
+    private string BuildRingPoints(double scale)
+    {
+        var points = new List<string>(Axes.Count);
+
+        for (var axisIndex = 0; axisIndex < Axes.Count; axisIndex++)
+        {
+            var point = GetPoint(axisIndex, scale);
+            points.Add($"{point.X:0.##},{point.Y:0.##}");
+        }
+
+        return string.Join(" ", points);
+    }
+
+    private string BuildSeriesPoints(AdaptationRadarSeries series)
+    {
+        var points = new List<string>(Axes.Count);
+
+        for (var axisIndex = 0; axisIndex < Axes.Count; axisIndex++)
+        {
+            var value = ResolveValue(series, Axes[axisIndex].Key);
+            var point = GetPoint(axisIndex, value / 10d);
+            points.Add($"{point.X:0.##},{point.Y:0.##}");
+        }
+
+        return string.Join(" ", points);
+    }
+
+    private string BuildAxisLabel(int axisIndex)
+    {
+        var labelPoint = GetPoint(axisIndex, 1.18d);
+        var lines = GetLabelLines(Axes[axisIndex].Label);
+        var encodedLines = new List<string>(lines.Count);
+
+        for (var lineIndex = 0; lineIndex < lines.Count; lineIndex++)
+        {
+            var dy = lineIndex == 0 ? "0" : "1.05em";
+            encodedLines.Add($"<tspan x=\"{labelPoint.X:0.##}\" dy=\"{dy}\">{System.Net.WebUtility.HtmlEncode(lines[lineIndex])}</tspan>");
+        }
+
+        return $"<text x=\"{labelPoint.X:0.##}\" y=\"{labelPoint.Y:0.##}\" text-anchor=\"{GetTextAnchor(labelPoint.X)}\" class=\"hs-radar-axis-label\">{string.Join(string.Empty, encodedLines)}</text>";
+    }
+
+    private string BuildScaleLabel(double radius)
+    {
+        var point = GetPoint(0, radius);
+        return $"<text x=\"{point.X + 8:0.##}\" y=\"{point.Y:0.##}\" class=\"hs-radar-scale-label\">{(10d * radius):0}</text>";
+    }
+
+    private static double ResolveValue(AdaptationRadarSeries series, string key)
+        => Math.Clamp(series.Values.GetValueOrDefault(key), 0d, 10d);
+
+    private static string ToRgba(string color, double opacity)
+    {
+        if (!color.StartsWith('#') || (color.Length != 7 && color.Length != 4))
+        {
+            return color;
+        }
+
+        var expanded = color.Length == 4
+            ? $"#{color[1]}{color[1]}{color[2]}{color[2]}{color[3]}{color[3]}"
+            : color;
+
+        var r = Convert.ToInt32(expanded.Substring(1, 2), 16);
+        var g = Convert.ToInt32(expanded.Substring(3, 2), 16);
+        var b = Convert.ToInt32(expanded.Substring(5, 2), 16);
+
+        return $"rgba({r}, {g}, {b}, {opacity:0.##})";
+    }
+
+    private (double X, double Y) GetPoint(int axisIndex, double scale)
+    {
+        if (Axes.Count == 0)
+        {
+            return (CenterX, CenterY);
+        }
+
+        var angle = (-90d + ((360d / Axes.Count) * axisIndex)) * Math.PI / 180d;
+        var radius = Radius * Math.Clamp(scale, 0d, 1.2d);
+
+        return (
+            CenterX + (Math.Cos(angle) * radius),
+            CenterY + (Math.Sin(angle) * radius));
+    }
+
+    private static string GetTextAnchor(double x)
+    {
+        if (x < CenterX - 8)
+        {
+            return "end";
+        }
+
+        if (x > CenterX + 8)
+        {
+            return "start";
+        }
+
+        return "middle";
+    }
+
+    private static IReadOnlyList<string> GetLabelLines(string label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return Array.Empty<string>();
+        }
+
+        var words = label.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length <= 2 && label.Length <= 16)
+        {
+            return new[] { label };
+        }
+
+        var lines = new List<string>();
+        var current = string.Empty;
+
+        foreach (var word in words)
+        {
+            var candidate = string.IsNullOrEmpty(current) ? word : $"{current} {word}";
+            if (candidate.Length > 14 && !string.IsNullOrEmpty(current))
+            {
+                lines.Add(current);
+                current = word;
+            }
+            else
+            {
+                current = candidate;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(current))
+        {
+            lines.Add(current);
+        }
+
+        return lines;
+    }
+}

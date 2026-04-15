@@ -2,15 +2,17 @@
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@using Microsoft.AspNetCore.Components
 
 <PageTitle>Create Exercise</PageTitle>
 
 <MudPaper Class="pa-4">
     <MudContainer MaxWidth="MaxWidth.Medium">
-        <ExerciseForm Exercise="_exercise"
-                      @bind-Date="_workoutDate"
-                      ExerciseTypes="@_exerciseTypes"
-                      OnSubmit="HandleSubmit" />
+        <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
+                              TraineeId="@TraineeId"
+                              InitialExerciseTypeId="@ExerciseTypeId"
+                              InitialDate="@_initialDate"
+                              OnExerciseAdded="HandleExerciseAdded" />
 
         <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
                    Color="MudBlazor.Color.Primary"
@@ -24,10 +26,11 @@
 
 @code {
     [Parameter] public string? TraineeId { get; set; }
+    [SupplyParameterFromQuery(Name = "exerciseTypeId")]
+    public int? ExerciseTypeId { get; set; }
 
     private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
-    private AddExerciseResource _exercise = new();
-    private DateTime? _workoutDate = DateTime.Now;
+    private readonly DateTime _initialDate = DateTime.Today;
 
     protected override async Task OnInitializedAsync()
     {
@@ -35,39 +38,15 @@
                          ?? Array.Empty<GetExerciseTypeResource>();
     }
 
-    private async Task HandleSubmit(AddExerciseResource exercise)
+    private Task HandleExerciseAdded(AddExerciseResource _)
     {
-        // Resolve workout ID logic here if required, or let API handle it
-        exercise.WorkoutId = await ResolveWorkoutIdAsync(_workoutDate);
-        var response = await Http.PostAsJsonAsync("/Exercises", exercise);
-        
-        if (response.IsSuccessStatusCode)
-        {
-            Snackbar.Add("Exercise added successfully!", Severity.Success);
-            NavigateBack();
-        }
-        else
-        {
-            Snackbar.Add("Failed to add exercise.", Severity.Error);
-        }
-    }
-
-    private async Task<Guid> ResolveWorkoutIdAsync(DateTime? date)
-    {
-        var url = TraineeId != null ? $"/workouts?traineeId={TraineeId}" : "/workouts";
-        var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>(url);
-
-        var existing = workouts?.FirstOrDefault(w =>
-            w.Date.HasValue && date.HasValue && w.Date.Value.Date == date.Value.Date);
-
-        if (existing != null) return existing.Id;
-
-        var newWorkout = new WorkoutPostResource { Type = "default", UserId = TraineeId, Date = date ?? DateTime.Now };
-        var resp = await Http.PostAsJsonAsync("/Workouts", newWorkout);
-        var created = await resp.Content.ReadFromJsonAsync<GetWorkoutResource>();
-        return created?.Id ?? Guid.NewGuid();
+        Snackbar.Add("Exercise added successfully!", Severity.Success);
+        NavigateBack();
+        return Task.CompletedTask;
     }
 
     private void NavigateBack()
-        => NavigationManager.NavigateTo("/Exercises", forceLoad: false);
+        => NavigationManager.NavigateTo(
+            TraineeId is null ? "/Exercises" : $"/trainees/{TraineeId}/exercises",
+            forceLoad: false);
 }

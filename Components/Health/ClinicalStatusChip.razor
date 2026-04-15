@@ -1,0 +1,41 @@
+<MudChip T="string"
+         Color="@ResolveColor()"
+         Variant="@Variant"
+         Size="@Size"
+         Class="@($"hs-clinical-chip {Class}")">
+    @ResolveLabel()
+</MudChip>
+
+@code {
+    [Parameter] public string? Status { get; set; }
+    [Parameter] public Variant Variant { get; set; } = Variant.Filled;
+    [Parameter] public Size Size { get; set; } = Size.Small;
+    [Parameter] public string? Class { get; set; }
+
+    private Color ResolveColor() => (Status ?? string.Empty).Trim().ToLowerInvariant() switch
+    {
+        "high" => Color.Error,
+        "low" => Color.Info,
+        "borderline" or "requires review" => Color.Warning,
+        "processing" => Color.Warning,
+        "review" => Color.Warning,
+        "review-needed" => Color.Warning,
+        "partial" => Color.Warning,
+        "reviewed" => Color.Success,
+        "in-range" => Color.Success,
+        "good" => Color.Success,
+        "neutral" => Color.Default,
+        _ => Color.Secondary
+    };
+
+    private string ResolveLabel()
+    {
+        if (string.IsNullOrWhiteSpace(Status))
+        {
+            return "Unknown";
+        }
+
+        var normalized = Status.Replace("-", " ", StringComparison.Ordinal).Replace("_", " ", StringComparison.Ordinal);
+        return char.ToUpperInvariant(normalized[0]) + normalized[1..];
+    }
+}

@@ -1,6 +1,9 @@
 @page "/workouts/create"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Workout</PageTitle>
 
 <MudDatePicker Label="Workout date"
                Editable="true"
@@ -9,20 +12,12 @@
 <MudTextField @bind-Value="workout.Type"
               Label="Ej. Pull, strength, hypertrophy"
               Variant="Variant.Text"></MudTextField>
-<br>
-
-<MudButton @onclick="AddWorkout"
-           Variant="Variant.Filled"
-           Color="MudBlazor.Color.Primary"
-           style="float: right;">Create Workout
-</MudButton>
-
-<br>
-<br>
-@if (workoutCreated)
-{
-    <MudAlert Severity="Severity.Success">Workout created</MudAlert>
-}
+<div class="d-flex justify-end mt-2 mb-4">
+    <MudButton @onclick="AddWorkout"
+               Variant="Variant.Filled"
+               Color="MudBlazor.Color.Primary">Create Workout
+    </MudButton>
+</div>
 
 <MudText Typo="Typo.h4">Exercises</MudText>
 
@@ -39,7 +34,7 @@
             <MudTh>Weight</MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="Type">@exerciseTypes.First(et => et.Id == @context.TypeId).Name</MudTd>
+            <MudTd DataLabel="Type">@(exerciseTypes?.FirstOrDefault(et => et.Id == context.TypeId)?.Name ?? "Unknown")</MudTd>
             <MudTd DataLabel="Series">@context.Series</MudTd>
             <MudTd DataLabel="Reps">@context.Repetitions</MudTd>
             <MudTd DataLabel="Weight">@context.Weight</MudTd>
@@ -57,15 +52,14 @@
     private List<AddExerciseResource> exercisesAdded = new();
     private Guid workoutId;
     private GetExerciseTypeResource[]? exerciseTypes;
-    public AddExerciseResource? exercise { get; set; } = new();
-    public AddWorkoutResource? workout { get; set; } = new();
-    public GetExerciseTypeResource typeToAdd { get; set; }
-    private bool workoutCreated = false;
+    public AddExerciseResource exercise { get; set; } = new();
+    public AddWorkoutResource workout { get; set; } = new();
+    public GetExerciseTypeResource? typeToAdd { get; set; }
 
     private async Task AddExerciseToTheForm()
     {
         exercise.WorkoutId = workoutId;
-        exercise.TypeId = typeToAdd.Id;
+        exercise.TypeId = typeToAdd?.Id;
 
         var response = await Http.PostAsJsonAsync("/Exercises", exercise);
 
@@ -77,20 +71,21 @@
     }
     private async Task AddWorkout()
     {
-
         var response = await Http.PostAsJsonAsync("/Workouts", workout);
-        var result = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
-        workoutId = result.Id;
 
         if (response.IsSuccessStatusCode)
         {
-            workoutCreated = true;
-            StateHasChanged();
+            var result = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
+            if (result != null)
+            {
+                workoutId = result.Id;
+                Snackbar.Add("Workout created successfully!", Severity.Success);
+            }
         }
-        await Task.Delay(3000);
-        workoutCreated = false;
-        StateHasChanged();
-
+        else
+        {
+            Snackbar.Add("Failed to create workout. Please try again.", Severity.Error);
+        }
     }
     protected override async Task OnInitializedAsync()
     {

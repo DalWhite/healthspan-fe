@@ -1,8 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
-@using Healthspan.Authentication
-@inject IAccountManagement Acct
+@using System.Security.Claims
 @inject TitleService TitleService
 @inject Blazored.LocalStorage.ISyncLocalStorageService LocalStorage
 
@@ -28,13 +27,19 @@
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
-                <div class="d-inline object-bottom ml-6 mb-6">
-                    <MudAvatar Color="MudBlazor.Color.Primary">
-                        @context.User?.Identity?.Name?[0].ToString().ToUpper()
-                    </MudAvatar>
+                <div class="hs-account-dock ml-6 mb-6">
                     <MudIconButton OnClick="GoToSettings"
                                    Icon="@Icons.Material.Filled.Settings"
                                    aria-label="settings" />
+                    <MudAvatar Color="MudBlazor.Color.Primary"
+                               Class="hs-account-avatar"
+                               title="Profile"
+                               role="button"
+                               tabindex="0"
+                               @onclick="GoToProfile"
+                               @onkeydown="OnAvatarKeyDown">
+                        @GetAvatarInitial(context.User)
+                    </MudAvatar>
                 </div>
             </Authorized>
         </AuthorizeView>
@@ -78,8 +83,14 @@
 
         // Redirect based on auth state
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var isRoot = string.IsNullOrWhiteSpace(relativePath) || relativePath == "/";
+
         if (authState.User.Identity?.IsAuthenticated == true)
-            NavigationManager.NavigateTo("/exercises");
+        {
+            if (isRoot)
+                NavigationManager.NavigateTo("/health/dashboard");
+        }
         else
             NavigationManager.NavigateTo("/login");
     }
@@ -87,5 +98,23 @@
     public void Dispose() => TitleService.OnChange -= StateHasChanged;
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void GoToProfile() => NavigationManager.NavigateTo("/profile");
     private void GoToSettings() => NavigationManager.NavigateTo("/settings");
+    private void OnAvatarKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            GoToProfile();
+        }
+    }
+
+    private static string GetAvatarInitial(ClaimsPrincipal? user)
+    {
+        var source = user?.FindFirst(ClaimTypes.GivenName)?.Value
+            ?? user?.FindFirst(ClaimTypes.Name)?.Value
+            ?? user?.FindFirst(ClaimTypes.Email)?.Value
+            ?? user?.Identity?.Name;
+
+        return string.IsNullOrWhiteSpace(source) ? "U" : source.Trim()[0].ToString().ToUpperInvariant();
+    }
 }

@@ -1,0 +1,60 @@
+@using ApexCharts
+
+@if (Series.Count == 0 || Series.All(x => x.Points.Count == 0))
+{
+    <EmptyState Icon="@Icons.Material.Filled.ShowChart"
+                Title="No trend data yet"
+                Subtitle="Trends will render once longitudinal values are available." />
+}
+else
+{
+    <div class="hs-trend-chart-shell">
+        <ApexChart TItem="TrendPointResource" Options="_options" Height="@Height">
+            @foreach (var series in Series)
+            {
+                <ApexPointSeries TItem="TrendPointResource"
+                                 Items="@series.Points"
+                                 Name="@series.Label"
+                                 SeriesType="SeriesType.Line"
+                                 XValue='@(point => point.Date.ToString("yyyy-MM-dd"))'
+                                 YAggregate="@(points => AverageValues(points))" />
+            }
+        </ApexChart>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<TrendSeriesResource> Series { get; set; } = Array.Empty<TrendSeriesResource>();
+    [Parameter] public string? YAxisTitle { get; set; }
+    [Parameter] public string? ValueSuffix { get; set; }
+    [Parameter] public int Height { get; set; } = 320;
+
+    private readonly ApexChartOptions<TrendPointResource> _options = new();
+
+    protected override void OnParametersSet()
+    {
+        _options.Chart = new Chart { Toolbar = new Toolbar { Show = true } };
+        _options.Grid = new Grid { BorderColor = "rgba(15, 95, 103, 0.12)" };
+        _options.Stroke = new Stroke { Curve = Curve.Smooth, Width = 3 };
+        _options.Tooltip = new Tooltip { Shared = true, Intersect = false };
+        _options.DataLabels = new DataLabels { Enabled = false };
+        _options.Xaxis = new XAxis { Labels = new XAxisLabels { Rotate = -35, RotateAlways = false } };
+        _options.Yaxis = new List<YAxis>
+        {
+            new()
+            {
+                Title = new AxisTitle { Text = YAxisTitle },
+                Labels = new YAxisLabels { Formatter = BuildFormatter() }
+            }
+        };
+        _options.Colors = Series.Select(x => x.Color ?? "#0f5f67").Distinct().ToList();
+    }
+
+    private decimal AverageValues(IEnumerable<TrendPointResource> points)
+        => points.Where(x => x.Value.HasValue).Select(x => x.Value!.Value).DefaultIfEmpty().Average();
+
+    private string? BuildFormatter()
+        => string.IsNullOrWhiteSpace(ValueSuffix)
+            ? null
+            : $"function(v) {{ return Number(v).toLocaleString() + ' {ValueSuffix}'; }}";
+}

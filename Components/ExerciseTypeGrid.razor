@@ -1,14 +1,3 @@
-@*
-    ExerciseTypeGrid — reusable component that renders a grid of exercise type cards.
-
-    Replaces: FavExerciseTypes.razor, TraineeFavExerciseTypes.razor
-    Also reused by: ExerciseTypes.razor
-
-    Parameters:
-      - TraineeId: optional; null = current user's data
-      - FavouritesOnly: whether to pre-filter to favourites only
-      - ShowSearch: show the search text field at the top
-*@
 @inject HttpClient Http
 @inject AppStateService AppState
 @inject NavigationManager NavigationManager
@@ -18,7 +7,7 @@
 {
     <LoadingState Message="Loading exercises..." />
 }
-else if (_filtered == null || !_filtered.Any())
+else if (!_visibleMainExercises.Any())
 {
     <EmptyState Icon="@Icons.Material.Filled.FitnessCenter"
                 Title="No exercises found"
@@ -28,64 +17,172 @@ else if (_filtered == null || !_filtered.Any())
 }
 else
 {
-    @if (ShowSearch)
-    {
-        <MudTextField Value="_search"
-                      ValueChanged="@((string v) => OnSearchChanged(v))"
-                      Placeholder="Search exercises..."
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      IconSize="MudBlazor.Size.Medium"
-                      Variant="Variant.Outlined"
-                      Class="mb-4" />
-    }
-
-    <MudGrid Spacing="2">
-        @foreach (var et in _filtered)
+    <div class="hs-et-shell">
+        @if (ShowSearch)
         {
-            <MudItem xs="12" sm="6" md="4" lg="3">
-                <MudCard Class="exercise-card hs-et-card" @onclick="() => OnCardClick(et)" Style="cursor: pointer;">
-                    <MudCardMedia Image="@GetImageUrl(et)" Alt="@et.Name" Height="140" />
-                    <MudCardContent>
-                        <MudText Typo="Typo.h6">@et.Name</MudText>
-                        <MudText Typo="Typo.body2" Color="MudBlazor.Color.Dark">
-                            @AppState.GetMuscleName(et.PrimaryMuscleId)
-                        </MudText>
-                    </MudCardContent>
-                    <MudCardActions>
-                        <MudIconButton Icon="@(et.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)"
-                                       Color="@(et.IsFavourite ? Color.Error : Color.Default)"
-                                       Class="hs-favourite-btn"
-                                       OnClick="@((e) => ToggleFavourite(e, et))" />
-                    </MudCardActions>
-                </MudCard>
-            </MudItem>
+            <section class="hs-et-toolbar">
+                <MudText Typo="Typo.h5">Exercise Library</MudText>
+
+                <MudTextField Value="_search"
+                              ValueChanged="@((string value) => OnSearchChanged(value))"
+                              Placeholder="Search exercises, variations, or tags..."
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="MudBlazor.Size.Medium"
+                              Variant="Variant.Outlined"
+                              Class="hs-et-search" />
+            </section>
         }
-    </MudGrid>
+
+        <MudGrid Spacing="2" Class="hs-et-grid">
+            @foreach (var exercise in _visibleMainExercises)
+            {
+                var variations = GetVariationsFor(exercise).ToList();
+                var equipmentTags = GetTagNames(exercise, "equipment").ToList();
+                var typeTags = GetTagNames(exercise, "type").ToList();
+
+                <MudItem xs="12" sm="6" lg="4">
+                    <MudCard Class="exercise-card hs-et-card" @onclick="() => OnCardClick(exercise)">
+                        <div class="hs-et-card-media">
+                            <MudCardMedia Image="@GetImageUrl(exercise)"
+                                          Alt="@exercise.Name"
+                                          Height="190"
+                                          Class="hs-et-card-photo" />
+
+                            <div class="hs-et-media-overlay">
+                                <div class="hs-et-media-top">
+                                    <span class="hs-et-muscle-pill">@GetMuscleLine(exercise)</span>
+                                </div>
+
+                                @if (typeTags.Count > 0)
+                                {
+                                    <span class="hs-et-type-pill">@string.Join(" · ", typeTags.Take(2))</span>
+                                }
+                            </div>
+                        </div>
+
+                        <MudCardContent Class="hs-et-card-content">
+                            <div class="hs-et-card-header">
+                                <MudText Typo="Typo.h6" Class="hs-et-card-title">@exercise.Name</MudText>
+
+                                <span @onclick:stopPropagation="true">
+                                    <MudIconButton Icon="@(exercise.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)"
+                                                   Color="@(exercise.IsFavourite ? Color.Error : Color.Default)"
+                                                   Class="hs-favourite-btn"
+                                                   aria-label="@(exercise.IsFavourite ? "Remove from favorites" : "Add to favorites")"
+                                                   OnClick="@((e) => ToggleFavourite(e, exercise))" />
+                                </span>
+                            </div>
+
+                            @if (equipmentTags.Count > 0)
+                            {
+                                <div class="hs-card-tags">
+                                    @foreach (var tag in equipmentTags.Take(3))
+                                    {
+                                        <MudChip Size="MudBlazor.Size.Small"
+                                                 Variant="Variant.Outlined"
+                                                 Color="Color.Secondary">
+                                            @tag
+                                        </MudChip>
+                                    }
+                                </div>
+                            }
+
+                            @if (variations.Count > 0)
+                            {
+                                <div class="hs-et-variation-block">
+                                    <MudText Typo="Typo.caption" Class="hs-muted-copy hs-et-section-label">
+                                        @FormatVariationSummary(variations.Count)
+                                    </MudText>
+
+                                    <div class="hs-card-tags hs-et-variation-tags">
+                                        @foreach (var variation in variations.Take(4))
+                                        {
+                                            <span @onclick="@(args => OnVariationClick(args, variation))"
+                                                  @onclick:stopPropagation="true">
+                                                <MudChip Size="MudBlazor.Size.Small"
+                                                         Variant="Variant.Filled"
+                                                         Color="Color.Primary">
+                                                    @variation.Name
+                                                </MudChip>
+                                            </span>
+                                        }
+
+                                        @if (variations.Count > 4)
+                                        {
+                                            <MudChip Size="MudBlazor.Size.Small" Variant="Variant.Text" Color="Color.Default">
+                                                +@(variations.Count - 4) more
+                                            </MudChip>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </MudCardContent>
+
+                        <MudCardActions Class="hs-et-card-actions">
+                            <span class="hs-et-action-slot" @onclick:stopPropagation="true">
+                                <MudIconButton Icon="@Icons.Material.Filled.TrendingUp"
+                                               Color="MudBlazor.Color.Primary"
+                                               Size="MudBlazor.Size.Small"
+                                               Variant="Variant.Filled"
+                                               OnClick="@(() => OpenStats(exercise))"
+                                               Title="View stats"
+                                               aria-label="View stats"
+                                               Class="hs-et-action-icon" />
+                            </span>
+
+                            <span class="hs-et-action-slot" @onclick:stopPropagation="true">
+                                <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                               Color="MudBlazor.Color.Success"
+                                               Size="MudBlazor.Size.Small"
+                                               Variant="Variant.Filled"
+                                               OnClick="@(() => GoToCreateExercise(exercise))"
+                                               Title="Create exercise for today"
+                                               aria-label="Create exercise for today"
+                                               Class="hs-et-action-icon" />
+                            </span>
+
+                            @if (TraineeId is null)
+                            {
+                                <span class="hs-et-action-slot" @onclick:stopPropagation="true">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                   Color="MudBlazor.Color.Secondary"
+                                                   Size="MudBlazor.Size.Small"
+                                                   Variant="Variant.Filled"
+                                                   OnClick="@(() => GoToEditExerciseType(exercise))"
+                                                   Title="Edit exercise type"
+                                                   aria-label="Edit exercise type"
+                                                   Class="hs-et-action-icon" />
+                                </span>
+                            }
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    </div>
 }
 
 @code {
     [Parameter] public string? TraineeId { get; set; }
-    [Parameter] public bool FavouritesOnly { get; set; } = false;
+    [Parameter] public bool FavouritesOnly { get; set; }
     [Parameter] public bool ShowSearch { get; set; } = true;
     [Parameter] public EventCallback<GetExerciseTypeResource> OnCardClicked { get; set; }
 
-    private GetExerciseTypeResource[]? _all;
-    private IEnumerable<GetExerciseTypeResource>? _filtered;
+    private GetExerciseTypeResource[] _all = Array.Empty<GetExerciseTypeResource>();
+    private List<GetExerciseTypeResource> _visibleMainExercises = new();
     private bool _isLoading = true;
-    private string _search = "";
+    private string _search = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        await AppState.GetMusclesAsync(); // ensure muscle cache is warm
+        await AppState.GetMusclesAsync();
 
         try
         {
-            var url = FavouritesOnly
-                ? $"/ExerciseTypes?favourite=true{(TraineeId != null ? $"&userId={TraineeId}" : "")}"
-                : $"/ExerciseTypes{(TraineeId != null ? $"?userId={TraineeId}" : "")}";
-
-            _all = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>(url);
+            var userQuery = TraineeId is null ? string.Empty : $"?userId={TraineeId}";
+            _all = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>($"/ExerciseTypes{userQuery}")
+                ?? Array.Empty<GetExerciseTypeResource>();
         }
         catch
         {
@@ -105,57 +202,132 @@ else
 
     private void ApplyFilter()
     {
-        _filtered = _all?
-            .Where(et => AppStateService.MatchesSearch(et, _search))
-            ?? Enumerable.Empty<GetExerciseTypeResource>();
+        var mainExercises = _all
+            .Where(exercise => exercise.ParentExerciseTypeId is null)
+            .Where(exercise => !FavouritesOnly || exercise.IsFavourite || GetVariationsFor(exercise).Any(variation => variation.IsFavourite))
+            .Where(exercise => MatchesSearch(exercise, _search))
+            .OrderBy(exercise => exercise.Name)
+            .ToList();
+
+        _visibleMainExercises = mainExercises;
     }
 
-    private string GetImageUrl(GetExerciseTypeResource et)
-        => !string.IsNullOrEmpty(et.ImageRoute)
-            ? et.ImageRoute
-            : $"ExerciseImages/{et.Name}.jpg";
+    private IEnumerable<GetExerciseTypeResource> GetVariationsFor(GetExerciseTypeResource mainExercise)
+        => _all
+            .Where(exercise => exercise.ParentExerciseTypeId == mainExercise.Id)
+            .OrderBy(exercise => exercise.Name);
 
-    private async Task OnCardClick(GetExerciseTypeResource et)
+    private bool MatchesSearch(GetExerciseTypeResource mainExercise, string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return true;
+        }
+
+        if (AppStateService.MatchesSearch(mainExercise, query))
+        {
+            return true;
+        }
+
+        return GetVariationsFor(mainExercise).Any(variation => AppStateService.MatchesSearch(variation, query));
+    }
+
+    private static IEnumerable<string> GetTagNames(GetExerciseTypeResource exercise, string category)
+        => (exercise.Tags ?? [])
+            .Where(tag => string.Equals(tag.Category, category, StringComparison.OrdinalIgnoreCase))
+            .Select(tag => tag.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    private string GetImageUrl(GetExerciseTypeResource exercise)
+        => !string.IsNullOrEmpty(exercise.ImageRoute)
+            ? exercise.ImageRoute
+            : $"ExerciseImages/{exercise.Name}.jpg";
+
+    private string GetMuscleLine(GetExerciseTypeResource exercise)
+    {
+        var primary = AppState.GetMuscleName(exercise.PrimaryMuscleId);
+        var secondary = AppState.GetMuscleName(exercise.SecondaryMuscleId);
+
+        if (!string.IsNullOrWhiteSpace(secondary) &&
+            !string.Equals(primary, secondary, StringComparison.OrdinalIgnoreCase) &&
+            secondary != "Unspecified")
+        {
+            return $"{primary} / {secondary}";
+        }
+
+        return primary;
+    }
+
+    private static string FormatVariationSummary(int variationCount)
+        => variationCount == 1 ? "1 variation ready to track" : $"{variationCount} variations ready to track";
+
+    private async Task OnCardClick(GetExerciseTypeResource exercise)
     {
         if (OnCardClicked.HasDelegate)
-            await OnCardClicked.InvokeAsync(et);
-        else
         {
-            var route = TraineeId != null
-                ? $"/exercises/types/{et.Id}/details/{TraineeId}"
-                : $"/exercises/types/{et.Id}/edit";
-            NavigationManager.NavigateTo(route);
+            await OnCardClicked.InvokeAsync(exercise);
+            return;
         }
+
+        OpenStats(exercise);
     }
 
-    private async Task ToggleFavourite(MouseEventArgs _, GetExerciseTypeResource et)
+    private Task OnVariationClick(MouseEventArgs _, GetExerciseTypeResource variation)
+    {
+        OpenStats(variation);
+        return Task.CompletedTask;
+    }
+
+    private void OpenStats(GetExerciseTypeResource exercise)
+        => NavigationManager.NavigateTo(GetStatsRoute(exercise));
+
+    private void GoToEditExerciseType(GetExerciseTypeResource exercise)
+        => NavigationManager.NavigateTo($"/exercises/types/{exercise.Id}/edit");
+
+    private void GoToCreateExercise(GetExerciseTypeResource exercise)
+        => NavigationManager.NavigateTo(GetCreateExerciseRoute(exercise));
+
+    private string GetStatsRoute(GetExerciseTypeResource exercise)
+        => TraineeId != null
+            ? $"/exercises/types/{exercise.Id}/details/{TraineeId}"
+            : $"/exercises/types/{exercise.Id}/details";
+
+    private string GetCreateExerciseRoute(GetExerciseTypeResource exercise)
+        => TraineeId != null
+            ? $"/exercises/create/{TraineeId}?exerciseTypeId={exercise.Id}"
+            : $"/exercises/create?exerciseTypeId={exercise.Id}";
+
+    private async Task ToggleFavourite(MouseEventArgs _, GetExerciseTypeResource exercise)
     {
         try
         {
             var payload = new UpdateExerciseTypeResource
             {
-                Id = et.Id,
-                Name = et.Name,
-                Description = et.Description,
-                ImageRoute = et.ImageRoute,
-                PrimaryMuscleId = et.PrimaryMuscleId,
-                SecondaryMuscleId = et.SecondaryMuscleId,
-                IsFavourite = !et.IsFavourite,
-                Tags = et.Tags
+                Id = exercise.Id,
+                Name = exercise.Name,
+                Description = exercise.Description,
+                ImageRoute = exercise.ImageRoute,
+                PrimaryMuscleId = exercise.PrimaryMuscleId,
+                SecondaryMuscleId = exercise.SecondaryMuscleId,
+                ParentExerciseTypeId = exercise.ParentExerciseTypeId,
+                WeightType = exercise.WeightType,
+                IsFavourite = !exercise.IsFavourite,
+                Tags = exercise.Tags
             };
 
             var response = await Http.PutAsJsonAsync("/ExerciseTypes", payload);
 
-            if (response.IsSuccessStatusCode)
-            {
-                et.IsFavourite = !et.IsFavourite;
-                AppState.InvalidateExerciseTypes();
-                StateHasChanged();
-            }
-            else
+            if (!response.IsSuccessStatusCode)
             {
                 Snackbar.Add("Failed to update favourite.", Severity.Error);
+                return;
             }
+
+            exercise.IsFavourite = !exercise.IsFavourite;
+            AppState.InvalidateExerciseTypes();
+            ApplyFilter();
+            StateHasChanged();
         }
         catch (Exception ex)
         {

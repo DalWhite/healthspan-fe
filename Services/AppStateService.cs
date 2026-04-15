@@ -97,8 +97,18 @@ public class AppStateService
     public static bool MatchesSearch(GetExerciseTypeResource item, string query)
     {
         if (string.IsNullOrWhiteSpace(query)) return true;
+
         return (item.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (item.Description?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
+            || (item.Description?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (item.Tags?.Any(tag =>
+                tag.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                tag.Category.Contains(query, StringComparison.OrdinalIgnoreCase)) ?? false)
+            || (item.Variations?.Any(variation =>
+                (variation.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (variation.Description?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (variation.Tags?.Any(tag =>
+                    tag.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                    tag.Category.Contains(query, StringComparison.OrdinalIgnoreCase)) ?? false)) ?? false);
     }
 
     public static bool MatchesSearch(GetExerciseResource item, string query)

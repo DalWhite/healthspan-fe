@@ -1,0 +1,545 @@
+@page "/health/blood-tests"
+@inject HealthspanApiClient ApiClient
+@inject TitleService TitleService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Blood Tests</PageTitle>
+
+@if (_isLoading)
+{
+    <LoadingState Message="Loading blood tests..." Size="Size.Large" />
+}
+else
+{
+    <div class="hs-health-shell">
+        @* ── Header ──────────────────────────────────────────────────── *@
+        <div class="hs-page-hero">
+            <div>
+                <MudText Typo="Typo.h4">Blood Tests</MudText>
+                <MudText Typo="Typo.body2" Class="hs-muted-copy">Upload lab reports or add results manually. Review pending OCR extractions before they finalize.</MudText>
+            </div>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" OnClick="ToggleUploadPanel">Upload report</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Edit" OnClick="ToggleManualEntry">Manual entry</MudButton>
+            </MudStack>
+        </div>
+
+        @* ── Feedback messages ───────────────────────────────────────── *@
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" ShowCloseIcon="true" CloseIconClicked="() => _errorMessage = null">@_errorMessage</MudAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_operationMessage))
+        {
+            <MudAlert Severity="@_operationSeverity" Dense="true" ShowCloseIcon="true" CloseIconClicked="() => _operationMessage = null">@_operationMessage</MudAlert>
+        }
+
+        @* ── Upload panel (collapsible) ──────────────────────────────── *@
+        @if (_showUploadPanel)
+        {
+            <MudPaper Class="hs-health-panel hs-upload-panel">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                    <MudText Typo="Typo.h6">Upload lab report</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _showUploadPanel = false" />
+                </MudStack>
+
+                <MudFileUpload T="IBrowserFile" Accept=".pdf,image/*" FilesChanged="OnFileSelected">
+                    <ButtonTemplate>
+                        <MudButton HtmlTag="label"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Class="hs-dropzone-btn"
+                                   for="@context">
+                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Large" Class="hs-muted-copy" />
+                                <MudText Typo="Typo.body1">@(_selectedFile != null ? _selectedFile.Name : "Click to select a PDF or image")</MudText>
+                                <MudText Typo="Typo.caption" Class="hs-muted-copy">Supports PDF, JPEG, PNG up to 15 MB</MudText>
+                            </MudStack>
+                        </MudButton>
+                    </ButtonTemplate>
+                </MudFileUpload>
+
+                <MudStack Row="true" Spacing="2" Class="mt-3">
+                    <MudDatePicker Label="Test date" @bind-Date="_uploadDraft.TestDate" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1" />
+                    <MudTextField @bind-Value="_uploadDraft.LabName" Label="Lab name (optional)" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_selectedFile == null || _isUploading)" OnClick="UploadAsync">
+                        @(_isUploading ? "Uploading..." : "Upload")
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @* ── Manual entry panel (collapsible) ────────────────────────── *@
+        @if (_showManualEntry)
+        {
+            <MudPaper Class="hs-health-panel hs-upload-panel">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                    <MudText Typo="Typo.h6">Manual blood test entry</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _showManualEntry = false" />
+                </MudStack>
+
+                <MudStack Row="true" Spacing="2" Class="mb-3">
+                    <MudDatePicker Label="Test date" @bind-Date="_manualTestDate" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1" />
+                    <MudTextField @bind-Value="_manualDraft.LabName" Label="Lab name (optional)" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1" />
+                </MudStack>
+
+                <div class="hs-manual-markers-grid">
+                    @foreach (var marker in _manualMarkers)
+                    {
+                        <MudPaper Class="hs-subpanel">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.subtitle2">Marker</MudText>
+                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => RemoveManualMarker(marker)" />
+                            </MudStack>
+                            <MudTextField @bind-Value="marker.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudStack Row="true" Spacing="1">
+                                <MudNumericField T="double?" @bind-Value="marker.Value" Label="Value" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:2" />
+                                <MudTextField @bind-Value="marker.Unit" Label="Unit" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1" />
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </div>
+
+                <MudStack Row="true" Spacing="2" Class="mt-3">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Add" OnClick="AddManualMarker">Add marker</MudButton>
+                    <MudSpacer />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_isCreatingManual" OnClick="CreateManualAsync">
+                        @(_isCreatingManual ? "Saving..." : "Save blood test")
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @* ── Filter tabs ─────────────────────────────────────────────── *@
+        <MudChipSet SelectedChipChanged="OnFilterChanged" Mandatory="true" Class="hs-filter-chips">
+            <MudChip Default="@(_activeFilter == TestFilter.All)" Value="@TestFilter.All" Variant="Variant.Text" Color="Color.Primary">
+                All @CountBadge(_bloodTests.Count)
+            </MudChip>
+            @if (_pendingReview.Count > 0)
+            {
+                <MudChip Default="@(_activeFilter == TestFilter.PendingReview)" Value="@TestFilter.PendingReview" Variant="Variant.Text" Color="Color.Warning">
+                    Pending review @CountBadge(_pendingReview.Count)
+                </MudChip>
+            }
+            @if (ProcessingTests.Any())
+            {
+                <MudChip Default="@(_activeFilter == TestFilter.Processing)" Value="@TestFilter.Processing" Variant="Variant.Text" Color="Color.Info">
+                    Processing @CountBadge(ProcessingTests.Count())
+                </MudChip>
+            }
+            @if (ProblemStateTests.Any())
+            {
+                <MudChip Default="@(_activeFilter == TestFilter.Issues)" Value="@TestFilter.Issues" Variant="Variant.Text" Color="Color.Error">
+                    Issues @CountBadge(ProblemStateTests.Count())
+                </MudChip>
+            }
+            <MudChip Default="@(_activeFilter == TestFilter.Processed)" Value="@TestFilter.Processed" Variant="Variant.Text" Color="Color.Success">
+                Processed @CountBadge(ProcessedTests.Count())
+            </MudChip>
+        </MudChipSet>
+
+        @* ── Main content: list + detail ─────────────────────────────── *@
+        <MudGrid Spacing="3">
+            <MudItem xs="12" lg="5">
+                <div class="hs-section-stack">
+                    @if (!FilteredTests.Any())
+                    {
+                        <MudPaper Class="hs-health-panel">
+                            <EmptyState Icon="@Icons.Material.Filled.Science"
+                                        Title="No blood tests"
+                                        Subtitle="Upload a lab report or create a manual entry to get started." />
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        @foreach (var item in FilteredTests)
+                        {
+                            <div class="hs-list-card @GetStatusCardClass(item) @GetSelectedTestClass(item)" role="button" tabindex="0" @onclick="() => InspectBloodTestAsync(item.Id)" @onkeydown="@(e => OnCardKeyDown(e, item.Id))" style="cursor:pointer">
+                                <div class="hs-list-card-row">
+                                    <div>
+                                        <div class="hs-list-card-title">@item.TestDate.ToString("dd MMM yyyy")</div>
+                                        <div class="hs-list-card-subtitle">@(item.LabName ?? "Unknown lab") · @FormatMarkerCount(item)</div>
+                                    </div>
+                                    <ClinicalStatusChip Status="@HealthDisplayHelpers.GetProcessingStatusLabel(item.ProcessingStatus)" />
+                                </div>
+
+                                @if (item.ProcessingStatus == BloodTestProcessingStatus.Processing)
+                                {
+                                    <MudProgressLinear Color="Color.Info" Indeterminate="true" Size="Size.Small" Class="mt-2" />
+                                }
+
+                                @if (item.RequiresReview || item.ProcessingStatus == BloodTestProcessingStatus.ExtractionFailed)
+                                {
+                                    <div class="hs-list-card-actions">
+                                        @if (item.RequiresReview)
+                                        {
+                                            <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" OnClick="() => OpenReview(item.Id)">Review</MudButton>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </MudItem>
+
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="hs-health-panel hs-sticky-panel">
+                    @if (_isDetailLoading)
+                    {
+                        <LoadingState Message="Loading details..." />
+                    }
+                    else if (_selectedDetail == null)
+                    {
+                        <EmptyState Icon="@Icons.Material.Filled.Biotech"
+                                    Title="Select a blood test"
+                                    Subtitle="Choose a test from the list to view its markers and details." />
+                    }
+                    else
+                    {
+                        <div class="hs-detail-heading">
+                            <div>
+                                <MudText Typo="Typo.h5">@_selectedDetail.TestDate.ToString("dd MMM yyyy")</MudText>
+                                <MudText Typo="Typo.body2" Class="hs-muted-copy">@(_selectedDetail.LabName ?? "Unknown lab") · @(_selectedDetail.SourceFileName ?? "Manual entry")</MudText>
+                            </div>
+                            <div class="hs-detail-chip-group">
+                                <ClinicalStatusChip Status="@HealthDisplayHelpers.GetProcessingStatusLabel(_selectedDetail.ProcessingStatus)" />
+                                @if (_selectedDetail.RequiresReview)
+                                {
+                                    <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" OnClick="() => OpenReview(_selectedDetail.Id)">Review</MudButton>
+                                }
+                            </div>
+                        </div>
+
+                        @if (_selectedDetail.RequiresReview)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="my-3 hs-soft-alert">Markers are OCR suggestions — review before they finalize.</MudAlert>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(_selectedDetail.ProcessingNotes))
+                        {
+                            <MudAlert Severity="@GetProcessingSeverity(_selectedDetail.ProcessingStatus)" Dense="true" Class="my-3 hs-soft-alert">@_selectedDetail.ProcessingNotes</MudAlert>
+                        }
+
+                        @if (_selectedDetail.Markers == null || _selectedDetail.Markers.Count == 0)
+                        {
+                            <EmptyState Icon="@Icons.Material.Filled.FactCheck"
+                                        Title="No markers extracted"
+                                        Subtitle="Use manual entry to add results for this blood test." />
+                        }
+                        else
+                        {
+                            <div class="hs-marker-grid mt-3">
+                                @foreach (var marker in _selectedDetail.Markers)
+                                {
+                                    <div class="hs-marker-card">
+                                        <div class="hs-marker-card-header">
+                                            <div class="hs-biomarker-name">@(marker.Name ?? "Unnamed marker")</div>
+                                            <ClinicalStatusChip Status="@HealthDisplayHelpers.GetMarkerStatusLabel(marker.Status, marker.Value, marker.ReferenceMinValue, marker.ReferenceMaxValue)" />
+                                        </div>
+                                        <div class="hs-biomarker-value">@FormatMarkerValue(marker)</div>
+                                        <div class="hs-biomarker-range">Ref: @FormatReferenceRange(marker.ReferenceMinValue, marker.ReferenceMaxValue, marker.Unit)</div>
+                                        @if (marker.Confidence.HasValue && marker.Confidence.Value < 0.8)
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-1">OCR confidence: @marker.Confidence.Value.ToString("P0")</MudText>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </div>
+}
+
+@code {
+    private readonly List<GetBloodTestResource> _bloodTests = new();
+    private readonly List<GetBloodTestResource> _pendingReview = new();
+    private readonly List<BloodTestMarkerResource> _manualMarkers = new();
+    private GetBloodTestResource? _selectedDetail;
+    private Guid? _selectedBloodTestId;
+    private IBrowserFile? _selectedFile;
+    private BloodTestUploadRequest _uploadDraft = new() { TestDate = DateTime.Today };
+    private AddBloodTestResource _manualDraft = new() { TestDate = DateTime.Today };
+    private DateTime? _manualTestDate = DateTime.Today;
+    private bool _isLoading = true;
+    private bool _isDetailLoading;
+    private bool _isUploading;
+    private bool _isCreatingManual;
+    private bool _showUploadPanel;
+    private bool _showManualEntry;
+    private bool _hasLoaded;
+    private string? _errorMessage;
+    private string? _operationMessage;
+    private Severity _operationSeverity = Severity.Info;
+    private TestFilter _activeFilter = TestFilter.All;
+
+    [SupplyParameterFromQuery(Name = "selectedId")]
+    public Guid? SelectedId { get; set; }
+
+    private enum TestFilter { All, PendingReview, Processing, Issues, Processed }
+
+    private IEnumerable<GetBloodTestResource> ProcessedTests
+        => _bloodTests.Where(x => !x.RequiresReview && x.ProcessingStatus == BloodTestProcessingStatus.Processed);
+
+    private IEnumerable<GetBloodTestResource> ProblemStateTests
+        => _bloodTests.Where(x => x.ProcessingStatus == BloodTestProcessingStatus.ExtractionFailed && !_pendingReview.Any(p => p.Id == x.Id));
+
+    private IEnumerable<GetBloodTestResource> ProcessingTests
+        => _bloodTests.Where(x => x.ProcessingStatus == BloodTestProcessingStatus.Processing);
+
+    private IEnumerable<GetBloodTestResource> FilteredTests => (_activeFilter switch
+    {
+        TestFilter.PendingReview => _pendingReview.AsEnumerable(),
+        TestFilter.Processing => ProcessingTests,
+        TestFilter.Issues => ProblemStateTests,
+        TestFilter.Processed => ProcessedTests,
+        _ => _bloodTests.AsEnumerable()
+    }).OrderByDescending(x => x.TestDate);
+
+    private static string CountBadge(int count) => count > 0 ? $"({count})" : "";
+
+    private void OnFilterChanged(MudChip? chip)
+    {
+        if (chip?.Value is TestFilter filter)
+        {
+            _activeFilter = filter;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_hasLoaded)
+        {
+            TitleService.Title = "Blood Tests";
+            AddManualMarker();
+            await LoadAsync(SelectedId);
+            _hasLoaded = true;
+            return;
+        }
+
+        if (SelectedId.HasValue && SelectedId != _selectedBloodTestId)
+        {
+            await SelectBloodTestAsync(SelectedId.Value);
+        }
+    }
+
+    private async Task LoadAsync(Guid? preferredSelectionId = null)
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var items = await ApiClient.GetBloodTestsAsync();
+            var pendingItems = await ApiClient.GetPendingReviewBloodTestsAsync();
+
+            _bloodTests.Clear();
+            _bloodTests.AddRange(items.OrderByDescending(x => x.TestDate));
+            _pendingReview.Clear();
+            _pendingReview.AddRange(pendingItems.OrderByDescending(x => x.TestDate));
+
+            var selection = preferredSelectionId
+                ?? SelectedId
+                ?? _selectedBloodTestId
+                ?? _pendingReview.FirstOrDefault()?.Id
+                ?? _bloodTests.FirstOrDefault()?.Id;
+
+            if (selection.HasValue)
+            {
+                await SelectBloodTestAsync(selection.Value);
+            }
+            else
+            {
+                _selectedDetail = null;
+                _selectedBloodTestId = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load blood tests: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SelectBloodTestAsync(Guid id)
+    {
+        _selectedBloodTestId = id;
+        _isDetailLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _selectedDetail = await ApiClient.GetBloodTestAsync(id);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load blood test detail: {ex.Message}";
+            _selectedDetail = null;
+        }
+        finally
+        {
+            _isDetailLoading = false;
+        }
+    }
+
+    private void OnFileSelected(IBrowserFile file)
+    {
+        _selectedFile = file;
+        _operationMessage = null;
+    }
+
+    private void ToggleUploadPanel()
+    {
+        _showUploadPanel = !_showUploadPanel;
+        if (_showUploadPanel) _showManualEntry = false;
+    }
+
+    private void ToggleManualEntry()
+    {
+        _showManualEntry = !_showManualEntry;
+        if (_showManualEntry) _showUploadPanel = false;
+    }
+
+    private async Task UploadAsync()
+    {
+        if (_selectedFile == null) return;
+
+        _isUploading = true;
+        _operationMessage = null;
+        _errorMessage = null;
+
+        try
+        {
+            await ApiClient.UploadBloodReportAsync(_selectedFile, _uploadDraft);
+            _selectedFile = null;
+            _uploadDraft = new BloodTestUploadRequest { TestDate = DateTime.Today };
+            _showUploadPanel = false;
+
+            _operationSeverity = Severity.Success;
+            _operationMessage = "Upload accepted — processing in the background. Refresh to check progress.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _operationSeverity = Severity.Error;
+            _operationMessage = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            _isUploading = false;
+        }
+    }
+
+    private async Task CreateManualAsync()
+    {
+        _isCreatingManual = true;
+        _operationMessage = null;
+        _errorMessage = null;
+
+        try
+        {
+            var existingIds = _bloodTests.Select(x => x.Id).ToHashSet();
+            var markers = _manualMarkers
+                .Where(x => !string.IsNullOrWhiteSpace(x.Name) && x.Value.HasValue)
+                .ToList();
+
+            if (markers.Count == 0)
+            {
+                _operationSeverity = Severity.Warning;
+                _operationMessage = "Add at least one marker with a name and value.";
+                return;
+            }
+
+            _manualDraft.TestDate = _manualTestDate ?? DateTime.Today;
+            _manualDraft.Markers = markers;
+            await ApiClient.CreateManualBloodTestAsync(_manualDraft);
+            _operationSeverity = Severity.Success;
+            _operationMessage = "Blood test created successfully.";
+            _manualDraft = new AddBloodTestResource { TestDate = DateTime.Today };
+            _manualTestDate = DateTime.Today;
+            _manualMarkers.Clear();
+            AddManualMarker();
+            _showManualEntry = false;
+            await LoadAsync();
+
+            var created = _bloodTests.FirstOrDefault(x => !existingIds.Contains(x.Id));
+            if (created != null)
+            {
+                NavigationManager.NavigateTo($"/health/blood-tests?selectedId={created.Id}", replace: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _operationSeverity = Severity.Error;
+            _operationMessage = $"Manual entry failed: {ex.Message}";
+        }
+        finally
+        {
+            _isCreatingManual = false;
+        }
+    }
+
+    private void AddManualMarker()
+        => _manualMarkers.Add(new BloodTestMarkerResource());
+
+    private async Task InspectBloodTestAsync(Guid id)
+    {
+        await SelectBloodTestAsync(id);
+        NavigationManager.NavigateTo($"/health/blood-tests?selectedId={id}", replace: true);
+    }
+
+    private void OpenReview(Guid id)
+        => NavigationManager.NavigateTo($"/health/blood-tests/{id}/review");
+
+    private void RemoveManualMarker(BloodTestMarkerResource marker)
+    {
+        _manualMarkers.Remove(marker);
+        if (_manualMarkers.Count == 0) AddManualMarker();
+    }
+
+    private string GetSelectedTestClass(GetBloodTestResource item)
+        => item.Id == _selectedBloodTestId ? "is-selected" : string.Empty;
+
+    private static string GetStatusCardClass(GetBloodTestResource item) => item.ProcessingStatus switch
+    {
+        BloodTestProcessingStatus.Processing => "hs-status-card-pending",
+        BloodTestProcessingStatus.ExtractionFailed => "hs-status-card-problem",
+        BloodTestProcessingStatus.Processed => "hs-status-card-processed",
+        _ => item.RequiresReview ? "hs-status-card-pending" : ""
+    };
+
+    private static Severity GetProcessingSeverity(BloodTestProcessingStatus status) => status switch
+    {
+        BloodTestProcessingStatus.Processed => Severity.Success,
+        BloodTestProcessingStatus.ExtractionFailed => Severity.Warning,
+        BloodTestProcessingStatus.Processing => Severity.Info,
+        _ => Severity.Info
+    };
+
+    private static string FormatMarkerCount(GetBloodTestResource item)
+        => $"{item.Markers?.Count ?? 0} markers";
+
+    private static string FormatMarkerValue(BloodTestMarkerResource marker)
+        => marker.Value.HasValue ? $"{marker.Value.Value:0.##} {marker.Unit}" : marker.RawValueText ?? "—";
+
+    private static string FormatReferenceRange(double? min, double? max, string? unit) => (min, max) switch
+    {
+        (not null, not null) => $"{min:0.##} – {max:0.##} {unit}",
+        (not null, null) => $"≥ {min:0.##} {unit}",
+        (null, not null) => $"≤ {max:0.##} {unit}",
+        _ => "—"
+    };
+
+    private async Task OnCardKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e, Guid id)
+    {
+        if (e.Key == "Enter") await InspectBloodTestAsync(id);
+    }
+}

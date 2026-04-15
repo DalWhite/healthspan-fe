@@ -51,6 +51,10 @@
                              InputType="InputType.Number"
                              HelperText="Extra weight used in the exercise."
                              Immediate="true" />
+
+            <MudText Typo="Typo.caption" Class="mx-2 mb-2 hs-muted-copy">
+                1RM will use @ExerciseLoadCalculator.GetEffectiveLoad(_exercise, CurrentUserBodyWeight).ToString("0.#") kg total load.
+            </MudText>
         }
         else
         {
@@ -77,15 +81,25 @@
     [Parameter] public decimal? CurrentUserBodyWeight { get; set; }
     [Parameter] public Guid WorkoutId { get; set; }
     [Parameter] public string? TraineeId { get; set; }
+    [Parameter] public int? InitialExerciseTypeId { get; set; }
+    [Parameter] public DateTime? InitialDate { get; set; }
     [Parameter] public EventCallback<AddExerciseResource> OnExerciseAdded { get; set; }
 
     private AddExerciseResource _exercise = new();
     private GetExerciseTypeResource? _selectedType;
     private WorkoutPostResource _workout = new() { Date = DateTime.Now };
     private EditContext? _editContext;
+    private int? _appliedInitialExerciseTypeId;
+    private DateTime? _appliedInitialDate;
 
     protected override void OnInitialized() => _editContext = new EditContext(_exercise);
-    protected override void OnParametersSet() => SyncTypeToModel();
+
+    protected override void OnParametersSet()
+    {
+        ApplyInitialDate();
+        ApplyInitialType();
+        SyncTypeToModel();
+    }
 
     private Task<IEnumerable<GetExerciseTypeResource>> SearchExerciseTypes(string value)
     {
@@ -115,24 +129,70 @@
                 _exercise.BodyWeight = CurrentUserBodyWeight;
             _exercise.AddedWeight ??= 0m;
         }
+        else if (_exercise.WeightType == ExerciseWeightType.None)
+        {
+            _exercise.Weight = 0m;
+            _exercise.BodyWeight = null;
+            _exercise.AddedWeight = null;
+        }
+        else
+        {
+            _exercise.BodyWeight = null;
+            _exercise.AddedWeight = null;
+        }
+    }
 
-        StateHasChanged();
+    private void ApplyInitialDate()
+    {
+        var normalizedDate = (InitialDate ?? DateTime.Now).Date;
+
+        if (_appliedInitialDate != normalizedDate)
+        {
+            _workout.Date = normalizedDate;
+            _appliedInitialDate = normalizedDate;
+        }
+        else if (!_workout.Date.HasValue)
+        {
+            _workout.Date = normalizedDate;
+        }
+    }
+
+    private void ApplyInitialType()
+    {
+        if (InitialExerciseTypeId == _appliedInitialExerciseTypeId &&
+            (_selectedType != null || !InitialExerciseTypeId.HasValue))
+        {
+            return;
+        }
+
+        if (!InitialExerciseTypeId.HasValue)
+        {
+            _selectedType = null;
+            _appliedInitialExerciseTypeId = null;
+            return;
+        }
+
+        var match = ExerciseTypes?.FirstOrDefault(type => type.Id == InitialExerciseTypeId.Value);
+        if (match is null)
+        {
+            return;
+        }
+
+        _selectedType = match;
+        _appliedInitialExerciseTypeId = InitialExerciseTypeId;
     }
 
     private async Task SubmitExercise()
     {
-        // Resolve workout weight for bodyweight exercises
-        if (_exercise.WeightType == ExerciseWeightType.BodyWeight)
-        {
-            _exercise.BodyWeight ??= CurrentUserBodyWeight;
-            _exercise.AddedWeight ??= 0m;
-            _exercise.Weight = (_exercise.BodyWeight ?? 0m) + (_exercise.AddedWeight ?? 0m);
-        }
+        ExerciseLoadCalculator.NormalizeForSubmission(_exercise, CurrentUserBodyWeight);
 
         // Resolve or create workout for the selected date
         var workoutId = WorkoutId != Guid.Empty
             ? WorkoutId
             : await ResolveWorkoutIdAsync(_workout.Date);
+
+        if (workoutId == Guid.Empty)
+            return;
 
         _exercise.WorkoutId = workoutId;
         _exercise.TypeId = _selectedType?.Id;
@@ -165,14 +225,23 @@
         var resp = await Http.PostAsJsonAsync("/Workouts", newWorkout);
         var created = await resp.Content.ReadFromJsonAsync<GetWorkoutResource>();
         Snackbar.Add($"New workout created for {(date ?? DateTime.Now).ToShortDateString()}.", Severity.Info);
-        return created?.Id ?? Guid.NewGuid();
+        if (created?.Id == null)
+        {
+            Snackbar.Add("Failed to read created workout. Please try again.", Severity.Error);
+            return Guid.Empty;
+        }
+        return created.Id;
     }
 
     private void ResetForm()
     {
         _exercise = new();
         _selectedType = null;
+        _workout = new WorkoutPostResource();
         _editContext = new EditContext(_exercise);
+        ApplyInitialDate();
+        ApplyInitialType();
+        SyncTypeToModel();
     }
 
     private void OnTypeChanged(GetExerciseTypeResource? newType)
