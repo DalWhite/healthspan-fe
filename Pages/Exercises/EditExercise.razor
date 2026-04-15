@@ -41,11 +41,12 @@ else
     private AddExerciseResource _editModel = new();
     private DateTime? _workoutDate = DateTime.Now;
     private GetExerciseMetrics ExerciseMetrics { get; set; }
-    private GetExerciseTypeResource[] exerciseTypes;
+    private GetExerciseTypeResource[] exerciseTypes = Array.Empty<GetExerciseTypeResource>();
 
     protected override async Task OnInitializedAsync()
     {
-        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes")
+            ?? Array.Empty<GetExerciseTypeResource>();
         await LoadExercise();
         await LoadMetrics();
     }
@@ -65,9 +66,9 @@ else
                 TypeId = Exercise.Type?.Id,
                 Series = Exercise.Series ?? 0,
                 Repetitions = Exercise.Repetitions ?? 0,
-                Weight = (decimal)(Exercise.Weight ?? 0),
-                BodyWeight = (decimal?)(Exercise.BodyWeight),
-                AddedWeight = (decimal?)(Exercise.AddedWeight),
+                Weight = Exercise.Weight ?? 0,
+                BodyWeight = Exercise.BodyWeight,
+                AddedWeight = Exercise.AddedWeight,
                 WeightType = Exercise.Type?.WeightType ?? ExerciseWeightType.Standard
             };
             _workoutDate = Exercise.Workout?.Date ?? DateTime.Now;
@@ -79,7 +80,23 @@ else
         try
         {
             _editModel.WorkoutId = await ResolveWorkoutIdAsync(_workoutDate);
-            var response = await Http.PutAsJsonAsync($"/exercises/{ExerciseId}", _editModel);
+            var response = await Http.PutAsJsonAsync("/exercises", new UpdateExerciseResource
+            {
+                Id = Guid.Parse(ExerciseId),
+                Series = _editModel.Series,
+                Repetitions = _editModel.Repetitions,
+                Weight = _editModel.Weight,
+                BodyWeight = _editModel.BodyWeight,
+                AddedWeight = _editModel.AddedWeight,
+                WeightType = _editModel.WeightType,
+                Type = exerciseTypes.FirstOrDefault(type => type.Id == _editModel.TypeId),
+                Workout = new GetWorkoutResource
+                {
+                    Id = _editModel.WorkoutId ?? Guid.Empty,
+                    Date = _workoutDate
+                }
+            });
+
             if (response.IsSuccessStatusCode)
             {
                 Snackbar.Add("Exercise updated successfully.", Severity.Success);
@@ -106,7 +123,7 @@ else
         var created = await resp.Content.ReadFromJsonAsync<GetWorkoutResource>();
         return created?.Id ?? Guid.NewGuid();
     }
-    
+
     private async Task Delete()
     {
         await Http.DeleteAsync($"/exercises/{ExerciseId}");

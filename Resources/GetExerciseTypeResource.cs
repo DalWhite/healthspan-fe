@@ -10,5 +10,7 @@ public record GetExerciseTypeResource
     public int? SecondaryMuscleId {get;set;}
     public bool IsFavourite { get; set; }
     public ExerciseWeightType? WeightType { get; set; } = ExerciseWeightType.Standard;
+    public int? ParentExerciseTypeId { get; set; }
     public List<ExerciseTag>? Tags { get; set; } = new List<ExerciseTag>();
+    public List<GetExerciseTypeResource> Variations { get; set; } = new();
 }

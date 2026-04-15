@@ -24,11 +24,11 @@
     @if (_isFilterActive)
     {
         <div class="d-flex flex-wrap mt-2">
-            @if (!string.IsNullOrEmpty(_selectedExerciseType))
+            @if (_selectedExerciseTypeId.HasValue && !string.IsNullOrWhiteSpace(_selectedExerciseTypeLabel))
             {
                 <MudChip Class="mr-2 mb-1" Variant="Variant.Filled" Color="MudBlazor.Color.Primary"
                          Size="MudBlazor.Size.Small" OnClose="ClearExerciseTypeFilter">
-                    Exercise: @_selectedExerciseType
+                    Exercise: @_selectedExerciseTypeLabel
                 </MudChip>
             }
             @foreach (var muscle in _selectedMuscleGroups)
@@ -198,18 +198,18 @@ else
     private PagedResult<GetExerciseResource>? _pagedData;
     private List<Muscle> _muscles = new();
     private Dictionary<int, string> _muscleNames = new();
-    private List<string> _exerciseTypeOptions = new();
+    private List<ExerciseTypeFilterOption> _exerciseTypeOptions = new();
 
     private bool _isLoading = true;
     private int _currentPage = 1;
     private int _pageSize = 20;
-    private string _sortBy = "date";
-    private string _currentSortField = "date";
+    private string _sortField = "date";
     private bool _sortDescending = true;
 
-    private string _selectedExerciseType = "";
+    private int? _selectedExerciseTypeId;
+    private string? _selectedExerciseTypeLabel;
     private List<string> _selectedMuscleGroups = new();
-    private bool _isFilterActive => !string.IsNullOrEmpty(_selectedExerciseType) || _selectedMuscleGroups.Any();
+    private bool _isFilterActive => _selectedExerciseTypeId.HasValue || _selectedMuscleGroups.Any();
 
     private readonly Dictionary<string, bool> _expandedDates = new();
 
@@ -226,14 +226,14 @@ else
             .ToDictionary(m => m.Id!.Value, m => m.Name ?? $"Muscle {m.Id}");
 
         var allTypes = await AppState.GetExerciseTypesAsync();
-        _exerciseTypeOptions = allTypes.Select(t => t.Name ?? "").OrderBy(n => n).ToList();
+        _exerciseTypeOptions = BuildExerciseTypeOptions(allTypes);
 
-        await LoadExercises();
+        await LoadExercisesAsync();
     }
 
     // ── Data Loading ───────────────────────────────────────────────────────────
 
-    private async Task LoadExercises()
+    private async Task LoadExercisesAsync()
     {
         _isLoading = true;
         try
@@ -254,14 +254,11 @@ else
 
     private string BuildExercisesUrl()
     {
-        var query = new System.Text.StringBuilder($"/Exercises?page={_currentPage}&pageSize={_pageSize}&sortBy={_sortBy}&sortDescending={_sortDescending}");
+        var query = new System.Text.StringBuilder($"/Exercises?page={_currentPage}&pageSize={_pageSize}&sortBy={_sortField}&descending={_sortDescending}");
 
-        if (!string.IsNullOrEmpty(_selectedExerciseType))
+        if (_selectedExerciseTypeId.HasValue)
         {
-            var exerciseType = AppState.GetExerciseTypesAsync().Result
-                .FirstOrDefault(t => t.Name == _selectedExerciseType);
-            if (exerciseType != null)
-                query.Append($"&exerciseTypeId={exerciseType.Id}");
+            query.Append($"&exerciseTypeId={_selectedExerciseTypeId.Value}");
         }
 
         if (_selectedMuscleGroups.Any())
@@ -281,7 +278,7 @@ else
         var parameters = new DialogParameters
         {
             { "ExerciseTypes", _exerciseTypeOptions },
-            { "SelectedExerciseType", _selectedExerciseType },
+            { "SelectedExerciseTypeId", _selectedExerciseTypeId },
             { "SelectedMuscleGroups", new List<string>(_selectedMuscleGroups) }
         };
 
@@ -290,30 +287,30 @@ else
 
         if (!result.Canceled && result.Data is FilterSettings filterSettings)
         {
-            _selectedExerciseType = filterSettings.ExerciseType;
+            _selectedExerciseTypeId = filterSettings.ExerciseTypeId;
+            _selectedExerciseTypeLabel = filterSettings.ExerciseTypeLabel;
             _selectedMuscleGroups = filterSettings.MuscleGroups;
             _currentPage = 1;
-            await LoadExercises();
+            await LoadExercisesAsync();
         }
     }
 
     private async Task SortExercisesBy(string field)
     {
-        if (field == _currentSortField)
+        if (field == _sortField)
             _sortDescending = !_sortDescending;
         else
         {
-            _currentSortField = field;
-            _sortBy = field;
+            _sortField = field;
             _sortDescending = true;
         }
-        await LoadExercises();
+        await LoadExercisesAsync();
     }
 
     private async Task ToggleSortDirection()
     {
         _sortDescending = !_sortDescending;
-        await LoadExercises();
+        await LoadExercisesAsync();
     }
 
     private async Task OnPageChanged(int page)
@@ -321,30 +318,32 @@ else
         if (_currentPage != page)
         {
             _currentPage = page;
-            await LoadExercises();
+            await LoadExercisesAsync();
         }
     }
 
     private async Task ClearExerciseTypeFilter()
     {
-        _selectedExerciseType = "";
+        _selectedExerciseTypeId = null;
+        _selectedExerciseTypeLabel = null;
         _currentPage = 1;
-        await LoadExercises();
+        await LoadExercisesAsync();
     }
 
     private async Task RemoveMuscleFilter(string muscle)
     {
         _selectedMuscleGroups.Remove(muscle);
         _currentPage = 1;
-        await LoadExercises();
+        await LoadExercisesAsync();
     }
 
     private async Task ClearAllFilters()
     {
-        _selectedExerciseType = "";
+        _selectedExerciseTypeId = null;
+        _selectedExerciseTypeLabel = null;
         _selectedMuscleGroups.Clear();
         _currentPage = 1;
-        await LoadExercises();
+        await LoadExercisesAsync();
     }
 
     // ── UI Helpers ─────────────────────────────────────────────────────────────
@@ -353,7 +352,7 @@ else
         => _expandedDates[date] = !_expandedDates.GetValueOrDefault(date, true);
 
     private Variant GetSortButtonVariant(string field)
-        => field == _currentSortField ? Variant.Filled : Variant.Outlined;
+        => field == _sortField ? Variant.Filled : Variant.Outlined;
 
     // ── Navigation ─────────────────────────────────────────────────────────────
 
@@ -419,6 +418,30 @@ else
     private string GetMuscleNameById(int muscleId)
         => _muscleNames.GetValueOrDefault(muscleId, $"Muscle {muscleId}");
 
+    private static List<ExerciseTypeFilterOption> BuildExerciseTypeOptions(IEnumerable<GetExerciseTypeResource> allTypes)
+    {
+        var exerciseTypes = allTypes
+            .Where(type => type.Id > 0 && !string.IsNullOrWhiteSpace(type.Name))
+            .ToList();
+
+        var duplicateNames = exerciseTypes
+            .GroupBy(type => type.Name!, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return exerciseTypes
+            .Select(type => new ExerciseTypeFilterOption
+            {
+                Id = type.Id,
+                Label = duplicateNames.Contains(type.Name!)
+                    ? $"{type.Name} / #{type.Id}"
+                    : type.Name!
+            })
+            .OrderBy(option => option.Label)
+            .ToList();
+    }
+
     private string AddEmojiToMuscleName(string muscleName)
     {
         if (string.IsNullOrEmpty(muscleName)) return "🔘 Other";
@@ -459,12 +482,4 @@ else
         return "🔘 Other";
     }
 
-    // ── Local DTO (API-specific, not shared) ───────────────────────────────────
-
-    public class PagedResult<T>
-    {
-        public List<T> Items { get; set; } = new();
-        public int TotalPages { get; set; }
-        public int TotalCount { get; set; }
-    }
 }

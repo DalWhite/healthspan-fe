@@ -1,6 +1,6 @@
 @* Shared loading state indicator. Use this instead of bare MudProgressCircular. *@
 
-<div class="hs-loading-state">
+<div class="hs-loading-state" role="status" aria-live="polite">
     <MudProgressCircular Color="MudBlazor.Color.Primary" Indeterminate="true" Size="@Size" />
     @if (!string.IsNullOrEmpty(Message))
     {

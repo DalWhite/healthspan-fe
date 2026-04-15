@@ -51,6 +51,10 @@
                              InputType="InputType.Number"
                              HelperText="Extra weight used in the exercise."
                              Immediate="true" />
+
+            <MudText Typo="Typo.caption" Class="mx-2 mb-2 hs-muted-copy">
+                1RM will use @ExerciseLoadCalculator.GetEffectiveLoad(Exercise, CurrentUserBodyWeight).ToString("0.#") kg total load.
+            </MudText>
         }
         else
         {
@@ -74,6 +78,7 @@
     [Parameter] public DateTime? Date { get; set; }
     [Parameter] public EventCallback<DateTime?> DateChanged { get; set; }
     [Parameter] public GetExerciseTypeResource[]? ExerciseTypes { get; set; }
+    [Parameter] public decimal? CurrentUserBodyWeight { get; set; }
     [Parameter] public EventCallback<AddExerciseResource> OnSubmit { get; set; }
 
     private EditContext? _editContext;
@@ -89,6 +94,12 @@
         if (Exercise.TypeId.HasValue && ExerciseTypes != null && _selectedType == null)
         {
             _selectedType = ExerciseTypes.FirstOrDefault(x => x.Id == Exercise.TypeId);
+        }
+
+        if (Exercise.WeightType == ExerciseWeightType.BodyWeight)
+        {
+            Exercise.BodyWeight ??= CurrentUserBodyWeight;
+            Exercise.AddedWeight ??= 0m;
         }
     }
 
@@ -114,6 +125,24 @@
             Exercise.TypeId = null;
             Exercise.WeightType = ExerciseWeightType.Standard;
         }
+
+        if (Exercise.WeightType == ExerciseWeightType.BodyWeight)
+        {
+            Exercise.BodyWeight ??= CurrentUserBodyWeight;
+            Exercise.AddedWeight ??= 0m;
+        }
+        else if (Exercise.WeightType == ExerciseWeightType.None)
+        {
+            Exercise.Weight = 0m;
+            Exercise.BodyWeight = null;
+            Exercise.AddedWeight = null;
+        }
+        else
+        {
+            Exercise.BodyWeight = null;
+            Exercise.AddedWeight = null;
+        }
+
         StateHasChanged();
     }
 
@@ -128,6 +157,8 @@
 
     private async Task Submit()
     {
+        ExerciseLoadCalculator.NormalizeForSubmission(Exercise, CurrentUserBodyWeight);
+
         if (OnSubmit.HasDelegate)
         {
             await OnSubmit.InvokeAsync(Exercise);

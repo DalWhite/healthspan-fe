@@ -4,9 +4,10 @@
     <DialogContent>
         <MudContainer Class="mt-4">
             <MudText Typo="Typo.h6" Class="mb-3">Filter By Exercise Type</MudText>
-            <MudAutocomplete T="string"
-                         @bind-Value="exerciseType"
+            <MudAutocomplete T="ExerciseTypeFilterOption"
+                         @bind-Value="selectedExerciseType"
                          SearchFunc="@SearchExerciseTypes"
+                         ToStringFunc="@(option => option?.Label ?? string.Empty)"
                          ResetValueOnEmptyText="true"
                          CoerceText="false"
                          Placeholder="Select an exercise type..."
@@ -40,32 +41,35 @@
 @code {
     [CascadingParameter] MudDialogInstance MudDialog { get; set; }
 
-    [Parameter] public List<string> ExerciseTypes { get; set; } = new List<string>();
+    [Parameter] public List<ExerciseTypeFilterOption> ExerciseTypes { get; set; } = new();
     [Parameter] public List<string> MuscleGroups { get; set; } = new List<string>();
-    [Parameter] public string SelectedExerciseType { get; set; } = "";
+    [Parameter] public int? SelectedExerciseTypeId { get; set; }
     [Parameter] public List<string> SelectedMuscleGroups { get; set; } = new List<string>();
 
-    private string exerciseType;
+    private ExerciseTypeFilterOption? selectedExerciseType;
     private List<string> selectedMuscleGroups = new List<string>();
     private List<string> muscleGroups = new List<string>();
 
     protected override void OnInitialized()
     {
-        exerciseType = SelectedExerciseType;
+        selectedExerciseType = ExerciseTypes.FirstOrDefault(option => option.Id == SelectedExerciseTypeId);
         selectedMuscleGroups = new List<string>(SelectedMuscleGroups);
         muscleGroups = MuscleGroups;
     }
 
-    private async Task<IEnumerable<string>> SearchExerciseTypes(string value)
+    private Task<IEnumerable<ExerciseTypeFilterOption>> SearchExerciseTypes(string value)
     {
         // Search locally to avoid API call for each keystroke
         if (string.IsNullOrEmpty(value))
-            return ExerciseTypes;
+            return Task.FromResult(ExerciseTypes.AsEnumerable());
 
-        return ExerciseTypes
-            .Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase))
-            .OrderBy(x => x)
-            .Take(10); // Limit results for performance
+        var matches = ExerciseTypes
+            .Where(x => x.Label.Contains(value, StringComparison.InvariantCultureIgnoreCase))
+            .OrderBy(x => x.Label)
+            .Take(10)
+            .ToList();
+
+        return Task.FromResult(matches.AsEnumerable());
     }
 
     private void ToggleMuscleGroup(string muscle)
@@ -84,7 +88,8 @@
     {
         var result = new FilterSettings
         {
-            ExerciseType = exerciseType,
+            ExerciseTypeId = selectedExerciseType?.Id,
+            ExerciseTypeLabel = selectedExerciseType?.Label,
             MuscleGroups = selectedMuscleGroups
         };
 
@@ -93,7 +98,7 @@
 
     private void ClearFilters()
     {
-        exerciseType = "";
+        selectedExerciseType = null;
         selectedMuscleGroups.Clear();
     }
 
@@ -101,7 +106,8 @@
 
     public class FilterSettings
     {
-        public string ExerciseType { get; set; }
+        public int? ExerciseTypeId { get; set; }
+        public string? ExerciseTypeLabel { get; set; }
         public List<string> MuscleGroups { get; set; } = new List<string>();
     }
 }

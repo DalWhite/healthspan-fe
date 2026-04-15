@@ -66,6 +66,8 @@ else
                             <MudTh>Name</MudTh>
                             <MudTh>Value</MudTh>
                             <MudTh>Unit</MudTh>
+                            <MudTh>Ref. range</MudTh>
+                            <MudTh>Status</MudTh>
                             <MudTh>Raw value</MudTh>
                             <MudTh>Confidence</MudTh>
                             <MudTh></MudTh>
@@ -80,14 +82,20 @@ else
                             <MudTd DataLabel="Unit">
                                 <MudTextField @bind-Value="context.Unit" Variant="Variant.Outlined" Margin="Margin.Dense" />
                             </MudTd>
+                            <MudTd DataLabel="Ref. range">
+                                <MudText Typo="Typo.body2">@FormatReferenceRange(context.ReferenceMinValue, context.ReferenceMaxValue)</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Status">
+                                <ClinicalStatusChip Status="@HealthDisplayHelpers.GetMarkerStatusLabel(context.Status, context.Value, context.ReferenceMinValue, context.ReferenceMaxValue)" />
+                            </MudTd>
                             <MudTd DataLabel="Raw value">
                                 <MudTextField @bind-Value="context.RawValueText" Variant="Variant.Outlined" Margin="Margin.Dense" />
                             </MudTd>
                             <MudTd DataLabel="Confidence">
-                                <MudText Typo="Typo.body2">@FormatConfidence(context.Confidence)</MudText>
+                                <MudText Typo="Typo.body2" Color="@GetConfidenceColor(context.Confidence)">@FormatConfidence(context.Confidence)</MudText>
                             </MudTd>
                             <MudTd DataLabel="Remove">
-                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveMarker(context)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveMarker(context)" aria-label="Remove marker" />
                             </MudTd>
                         </RowTemplate>
                     </MudTable>
@@ -242,4 +250,21 @@ else
 
     private static string FormatConfidence(double? confidence)
         => confidence.HasValue ? confidence.Value.ToString("P0") : "-";
+
+    private static Color GetConfidenceColor(double? confidence)
+        => confidence switch
+        {
+            null => Color.Default,
+            < 0.8 => Color.Warning,
+            _ => Color.Default
+        };
+
+    private static string FormatReferenceRange(double? min, double? max)
+        => (min, max) switch
+        {
+            (not null, not null) => $"{min:0.##} – {max:0.##}",
+            (not null, null) => $"≥ {min:0.##}",
+            (null, not null) => $"≤ {max:0.##}",
+            _ => "—"
+        };
 }

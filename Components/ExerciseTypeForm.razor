@@ -7,11 +7,18 @@
                 <MudCardContent>
                     <MudText Typo="Typo.h6" Class="mb-4 hs-text-primary">Basic Info</MudText>
 
-                    <MudTextField @bind-Value="Model.Name" Label="Exercise Name" Required="true"
-                                  RequiredError="Name is required!" Variant="Variant.Outlined" Class="mb-3" />
+                    <MudTextField @bind-Value="Model.Name"
+                                  Label="Exercise Name"
+                                  Required="true"
+                                  RequiredError="Name is required!"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-3" />
 
-                    <MudTextField @bind-Value="Model.Description" Label="Description" Lines="3"
-                                  Variant="Variant.Outlined" Class="mb-3" />
+                    <MudTextField @bind-Value="Model.Description"
+                                  Label="Description"
+                                  Lines="3"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-3" />
 
                     @if (!string.IsNullOrEmpty(Model.ImageRoute))
                     {
@@ -21,9 +28,20 @@
                         </div>
                     }
 
-                    <MudTextField @bind-Value="Model.ImageRoute" Label="Image URL"
-                                  HelperText="Optional: Link to an image demonstrating the exercise"
-                                  Variant="Variant.Outlined" Class="mb-3" />
+                    <MudTextField @bind-Value="Model.ImageRoute"
+                                  Label="Image URL"
+                                  HelperText="Optional: link to an image demonstrating the exercise"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-3" />
+
+                    <MudSelect T="ExerciseWeightType?"
+                               @bind-Value="Model.WeightType"
+                               Label="Weight Type"
+                               Variant="Variant.Outlined">
+                        <MudSelectItem T="ExerciseWeightType?" Value="@((ExerciseWeightType?)ExerciseWeightType.Standard)">Standard</MudSelectItem>
+                        <MudSelectItem T="ExerciseWeightType?" Value="@((ExerciseWeightType?)ExerciseWeightType.BodyWeight)">Bodyweight</MudSelectItem>
+                        <MudSelectItem T="ExerciseWeightType?" Value="@((ExerciseWeightType?)ExerciseWeightType.None)">No weight</MudSelectItem>
+                    </MudSelect>
                 </MudCardContent>
             </MudCard>
         </MudItem>
@@ -31,27 +49,70 @@
         <MudItem xs="12" md="6">
             <MudCard Class="mb-4">
                 <MudCardContent>
-                    <MudText Typo="Typo.h6" Class="mb-4 hs-text-primary">Target Muscles</MudText>
+                    <MudText Typo="Typo.h6" Class="mb-4 hs-text-primary">Muscles And Variation</MudText>
 
-                    <MudSelect @bind-Value="Model.PrimaryMuscleId" Label="Primary Muscle"
-                               Required="true" RequiredError="Primary muscle is required!"
-                               Variant="Variant.Outlined" Class="mb-3">
+                    <MudSelect T="int?"
+                               @bind-Value="Model.PrimaryMuscleId"
+                               Label="Primary Muscle"
+                               Required="true"
+                               RequiredError="Primary muscle is required!"
+                               Variant="Variant.Outlined"
+                               Class="mb-3">
                         @foreach (var muscle in Muscles)
                         {
-                            <MudSelectItem Value="@( (int?) muscle.Id )">@muscle.Name</MudSelectItem>
+                            <MudSelectItem T="int?" Value="@muscle.Id">@muscle.Name</MudSelectItem>
                         }
                     </MudSelect>
 
-                    <MudSelect @bind-Value="Model.SecondaryMuscleId" Label="Secondary Muscle (Optional)"
-                               Clearable="true" Variant="Variant.Outlined" Class="mb-3">
+                    <MudSelect T="int?"
+                               @bind-Value="Model.SecondaryMuscleId"
+                               Label="Secondary Muscle"
+                               Clearable="true"
+                               Variant="Variant.Outlined"
+                               Class="mb-3">
                         @foreach (var muscle in Muscles)
                         {
-                            <MudSelectItem Value="@( (int?) muscle.Id )">@muscle.Name</MudSelectItem>
+                            <MudSelectItem T="int?" Value="@muscle.Id">@muscle.Name</MudSelectItem>
                         }
                     </MudSelect>
 
-                        <!-- WeightType does not exist on UpdateExerciseTypeResource yet, omitting from form temporarily -->
-                    </MudCardContent>
+                    <MudSelect T="int?"
+                               @bind-Value="Model.ParentExerciseTypeId"
+                               Label="Variation Of"
+                               Clearable="true"
+                               HelperText="Leave empty for a main exercise. Set a parent to create a variation like Romanian Sit-up under Sit-up."
+                               Variant="Variant.Outlined">
+                        @foreach (var exerciseType in ParentExerciseOptions)
+                        {
+                            <MudSelectItem T="int?" Value="@exerciseType.Id">@exerciseType.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudCard Class="mb-4">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6" Class="mb-4 hs-text-primary">Tags</MudText>
+
+                    <MudTextField @bind-Value="_equipmentTags"
+                                  Label="Equipment Tags"
+                                  HelperText="Comma-separated. Example: bodyweight, mat, dumbbell"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-3" />
+
+                    <MudTextField @bind-Value="_mechanicTags"
+                                  Label="Mechanic Tags"
+                                  HelperText="Comma-separated. Example: compound, isolation, rotational"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-3" />
+
+                    <MudTextField @bind-Value="_typeTags"
+                                  Label="Type Tags"
+                                  HelperText="Comma-separated. Example: core, sit-up, variation"
+                                  Variant="Variant.Outlined" />
+                </MudCardContent>
             </MudCard>
         </MudItem>
     </MudGrid>
@@ -78,28 +139,89 @@
 @code {
     [Parameter, EditorRequired]
     public UpdateExerciseTypeResource Model { get; set; } = new();
-    
+
     [Parameter, EditorRequired]
     public EventCallback<UpdateExerciseTypeResource> OnSubmit { get; set; }
-    
+
     [Parameter, EditorRequired]
     public EventCallback OnCancel { get; set; }
 
-    private MudForm form;
+    private MudForm form = null!;
     private bool success;
     private List<Muscle> Muscles = new();
+    private List<GetExerciseTypeResource> _exerciseTypes = new();
+    private int _lastSyncedModelId = int.MinValue;
+    private string _equipmentTags = string.Empty;
+    private string _mechanicTags = string.Empty;
+    private string _typeTags = string.Empty;
+
+    private IEnumerable<GetExerciseTypeResource> ParentExerciseOptions
+        => _exerciseTypes
+            .Where(exerciseType => exerciseType.ParentExerciseTypeId is null && exerciseType.Id != Model.Id)
+            .OrderBy(exerciseType => exerciseType.Name);
 
     protected override async Task OnInitializedAsync()
     {
         Muscles = await AppState.GetMusclesAsync();
+        _exerciseTypes = await AppState.GetExerciseTypesAsync();
+        Model.WeightType ??= ExerciseWeightType.Standard;
+        SyncTagEditorsFromModel();
     }
+
+    protected override void OnParametersSet()
+    {
+        Model.Tags ??= new List<ExerciseTag>();
+        Model.WeightType ??= ExerciseWeightType.Standard;
+
+        if (Model.Id != _lastSyncedModelId)
+        {
+            SyncTagEditorsFromModel();
+        }
+    }
+
+    private void SyncTagEditorsFromModel()
+    {
+        _equipmentTags = JoinTags("equipment");
+        _mechanicTags = JoinTags("mechanic");
+        _typeTags = JoinTags("type");
+        _lastSyncedModelId = Model.Id;
+    }
+
+    private string JoinTags(string category)
+        => string.Join(", ", (Model.Tags ?? [])
+            .Where(tag => string.Equals(tag.Category, category, StringComparison.OrdinalIgnoreCase))
+            .Select(tag => tag.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name)));
 
     private async Task TriggerSubmit()
     {
         await form.Validate();
-        if (success && OnSubmit.HasDelegate)
+        if (!success || !OnSubmit.HasDelegate)
         {
-            await OnSubmit.InvokeAsync(Model);
+            return;
         }
+
+        Model.Tags = BuildTags();
+        await OnSubmit.InvokeAsync(Model);
     }
+
+    private List<ExerciseTag> BuildTags()
+    {
+        var tags = new List<ExerciseTag>();
+        tags.AddRange(ParseTags("equipment", _equipmentTags));
+        tags.AddRange(ParseTags("mechanic", _mechanicTags));
+        tags.AddRange(ParseTags("type", _typeTags));
+        return tags;
+    }
+
+    private static IEnumerable<ExerciseTag> ParseTags(string category, string rawValue)
+        => rawValue
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(value => new ExerciseTag
+            {
+                Category = category,
+                Name = value
+            });
 }

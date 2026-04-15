@@ -156,7 +156,7 @@ else
                     {
                         @foreach (var item in FilteredTests)
                         {
-                            <div class="hs-list-card @GetStatusCardClass(item) @GetSelectedTestClass(item)" @onclick="() => InspectBloodTestAsync(item.Id)" style="cursor:pointer">
+                            <div class="hs-list-card @GetStatusCardClass(item) @GetSelectedTestClass(item)" role="button" tabindex="0" @onclick="() => InspectBloodTestAsync(item.Id)" @onkeydown="@(e => OnCardKeyDown(e, item.Id))" style="cursor:pointer">
                                 <div class="hs-list-card-row">
                                     <div>
                                         <div class="hs-list-card-title">@item.TestDate.ToString("dd MMM yyyy")</div>
@@ -241,6 +241,10 @@ else
                                         </div>
                                         <div class="hs-biomarker-value">@FormatMarkerValue(marker)</div>
                                         <div class="hs-biomarker-range">Ref: @FormatReferenceRange(marker.ReferenceMinValue, marker.ReferenceMaxValue, marker.Unit)</div>
+                                        @if (marker.Confidence.HasValue && marker.Confidence.Value < 0.8)
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-1">OCR confidence: @marker.Confidence.Value.ToString("P0")</MudText>
+                                        }
                                     </div>
                                 }
                             </div>
@@ -526,6 +530,16 @@ else
     private static string FormatMarkerValue(BloodTestMarkerResource marker)
         => marker.Value.HasValue ? $"{marker.Value.Value:0.##} {marker.Unit}" : marker.RawValueText ?? "—";
 
-    private static string FormatReferenceRange(double? min, double? max, string? unit)
-        => $"{min?.ToString("0.##") ?? "—"} – {max?.ToString("0.##") ?? "—"} {unit}";
+    private static string FormatReferenceRange(double? min, double? max, string? unit) => (min, max) switch
+    {
+        (not null, not null) => $"{min:0.##} – {max:0.##} {unit}",
+        (not null, null) => $"≥ {min:0.##} {unit}",
+        (null, not null) => $"≤ {max:0.##} {unit}",
+        _ => "—"
+    };
+
+    private async Task OnCardKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e, Guid id)
+    {
+        if (e.Key == "Enter") await InspectBloodTestAsync(id);
+    }
 }

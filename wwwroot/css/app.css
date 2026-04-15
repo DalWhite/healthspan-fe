@@ -55,63 +55,204 @@
 }
 
 /* ── Exercise Type Cards (ExerciseTypes.razor / ExerciseTypeGrid) ────────── */
-.hs-et-card {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.hs-et-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.14);
+.hs-et-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.hs-card-content {
-  padding: 12px;
+.hs-et-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 196, 111, 0.34), transparent 36%),
+    linear-gradient(145deg, #082437 0%, #0e4f58 56%, #165f55 100%);
+  color: #fff;
+  box-shadow: 0 18px 48px rgba(8, 36, 55, 0.22);
+}
+
+.hs-et-search {
+  margin: 0 !important;
+}
+
+.hs-et-search .mud-input-control {
+  margin-top: 0;
+}
+
+.hs-et-search .mud-input-outlined {
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 18px;
+}
+
+.hs-et-grid .mud-item {
+  display: flex;
+}
+
+.hs-et-card {
+  width: 100%;
+  height: 100%;
+  padding: 0 !important;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid rgba(8, 36, 55, 0.08);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbfb 100%);
+  box-shadow: 0 12px 30px rgba(8, 36, 55, 0.1);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.hs-et-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 42px rgba(8, 36, 55, 0.16);
+  border-color: rgba(174, 29, 13, 0.18);
+}
+
+.hs-et-card-media {
+  position: relative;
+}
+
+.hs-et-card-photo {
+  height: 190px;
+}
+
+.hs-et-media-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(9, 23, 38, 0.08) 0%, rgba(9, 23, 38, 0.72) 100%);
+  pointer-events: none;
+}
+
+.hs-et-media-top {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.hs-et-muscle-pill,
+.hs-et-type-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.1;
+  backdrop-filter: blur(10px);
+}
+
+.hs-et-muscle-pill {
+  background: rgba(8, 36, 55, 0.48);
+}
+
+.hs-et-type-pill {
+  background: rgba(174, 29, 13, 0.72);
+}
+
+.hs-et-card-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 16px 12px !important;
+}
+
+.hs-et-card-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.hs-et-card-title {
+  margin: 0;
+  min-width: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  line-height: 1.2;
+  flex: 1 1 auto;
 }
 
 .hs-card-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 0;
 }
 
-.hs-card-muscle-badge {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(0,0,0,0.55);
-  color: #fff;
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 20px;
+.hs-card-tags .mud-chip-root {
+  border-radius: 999px;
 }
 
-.hs-et-card-image {
-  position: relative;
-  height: 140px;
-  overflow: hidden;
-  border-radius: var(--hs-radius-card) var(--hs-radius-card) 0 0;
+.hs-et-variation-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.hs-et-card-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.hs-et-section-label {
+  letter-spacing: 0.02em;
 }
 
-.hs-exercise-name {
-  font-size: 1rem;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.hs-et-variation-tags .mud-chip-root {
+  background: rgba(174, 29, 13, 0.08);
+  border: 1px solid rgba(174, 29, 13, 0.14);
+}
+
+.hs-et-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  align-items: center;
+  padding: 0 16px 16px !important;
+}
+
+.hs-et-action-slot {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.hs-et-action-icon {
+  border-radius: 12px !important;
 }
 
 .hs-favourite-btn {
   padding: 4px !important;
+  background: rgba(174, 29, 13, 0.08);
+  border: 1px solid rgba(174, 29, 13, 0.12);
 }
 
 .hs-tag-more {
   opacity: 0.6;
+}
+
+@media (min-width: 700px) {
+  .hs-et-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .hs-et-search {
+    width: min(340px, 100%);
+  }
+}
+
+@media (max-width: 699px) {
+  .hs-et-card-photo {
+    height: 176px;
+  }
+
+  .hs-et-card-actions {
+    justify-content: flex-end;
+  }
 }
 
 /* ── Filters Section (ExerciseTypes.razor) ──────────────────────────────── */
@@ -908,6 +1049,479 @@
   padding-top: 8px;
 }
 
+.hs-profile-shell {
+  gap: 20px;
+}
+
+.hs-profile-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 24px;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 28%),
+    linear-gradient(135deg, #133f44 0%, #0f5f67 52%, #0b7d86 100%);
+  color: #f4fbfb;
+  border-radius: 24px;
+  box-shadow: 0 22px 46px rgba(12, 56, 60, 0.18);
+}
+
+.hs-profile-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 620px;
+}
+
+.hs-profile-hero-copy-text,
+.hs-profile-identity {
+  color: rgba(244, 251, 251, 0.78);
+}
+
+.hs-profile-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hs-profile-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 360px;
+  width: 100%;
+}
+
+.hs-hero-stat-emphasis {
+  grid-column: span 2;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.hs-hero-stat-emphasis .hs-hero-stat-value {
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+}
+
+.hs-hero-stat-foot {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: rgba(245, 251, 251, 0.7);
+}
+
+.hs-profile-week-select {
+  min-width: 220px;
+}
+
+.hs-profile-filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hs-profile-panel-rich {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hs-profile-decision-panel {
+  background:
+    radial-gradient(circle at top right, rgba(174, 29, 13, 0.07), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 250, 0.98));
+}
+
+.hs-profile-focus-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hs-profile-focus-strip-tight {
+  gap: 6px;
+}
+
+.hs-profile-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hs-profile-summary-card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 95, 103, 0.08);
+  background: linear-gradient(180deg, #ffffff 0%, #f5f9f9 100%);
+}
+
+.hs-profile-summary-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(22, 48, 54, 0.62);
+}
+
+.hs-profile-summary-value {
+  margin-top: 6px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #17373c;
+}
+
+.hs-profile-insight-banner {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 95, 103, 0.12);
+  background: linear-gradient(135deg, rgba(15, 95, 103, 0.08), rgba(255, 255, 255, 0.96));
+}
+
+.hs-profile-insight-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(22, 48, 54, 0.62);
+}
+
+.hs-profile-insight-copy {
+  margin-top: 6px;
+  color: #163036;
+  line-height: 1.5;
+}
+
+.hs-profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hs-profile-anchor-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 95, 103, 0.1);
+  background: #fbfdfd;
+}
+
+.hs-profile-anchor-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #17373c;
+}
+
+.hs-profile-muscle-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
+  gap: 14px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(15, 95, 103, 0.08);
+}
+
+.hs-profile-muscle-row:last-child {
+  border-bottom: none;
+}
+
+.hs-profile-muscle-bar-shell {
+  position: relative;
+  height: 16px;
+  border-radius: 999px;
+  background: #edf3f4;
+  overflow: hidden;
+}
+
+.hs-profile-muscle-bar {
+  height: 100%;
+  min-width: 12%;
+  border-radius: 999px;
+}
+
+.hs-profile-muscle-value {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #17373c;
+}
+
+.hs-profile-session-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.hs-profile-session-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 95, 103, 0.1);
+  background:
+    radial-gradient(circle at top right, rgba(15, 95, 103, 0.07), transparent 30%),
+    linear-gradient(180deg, #ffffff 0%, #f6faf9 100%);
+  box-shadow: 0 14px 28px rgba(15, 95, 103, 0.06);
+}
+
+.hs-profile-session-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.hs-profile-session-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #17373c;
+}
+
+.hs-profile-exercise-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hs-profile-exercise-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 95, 103, 0.08);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.hs-profile-exercise-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.hs-profile-exercise-name {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #163036;
+}
+
+.hs-profile-exercise-load {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #ae1d0d;
+}
+
+.hs-profile-exercise-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 0.82rem;
+  color: rgba(22, 48, 54, 0.72);
+}
+
+.hs-profile-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hs-profile-inline-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(15, 95, 103, 0.09);
+  color: #0f5f67;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.hs-body-map-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.hs-body-map-stage {
+  padding: 18px;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(15, 95, 103, 0.08), transparent 34%),
+    linear-gradient(180deg, #f9fbfb 0%, #eef4f4 100%);
+  border: 1px solid rgba(15, 95, 103, 0.08);
+}
+
+.hs-body-map-svg {
+  width: 100%;
+  max-height: 520px;
+}
+
+.hs-body-base {
+  fill: rgba(210, 220, 223, 0.58);
+  stroke: #c8d3d7;
+  stroke-width: 2;
+}
+
+.hs-body-figure-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  fill: rgba(22, 48, 54, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hs-body-scale {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: rgba(22, 48, 54, 0.62);
+}
+
+.hs-body-scale-bar {
+  width: 120px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgb(233, 239, 240), rgb(174, 29, 13));
+}
+
+.hs-body-map-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.hs-body-map-legend-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fbfdfd;
+  border: 1px solid rgba(15, 95, 103, 0.08);
+}
+
+.hs-body-map-legend-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.hs-body-map-legend-label {
+  font-weight: 700;
+  color: #17373c;
+}
+
+.hs-body-map-legend-meta {
+  font-size: 0.78rem;
+  color: rgba(22, 48, 54, 0.62);
+}
+
+.hs-body-map-legend-metric {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #17373c;
+}
+
+.hs-body-map-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.hs-radar-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.hs-radar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hs-radar-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f7fbfb;
+  border: 1px solid rgba(15, 95, 103, 0.08);
+}
+
+.hs-radar-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.hs-radar-legend-label {
+  font-weight: 700;
+  color: #17373c;
+}
+
+.hs-radar-legend-caption {
+  font-size: 0.78rem;
+  color: rgba(22, 48, 54, 0.62);
+}
+
+.hs-radar-svg {
+  width: 100%;
+  max-height: 430px;
+  padding: 8px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #fbfdfd 0%, #eef4f4 100%);
+  border: 1px solid rgba(15, 95, 103, 0.08);
+}
+
+.hs-radar-grid-ring {
+  fill: none;
+  stroke: rgba(15, 95, 103, 0.12);
+  stroke-width: 1.5;
+}
+
+.hs-radar-axis-line {
+  stroke: rgba(15, 95, 103, 0.14);
+  stroke-width: 1.25;
+}
+
+.hs-radar-axis-label {
+  fill: rgba(22, 48, 54, 0.72);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.hs-radar-scale-label {
+  fill: rgba(22, 48, 54, 0.52);
+  font-size: 10px;
+}
+
 .hs-upload-panel {
   border: 1px solid rgba(15, 95, 103, 0.14);
   animation: hs-slide-down 0.2s ease-out;
@@ -964,6 +1578,19 @@
   gap: 4px;
 }
 
+.hs-account-dock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-right: 20px;
+}
+
+.hs-account-avatar {
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(15, 95, 103, 0.18);
+}
+
 @media (max-width: 960px) {
   .hs-sticky-panel {
     position: static;
@@ -971,9 +1598,11 @@
 }
 
 @media (max-width: 768px) {
+  .hs-profile-hero,
   .hs-page-hero,
   .hs-dashboard-hero,
   .hs-dashboard-hero-side,
+  .hs-profile-filter-row,
   .hs-detail-heading,
   .hs-alert-action-row,
   .hs-alert-list-item,
@@ -992,6 +1621,8 @@
   }
 
   .hs-dashboard-hero-stats,
+  .hs-profile-hero-stats,
+  .hs-profile-summary-grid,
   .hs-adaptation-columns,
   .hs-coverage-grid,
   .hs-review-meta-grid {
@@ -1027,6 +1658,30 @@
 
   .hs-filter-stack > * {
     width: 100%;
+  }
+
+  .hs-profile-week-select,
+  .hs-profile-muscle-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hs-profile-hero-stats {
+    min-width: 0;
+  }
+
+  .hs-hero-stat-emphasis {
+    grid-column: auto;
+  }
+
+  .hs-profile-anchor-card,
+  .hs-profile-session-head,
+  .hs-profile-exercise-head {
+    flex-direction: column;
+  }
+
+  .hs-profile-anchor-meta,
+  .hs-profile-session-summary {
+    align-items: flex-start;
   }
 
   .hs-alert-card {

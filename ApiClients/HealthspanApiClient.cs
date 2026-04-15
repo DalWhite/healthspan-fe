@@ -1,6 +1,5 @@
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Components.Forms;
-using System.Text.Json;
 
 public class HealthspanApiClient
 {
@@ -98,31 +97,5 @@ public class HealthspanApiClient
             .ToArray();
 
         return items.Length == 0 ? basePath : $"{basePath}?{string.Join("&", items)}";
-    }
-
-    private static async Task<T?> TryReadJsonAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        if (response.Content == null)
-        {
-            return default;
-        }
-
-        if (response.Content.Headers.ContentLength == 0)
-        {
-            return default;
-        }
-
-        try
-        {
-            return await response.Content.ReadFromJsonAsync<T>(cancellationToken: cancellationToken);
-        }
-        catch (NotSupportedException)
-        {
-            return default;
-        }
-        catch (JsonException)
-        {
-            return default;
-        }
     }
 }

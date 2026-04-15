@@ -8,6 +8,8 @@ public record UpdateExerciseTypeResource
     public string? ImageRoute { get; set; }
     public int? PrimaryMuscleId { get; set; }
     public int? SecondaryMuscleId { get; set; }
+    public int? ParentExerciseTypeId { get; set; }
     public bool IsFavourite { get; set; }
+    public ExerciseWeightType? WeightType { get; set; }
     public List<ExerciseTag>? Tags { get; set; } = new List<ExerciseTag>();
 }

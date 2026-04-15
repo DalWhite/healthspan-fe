@@ -253,8 +253,13 @@ else
     private static string FormatMarkerValue(LatestMarkerSnapshotResource marker)
         => marker.Value.HasValue ? $"{marker.Value.Value:0.##} {marker.Unit}" : "No value";
 
-    private static string FormatReferenceRange(double? min, double? max, string? unit)
-        => $"{min?.ToString("0.##") ?? "-"} to {max?.ToString("0.##") ?? "-"} {unit}";
+    private static string FormatReferenceRange(double? min, double? max, string? unit) => (min, max) switch
+    {
+        (not null, not null) => $"{min:0.##} – {max:0.##} {unit}",
+        (not null, null) => $"≥ {min:0.##} {unit}",
+        (null, not null) => $"≤ {max:0.##} {unit}",
+        _ => "—"
+    };
 
     private static string ResolveMarkerColor(LatestMarkerSnapshotResource marker)
         => IsOutOfRange(marker) ? "#b42318" : "#0f5f67";

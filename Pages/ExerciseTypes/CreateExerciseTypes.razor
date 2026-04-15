@@ -2,8 +2,10 @@
 @inject HttpClient Http
 @using healthspan_fe_wasm_pwa.Shared
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject AppStateService AppState
 
-<PageTitle>ExerciseTypesCreate</PageTitle>
+<PageTitle>Create Exercise Type</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
     <ExerciseTypeForm Model="_model"
@@ -21,13 +23,22 @@
             Description = model.Description,
             ImageRoute = model.ImageRoute,
             PrimaryMuscleId = model.PrimaryMuscleId,
-            SecondaryMuscleId = model.SecondaryMuscleId
+            SecondaryMuscleId = model.SecondaryMuscleId,
+            ParentExerciseTypeId = model.ParentExerciseTypeId,
+            WeightType = model.WeightType,
+            Tags = model.Tags
         };
 
         var response = await Http.PostAsJsonAsync("/ExerciseTypes", createModel);
         if (response.IsSuccessStatusCode)
         {
+            AppState.InvalidateExerciseTypes();
+            Snackbar.Add("Exercise type created successfully!", Severity.Success);
             NavigationManager.NavigateTo("/exercises/types");
+        }
+        else
+        {
+            Snackbar.Add("Failed to create exercise type. Please try again.", Severity.Error);
         }
     }
 
