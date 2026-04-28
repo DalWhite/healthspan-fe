@@ -51,28 +51,42 @@
                 <MudCardContent>
                     <MudText Typo="Typo.h6" Class="mb-4 hs-text-primary">Muscles And Variation</MudText>
 
-                    <MudSelect T="int?"
-                               @bind-Value="Model.PrimaryMuscleId"
-                               Label="Primary Muscle"
-                               Required="true"
-                               RequiredError="Primary muscle is required!"
+                    @if (!string.IsNullOrWhiteSpace(_assignmentError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_assignmentError</MudAlert>
+                    }
+
+                    <MudSelect T="int"
+                               MultiSelection="true"
+                               SelectedValues="_selectedPrimaryMuscleIds"
+                               SelectedValuesChanged="OnPrimaryMusclesChanged"
+                               Label="Primary muscles"
+                               HelperText="Choose one or more main target muscles."
                                Variant="Variant.Outlined"
                                Class="mb-3">
                         @foreach (var muscle in Muscles)
                         {
-                            <MudSelectItem T="int?" Value="@muscle.Id">@muscle.Name</MudSelectItem>
+                            if (muscle.Id.HasValue)
+                            {
+                                <MudSelectItem T="int" Value="@muscle.Id.Value">@muscle.Name</MudSelectItem>
+                            }
                         }
                     </MudSelect>
 
-                    <MudSelect T="int?"
-                               @bind-Value="Model.SecondaryMuscleId"
-                               Label="Secondary Muscle"
-                               Clearable="true"
+                    <MudSelect T="int"
+                               MultiSelection="true"
+                               SelectedValues="_selectedSecondaryMuscleIds"
+                               SelectedValuesChanged="OnSecondaryMusclesChanged"
+                               Label="Secondary muscles"
+                               HelperText="Secondary muscles cannot overlap with the primary list."
                                Variant="Variant.Outlined"
                                Class="mb-3">
-                        @foreach (var muscle in Muscles)
+                        @foreach (var muscle in SecondaryMuscleOptions)
                         {
-                            <MudSelectItem T="int?" Value="@muscle.Id">@muscle.Name</MudSelectItem>
+                            if (muscle.Id.HasValue)
+                            {
+                                <MudSelectItem T="int" Value="@muscle.Id.Value">@muscle.Name</MudSelectItem>
+                            }
                         }
                     </MudSelect>
 
@@ -154,28 +168,40 @@
     private string _equipmentTags = string.Empty;
     private string _mechanicTags = string.Empty;
     private string _typeTags = string.Empty;
+    private List<int> _selectedPrimaryMuscleIds = new();
+    private List<int> _selectedSecondaryMuscleIds = new();
+    private string? _assignmentError;
 
     private IEnumerable<GetExerciseTypeResource> ParentExerciseOptions
         => _exerciseTypes
             .Where(exerciseType => exerciseType.ParentExerciseTypeId is null && exerciseType.Id != Model.Id)
             .OrderBy(exerciseType => exerciseType.Name);
 
+    private IEnumerable<Muscle> SecondaryMuscleOptions
+        => Muscles.Where(muscle => muscle.Id is int id && !_selectedPrimaryMuscleIds.Contains(id));
+
     protected override async Task OnInitializedAsync()
     {
-        Muscles = await AppState.GetMusclesAsync();
+        Muscles = (await AppState.GetMusclesAsync())
+            .OrderBy(muscle => muscle.SortOrder <= 0 ? int.MaxValue : muscle.SortOrder)
+            .ThenBy(muscle => muscle.Name)
+            .ToList();
         _exerciseTypes = await AppState.GetExerciseTypesAsync();
         Model.WeightType ??= ExerciseWeightType.Standard;
         SyncTagEditorsFromModel();
+        SyncMuscleSelectionsFromModel();
     }
 
     protected override void OnParametersSet()
     {
         Model.Tags ??= new List<ExerciseTag>();
+        Model.MuscleAssignments ??= new List<ExerciseTypeMuscleAssignmentResource>();
         Model.WeightType ??= ExerciseWeightType.Standard;
 
         if (Model.Id != _lastSyncedModelId)
         {
             SyncTagEditorsFromModel();
+            SyncMuscleSelectionsFromModel();
         }
     }
 
@@ -187,11 +213,74 @@
         _lastSyncedModelId = Model.Id;
     }
 
+    private void SyncMuscleSelectionsFromModel()
+    {
+        Model.MuscleAssignments ??= new List<ExerciseTypeMuscleAssignmentResource>();
+
+        _selectedPrimaryMuscleIds = ExerciseMuscleAssignmentHelper
+            .GetAssignmentsByRole(Model.MuscleAssignments, "Primary")
+            .Select(assignment => assignment.MuscleId)
+            .Distinct()
+            .ToList();
+
+        _selectedSecondaryMuscleIds = ExerciseMuscleAssignmentHelper
+            .GetAssignmentsByRole(Model.MuscleAssignments, "Secondary")
+            .Select(assignment => assignment.MuscleId)
+            .Where(muscleId => !_selectedPrimaryMuscleIds.Contains(muscleId))
+            .Distinct()
+            .ToList();
+
+        SyncAssignmentsToModel();
+    }
+
     private string JoinTags(string category)
         => string.Join(", ", (Model.Tags ?? [])
             .Where(tag => string.Equals(tag.Category, category, StringComparison.OrdinalIgnoreCase))
             .Select(tag => tag.Name)
             .Where(name => !string.IsNullOrWhiteSpace(name)));
+
+    private void OnPrimaryMusclesChanged(IEnumerable<int> selectedValues)
+    {
+        _selectedPrimaryMuscleIds = OrderSelectedMuscleIds(selectedValues);
+        _selectedSecondaryMuscleIds = _selectedSecondaryMuscleIds
+            .Where(muscleId => !_selectedPrimaryMuscleIds.Contains(muscleId))
+            .ToList();
+        SyncAssignmentsToModel();
+    }
+
+    private void OnSecondaryMusclesChanged(IEnumerable<int> selectedValues)
+    {
+        _selectedSecondaryMuscleIds = OrderSelectedMuscleIds(selectedValues)
+            .Where(muscleId => !_selectedPrimaryMuscleIds.Contains(muscleId))
+            .ToList();
+        SyncAssignmentsToModel();
+    }
+
+    private List<int> OrderSelectedMuscleIds(IEnumerable<int> selectedValues)
+        => selectedValues
+            .Distinct()
+            .OrderBy(muscleId => Muscles.FirstOrDefault(muscle => muscle.Id == muscleId)?.SortOrder ?? int.MaxValue)
+            .ThenBy(muscleId => Muscles.FirstOrDefault(muscle => muscle.Id == muscleId)?.Name)
+            .ToList();
+
+    private void SyncAssignmentsToModel()
+    {
+        _assignmentError = null;
+        Model.MuscleAssignments = _selectedPrimaryMuscleIds
+            .Select((muscleId, index) => new ExerciseTypeMuscleAssignmentResource
+            {
+                MuscleId = muscleId,
+                Role = "Primary",
+                SortOrder = index + 1
+            })
+            .Concat(_selectedSecondaryMuscleIds.Select((muscleId, index) => new ExerciseTypeMuscleAssignmentResource
+            {
+                MuscleId = muscleId,
+                Role = "Secondary",
+                SortOrder = index + 1
+            }))
+            .ToList();
+    }
 
     private async Task TriggerSubmit()
     {
@@ -201,7 +290,14 @@
             return;
         }
 
+        if (_selectedPrimaryMuscleIds.Count == 0)
+        {
+            _assignmentError = "At least one primary muscle is required.";
+            return;
+        }
+
         Model.Tags = BuildTags();
+        SyncAssignmentsToModel();
         await OnSubmit.InvokeAsync(Model);
     }
 

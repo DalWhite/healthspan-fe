@@ -63,8 +63,14 @@
                     Name = _et.Name,
                     Description = _et.Description,
                     ImageRoute = _et.ImageRoute,
-                    PrimaryMuscleId = _et.PrimaryMuscleId,
-                    SecondaryMuscleId = _et.SecondaryMuscleId,
+                    MuscleAssignments = _et.MuscleAssignments
+                        .Select(assignment => new ExerciseTypeMuscleAssignmentResource
+                        {
+                            MuscleId = assignment.MuscleId,
+                            Role = assignment.Role,
+                            SortOrder = assignment.SortOrder
+                        })
+                        .ToList(),
                     ParentExerciseTypeId = _et.ParentExerciseTypeId,
                     IsFavourite = _et.IsFavourite,
                     WeightType = _et.WeightType,

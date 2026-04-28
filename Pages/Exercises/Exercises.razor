@@ -86,7 +86,7 @@ else
                             {
                                 <MudChip Color="MudBlazor.Color.Error" Variant="Variant.Filled"
                                          Size="MudBlazor.Size.Small" Class="hs-volume-chip">
-                                    @muscleGroup.Key: @muscleGroup.Value kg
+                                    @muscleGroup.Key: @muscleGroup.Value.ToString("0.#") kg
                                 </MudChip>
                             }
                             @if (volumeSummary.Count > 3)
@@ -134,6 +134,11 @@ else
                                                        Title="Edit Exercise" />
                                     </div>
                                 </div>
+
+                                @if (exerciseType is not null)
+                                {
+                                    <MudText Typo="Typo.caption" Class="hs-muted-copy">@GetExerciseTypeMuscleLine(exerciseType)</MudText>
+                                }
 
                                 <!-- Sets/Reps chips — desktop shows 3 items, mobile shows 2 -->
                                 <div class="exercise-instances">
@@ -197,8 +202,10 @@ else
 
     private PagedResult<GetExerciseResource>? _pagedData;
     private List<Muscle> _muscles = new();
+    private Dictionary<int, Muscle> _musclesById = new();
     private Dictionary<int, string> _muscleNames = new();
     private List<ExerciseTypeFilterOption> _exerciseTypeOptions = new();
+    private List<string> _muscleGroupOptions = new();
 
     private bool _isLoading = true;
     private int _currentPage = 1;
@@ -221,9 +228,13 @@ else
 
         // Load muscles and exercise type options (both cached in AppStateService)
         _muscles = await AppState.GetMusclesAsync();
+        _musclesById = _muscles
+            .Where(muscle => muscle.Id.HasValue)
+            .ToDictionary(muscle => muscle.Id!.Value, muscle => muscle);
         _muscleNames = _muscles
             .Where(m => m.Id.HasValue)
             .ToDictionary(m => m.Id!.Value, m => m.Name ?? $"Muscle {m.Id}");
+        _muscleGroupOptions = AppState.GetMuscleGroups();
 
         var allTypes = await AppState.GetExerciseTypesAsync();
         _exerciseTypeOptions = BuildExerciseTypeOptions(allTypes);
@@ -278,6 +289,7 @@ else
         var parameters = new DialogParameters
         {
             { "ExerciseTypes", _exerciseTypeOptions },
+            { "MuscleGroups", _muscleGroupOptions },
             { "SelectedExerciseTypeId", _selectedExerciseTypeId },
             { "SelectedMuscleGroups", new List<string>(_selectedMuscleGroups) }
         };
@@ -374,32 +386,29 @@ else
             .OrderByDescending(e => e.MaxRepetition)
             .FirstOrDefault()?.Type?.Name;
 
-    private Dictionary<string, int> GetVolumeSummaryByMuscleForDate(string date, List<GetExerciseResource> exercises)
+    private Dictionary<string, double> GetVolumeSummaryByMuscleForDate(string date, List<GetExerciseResource> exercises)
     {
-        var summary = new Dictionary<string, int>();
+        var summary = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         var dateExercises = exercises.Where(e => e.Workout?.Date?.ToShortDateString() == date);
-        var hasMuscleData = dateExercises.Any(e => e.Type?.PrimaryMuscleId.HasValue == true);
 
-        if (hasMuscleData)
+        foreach (var exercise in dateExercises)
         {
-            var muscleGroups = dateExercises
-                .Where(e => e.Type?.PrimaryMuscleId.HasValue == true && e.Volume.HasValue)
-                .GroupBy(e => e.Type!.PrimaryMuscleId!.Value);
+            var load = ComputeExerciseLoad(exercise);
+            var distributedLoads = ExerciseMuscleAssignmentHelper.DistributeLoad(exercise.Type?.MuscleAssignments, load);
 
-            foreach (var g in muscleGroups)
-                summary[AddEmojiToMuscleName(GetMuscleNameById(g.Key))] = g.Sum(e => e.Volume ?? 0);
-        }
-        else
-        {
-            var typeGroups = dateExercises
-                .Where(e => e.Type?.Name != null && e.Volume.HasValue)
-                .GroupBy(e => e.Type!.Name!);
-
-            foreach (var g in typeGroups)
+            if (distributedLoads.Count > 0)
             {
-                var key = InferMuscleFromExerciseName(g.Key);
-                summary[key] = summary.GetValueOrDefault(key, 0) + g.Sum(e => e.Volume ?? 0);
+                foreach (var share in distributedLoads)
+                {
+                    var key = AddEmojiToMuscleName(GetMuscleNameById(share.MuscleId));
+                    summary[key] = summary.GetValueOrDefault(key) + share.Load;
+                }
+
+                continue;
             }
+
+            var fallbackKey = InferMuscleFromExerciseName(exercise.Type?.Name ?? "Other");
+            summary[fallbackKey] = summary.GetValueOrDefault(fallbackKey) + load;
         }
 
         return summary.OrderByDescending(x => x.Value).ToDictionary(x => x.Key, x => x.Value);
@@ -417,6 +426,9 @@ else
 
     private string GetMuscleNameById(int muscleId)
         => _muscleNames.GetValueOrDefault(muscleId, $"Muscle {muscleId}");
+
+    private string GetExerciseTypeMuscleLine(GetExerciseTypeResource exerciseType)
+        => AppState.FormatExerciseTypeMuscleLine(exerciseType);
 
     private static List<ExerciseTypeFilterOption> BuildExerciseTypeOptions(IEnumerable<GetExerciseTypeResource> allTypes)
     {
@@ -480,6 +492,31 @@ else
         if (name.Contains("back") || name.Contains("row") || name.Contains("pull") || name.Contains("lat")) return "🔄 Back";
         if (name.Contains("ab") || name.Contains("core") || name.Contains("crunch")) return "🧱 Core";
         return "🔘 Other";
+    }
+
+    private static double ComputeExerciseLoad(GetExerciseResource exercise)
+    {
+        if (exercise.Volume.HasValue && exercise.Volume.Value > 0)
+        {
+            return exercise.Volume.Value;
+        }
+
+        if (!exercise.Series.HasValue || !exercise.Repetitions.HasValue || exercise.Series.Value <= 0 || exercise.Repetitions.Value <= 0)
+        {
+            return 0;
+        }
+
+        var weightType = exercise.WeightType ?? exercise.Type?.WeightType ?? ExerciseWeightType.Standard;
+        decimal effectiveWeight = weightType switch
+        {
+            ExerciseWeightType.BodyWeight => (exercise.BodyWeight ?? exercise.Weight ?? 0) + (exercise.AddedWeight ?? 0),
+            ExerciseWeightType.None => 0,
+            _ => exercise.Weight ?? 0
+        };
+
+        return effectiveWeight <= 0
+            ? 0
+            : (double)(effectiveWeight * exercise.Series.Value * exercise.Repetitions.Value);
     }
 
 }
