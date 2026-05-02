@@ -245,19 +245,7 @@ else
             : $"ExerciseImages/{exercise.Name}.jpg";
 
     private string GetMuscleLine(GetExerciseTypeResource exercise)
-    {
-        var primary = AppState.GetMuscleName(exercise.PrimaryMuscleId);
-        var secondary = AppState.GetMuscleName(exercise.SecondaryMuscleId);
-
-        if (!string.IsNullOrWhiteSpace(secondary) &&
-            !string.Equals(primary, secondary, StringComparison.OrdinalIgnoreCase) &&
-            secondary != "Unspecified")
-        {
-            return $"{primary} / {secondary}";
-        }
-
-        return primary;
-    }
+        => AppState.FormatExerciseTypeMuscleLine(exercise);
 
     private static string FormatVariationSummary(int variationCount)
         => variationCount == 1 ? "1 variation ready to track" : $"{variationCount} variations ready to track";
@@ -308,8 +296,14 @@ else
                 Name = exercise.Name,
                 Description = exercise.Description,
                 ImageRoute = exercise.ImageRoute,
-                PrimaryMuscleId = exercise.PrimaryMuscleId,
-                SecondaryMuscleId = exercise.SecondaryMuscleId,
+                MuscleAssignments = exercise.MuscleAssignments
+                    .Select(assignment => new ExerciseTypeMuscleAssignmentResource
+                    {
+                        MuscleId = assignment.MuscleId,
+                        Role = assignment.Role,
+                        SortOrder = assignment.SortOrder
+                    })
+                    .ToList(),
                 ParentExerciseTypeId = exercise.ParentExerciseTypeId,
                 WeightType = exercise.WeightType,
                 IsFavourite = !exercise.IsFavourite,

@@ -35,8 +35,8 @@ public sealed class WeeklyWorkoutExerciseResource
     public string Prescription { get; set; } = string.Empty;
     public string SessionLabel { get; set; } = string.Empty;
     public DateTime SessionDate { get; set; }
-    public string? PrimaryMuscle { get; set; }
-    public string? SecondaryMuscle { get; set; }
+    public List<string> PrimaryMuscles { get; set; } = new();
+    public List<string> SecondaryMuscles { get; set; } = new();
     public double Load { get; set; }
     public double? MaxRepetition { get; set; }
     public List<string> Tags { get; set; } = new();

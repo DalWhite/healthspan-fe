@@ -7,6 +7,29 @@ using System.Net.Http.Json;
 public class AppStateService
 {
     private readonly HttpClient _http;
+    private static readonly List<Muscle> FallbackMuscles =
+    [
+        new() { Id = 1, Slug = "chest", Name = "Chest", Side = "front", MuscleGroup = "Chest", SortOrder = 10 },
+        new() { Id = 2, Slug = "front-delts", Name = "Front delts", Side = "front", MuscleGroup = "Shoulders", SortOrder = 20 },
+        new() { Id = 3, Slug = "side-delts", Name = "Side delts", Side = "both", MuscleGroup = "Shoulders", SortOrder = 30 },
+        new() { Id = 4, Slug = "rear-delts", Name = "Rear delts", Side = "back", MuscleGroup = "Shoulders", SortOrder = 40 },
+        new() { Id = 5, Slug = "lats", Name = "Lats", Side = "back", MuscleGroup = "Back", SortOrder = 50 },
+        new() { Id = 6, Slug = "upper-back", Name = "Upper back", Side = "back", MuscleGroup = "Back", SortOrder = 60 },
+        new() { Id = 7, Slug = "traps", Name = "Traps", Side = "back", MuscleGroup = "Back", SortOrder = 70 },
+        new() { Id = 8, Slug = "biceps", Name = "Biceps", Side = "front", MuscleGroup = "Arms", SortOrder = 80 },
+        new() { Id = 9, Slug = "triceps", Name = "Triceps", Side = "back", MuscleGroup = "Arms", SortOrder = 90 },
+        new() { Id = 10, Slug = "forearms", Name = "Forearms", Side = "both", MuscleGroup = "Arms", SortOrder = 100 },
+        new() { Id = 11, Slug = "abs", Name = "Abs", Side = "front", MuscleGroup = "Core", SortOrder = 110 },
+        new() { Id = 12, Slug = "obliques", Name = "Obliques", Side = "front", MuscleGroup = "Core", SortOrder = 120 },
+        new() { Id = 13, Slug = "serratus", Name = "Serratus", Side = "front", MuscleGroup = "Core", SortOrder = 130 },
+        new() { Id = 14, Slug = "hip-flexors", Name = "Hip flexors", Side = "front", MuscleGroup = "Legs", SortOrder = 140 },
+        new() { Id = 15, Slug = "glutes", Name = "Glutes", Side = "back", MuscleGroup = "Glutes", SortOrder = 150 },
+        new() { Id = 16, Slug = "quads", Name = "Quads", Side = "front", MuscleGroup = "Legs", SortOrder = 160 },
+        new() { Id = 17, Slug = "hamstrings", Name = "Hamstrings", Side = "back", MuscleGroup = "Legs", SortOrder = 170 },
+        new() { Id = 18, Slug = "adductors", Name = "Adductors", Side = "front", MuscleGroup = "Legs", SortOrder = 180 },
+        new() { Id = 19, Slug = "abductors", Name = "Abductors", Side = "back", MuscleGroup = "Legs", SortOrder = 190 },
+        new() { Id = 20, Slug = "calves", Name = "Calves", Side = "back", MuscleGroup = "Legs", SortOrder = 200 }
+    ];
 
     private List<GetExerciseTypeResource>? _exerciseTypes;
     private List<Muscle>? _muscles;
@@ -51,16 +74,13 @@ public class AppStateService
         }
         catch
         {
-            _muscles = new List<Muscle>
-            {
-                new() { Id = -1, Name = "Chest",     MuscleGroup = "Chest" },
-                new() { Id = -2, Name = "Back",       MuscleGroup = "Back" },
-                new() { Id = -3, Name = "Legs",       MuscleGroup = "Legs" },
-                new() { Id = -4, Name = "Shoulders",  MuscleGroup = "Shoulders" },
-                new() { Id = -5, Name = "Arms",       MuscleGroup = "Arms" },
-                new() { Id = -6, Name = "Core",       MuscleGroup = "Core" },
-            };
+            _muscles = FallbackMuscles.Select(CloneMuscle).ToList();
         }
+
+        _muscles = _muscles
+            .OrderBy(muscle => muscle.SortOrder <= 0 ? int.MaxValue : muscle.SortOrder)
+            .ThenBy(muscle => muscle.Name)
+            .ToList();
 
         return _muscles;
     }
@@ -70,6 +90,23 @@ public class AppStateService
         if (muscleId == null || _muscles == null) return "Unspecified";
         return _muscles.FirstOrDefault(m => m.Id == muscleId)?.Name ?? "Unspecified";
     }
+
+    public IReadOnlyDictionary<int, Muscle> GetMuscleLookup()
+        => (_muscles ?? [])
+            .Where(muscle => muscle.Id.HasValue)
+            .ToDictionary(muscle => muscle.Id!.Value, CloneMuscle);
+
+    public List<string> GetMuscleGroups()
+        => (_muscles ?? [])
+            .Select(muscle => muscle.MuscleGroup)
+            .Where(group => !string.IsNullOrWhiteSpace(group))
+            .Select(group => group!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group)
+            .ToList();
+
+    public string FormatExerciseTypeMuscleLine(GetExerciseTypeResource? exerciseType, string fallback = "Muscle target not mapped")
+        => ExerciseMuscleAssignmentHelper.FormatMuscleLine(exerciseType?.MuscleAssignments, GetMuscleLookup(), fallback);
 
     // ── User Roles ─────────────────────────────────────────────────────────────
 
@@ -127,4 +164,16 @@ public class AppStateService
         return dateStr.Contains(query, StringComparison.OrdinalIgnoreCase)
             || (item.Type?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
     }
+
+    private static Muscle CloneMuscle(Muscle muscle)
+        => new()
+        {
+            Id = muscle.Id,
+            Slug = muscle.Slug,
+            Name = muscle.Name,
+            Position = muscle.Position,
+            Side = muscle.Side,
+            MuscleGroup = muscle.MuscleGroup,
+            SortOrder = muscle.SortOrder
+        };
 }

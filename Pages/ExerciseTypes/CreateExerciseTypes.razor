@@ -22,8 +22,14 @@
             Name = model.Name,
             Description = model.Description,
             ImageRoute = model.ImageRoute,
-            PrimaryMuscleId = model.PrimaryMuscleId,
-            SecondaryMuscleId = model.SecondaryMuscleId,
+            MuscleAssignments = model.MuscleAssignments
+                .Select(assignment => new ExerciseTypeMuscleAssignmentResource
+                {
+                    MuscleId = assignment.MuscleId,
+                    Role = assignment.Role,
+                    SortOrder = assignment.SortOrder
+                })
+                .ToList(),
             ParentExerciseTypeId = model.ParentExerciseTypeId,
             WeightType = model.WeightType,
             Tags = model.Tags

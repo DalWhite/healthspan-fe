@@ -305,39 +305,27 @@ else
 @code {
     private static readonly List<BodyRegionDefinition> BodyRegionCatalog =
     [
-        new("biceps-brachii", "Biceps brachii", "front", "Arms"),
-        new("brachialis", "Brachialis", "front", "Arms"),
-        new("pectoralis-major", "Pectoralis major", "front", "Chest"),
-        new("serratus-anterior", "Serratus anterior", "front", "Abdominals"),
-        new("rectus-abdominis", "Rectus abdominis", "front", "Abdominals"),
-        new("external-obliques", "External obliques", "front", "Abdominals"),
-        new("quadriceps-femoris", "Quadriceps femoris", "front", "Legs"),
-        new("triceps-brachii", "Triceps brachii", "back", "Arms"),
-        new("trapezius", "Trapezius", "back", "Back"),
-        new("latissimus-dorsi", "Latissimus dorsi", "back", "Back"),
-        new("gluteus-maximus", "Gluteus maximus", "back", "Legs"),
-        new("biceps-femoris", "Biceps femoris", "back", "Legs"),
-        new("gastrocnemius", "Gastrocnemius", "back", "Legs"),
-        new("soleus", "Soleus", "back", "Legs")
+        new("chest", "Chest", "front", "Chest"),
+        new("front-delts", "Front delts", "front", "Shoulders"),
+        new("side-delts", "Side delts", "both", "Shoulders"),
+        new("rear-delts", "Rear delts", "back", "Shoulders"),
+        new("lats", "Lats", "back", "Back"),
+        new("upper-back", "Upper back", "back", "Back"),
+        new("traps", "Traps", "back", "Back"),
+        new("biceps", "Biceps", "front", "Arms"),
+        new("triceps", "Triceps", "back", "Arms"),
+        new("forearms", "Forearms", "both", "Arms"),
+        new("abs", "Abs", "front", "Core"),
+        new("obliques", "Obliques", "front", "Core"),
+        new("serratus", "Serratus", "front", "Core"),
+        new("hip-flexors", "Hip flexors", "front", "Legs"),
+        new("glutes", "Glutes", "back", "Glutes"),
+        new("quads", "Quads", "front", "Legs"),
+        new("hamstrings", "Hamstrings", "back", "Legs"),
+        new("adductors", "Adductors", "front", "Legs"),
+        new("abductors", "Abductors", "back", "Legs"),
+        new("calves", "Calves", "back", "Legs")
     ];
-
-    private static readonly Dictionary<int, string> RegionKeyByMuscleId = new()
-    {
-        [1] = "biceps-brachii",
-        [3] = "serratus-anterior",
-        [4] = "pectoralis-major",
-        [5] = "triceps-brachii",
-        [6] = "rectus-abdominis",
-        [7] = "gastrocnemius",
-        [8] = "gluteus-maximus",
-        [9] = "trapezius",
-        [10] = "quadriceps-femoris",
-        [11] = "biceps-femoris",
-        [12] = "latissimus-dorsi",
-        [13] = "brachialis",
-        [14] = "external-obliques",
-        [15] = "soleus"
-    };
 
     private bool _isLoading = true;
     private string _displayName = "Performance profile";
@@ -548,50 +536,55 @@ else
                     totalLoad += load;
                     sessionLoad += load;
 
-                    var primaryKey = ResolveRegionKey(exercise.Type?.PrimaryMuscleId, exercise.Type?.Name, musclesById);
-                    var secondaryKey = ResolveRegionKey(exercise.Type?.SecondaryMuscleId, exercise.Type?.Name, musclesById);
+                    var distributedLoads = ExerciseMuscleAssignmentHelper.DistributeLoad(exercise.Type?.MuscleAssignments, load);
 
-                    if (!string.IsNullOrWhiteSpace(primaryKey) && !string.IsNullOrWhiteSpace(secondaryKey) && !string.Equals(primaryKey, secondaryKey, StringComparison.OrdinalIgnoreCase))
+                    if (distributedLoads.Count > 0)
                     {
-                        AddLoad(regionLoads, primaryKey, load * 0.7d);
-                        AddLoad(regionLoads, secondaryKey, load * 0.3d);
-                    }
-                    else if (!string.IsNullOrWhiteSpace(primaryKey))
-                    {
-                        AddLoad(regionLoads, primaryKey, load);
-                    }
-                    else if (!string.IsNullOrWhiteSpace(secondaryKey))
-                    {
-                        AddLoad(regionLoads, secondaryKey, load);
+                        foreach (var share in distributedLoads)
+                        {
+                            if (!musclesById.TryGetValue(share.MuscleId, out var muscle))
+                            {
+                                continue;
+                            }
+
+                            AddLoad(regionLoads, ResolveRegionKey(muscle), share.Load);
+                            AddFocusLoad(focusLoadByGroup, ResolveMuscleGroup(muscle), share.Load);
+                        }
                     }
                     else
                     {
-                        AddLoad(regionLoads, InferRegionFromExerciseName(exercise.Type?.Name), load);
+                        var fallbackRegionKey = InferRegionFromExerciseName(exercise.Type?.Name);
+                        AddLoad(regionLoads, fallbackRegionKey, load);
+                        AddFocusLoad(focusLoadByGroup, ResolveRegionGroup(fallbackRegionKey), load);
                     }
 
-                    var primaryGroup = ResolveMuscleGroup(exercise.Type?.PrimaryMuscleId, exercise.Type?.Name, musclesById);
-                    var secondaryGroup = ResolveMuscleGroup(exercise.Type?.SecondaryMuscleId, exercise.Type?.Name, musclesById);
+                    var primaryMuscles = ExerciseMuscleAssignmentHelper
+                        .GetMuscleNames(
+                            ExerciseMuscleAssignmentHelper.GetAssignmentsByRole(exercise.Type?.MuscleAssignments, "Primary"),
+                            musclesById)
+                        .ToList();
 
-                    if (!string.IsNullOrWhiteSpace(primaryGroup) && !string.IsNullOrWhiteSpace(secondaryGroup) && !string.Equals(primaryGroup, secondaryGroup, StringComparison.OrdinalIgnoreCase))
+                    var secondaryMuscles = ExerciseMuscleAssignmentHelper
+                        .GetMuscleNames(
+                            ExerciseMuscleAssignmentHelper.GetAssignmentsByRole(exercise.Type?.MuscleAssignments, "Secondary"),
+                            musclesById)
+                        .ToList();
+
+                    if (primaryMuscles.Count == 0 && secondaryMuscles.Count == 0)
                     {
-                        AddFocusLoad(focusLoadByGroup, primaryGroup, load * 0.7d);
-                        AddFocusLoad(focusLoadByGroup, secondaryGroup, load * 0.3d);
-                    }
-                    else if (!string.IsNullOrWhiteSpace(primaryGroup))
-                    {
-                        AddFocusLoad(focusLoadByGroup, primaryGroup, load);
-                    }
-                    else if (!string.IsNullOrWhiteSpace(secondaryGroup))
-                    {
-                        AddFocusLoad(focusLoadByGroup, secondaryGroup, load);
+                        var fallbackLabel = ResolveRegionLabel(InferRegionFromExerciseName(exercise.Type?.Name));
+                        if (!string.IsNullOrWhiteSpace(fallbackLabel))
+                        {
+                            primaryMuscles.Add(fallbackLabel);
+                        }
                     }
 
                     sessionExercises.Add(new WeeklyWorkoutExerciseResource
                     {
                         Name = exercise.Type?.Name ?? "Exercise",
                         Prescription = FormatExercisePrescription(exercise),
-                        PrimaryMuscle = ResolveMuscleName(exercise.Type?.PrimaryMuscleId, exercise.Type?.Name, musclesById),
-                        SecondaryMuscle = ResolveMuscleName(exercise.Type?.SecondaryMuscleId, exercise.Type?.Name, musclesById),
+                        PrimaryMuscles = primaryMuscles,
+                        SecondaryMuscles = secondaryMuscles,
                         Load = load,
                         MaxRepetition = exercise.MaxRepetition,
                         Tags = (exercise.Type?.Tags ?? [])
@@ -811,45 +804,14 @@ else
         focusLoads[group] = existingLoad + load;
     }
 
-    private static string? ResolveRegionKey(int? muscleId, string? exerciseName, IReadOnlyDictionary<int, Muscle> musclesById)
+    private static string? ResolveRegionKey(Muscle muscle)
     {
-        if (muscleId.HasValue && RegionKeyByMuscleId.TryGetValue(muscleId.Value, out var regionKey))
+        if (!string.IsNullOrWhiteSpace(muscle.Slug) &&
+            BodyRegionCatalog.Any(region => string.Equals(region.Key, muscle.Slug, StringComparison.OrdinalIgnoreCase)))
         {
-            return regionKey;
+            return muscle.Slug;
         }
 
-        if (muscleId.HasValue && musclesById.TryGetValue(muscleId.Value, out var muscle))
-        {
-            return MapRegionFromMuscle(muscle) ?? InferRegionFromExerciseName(exerciseName);
-        }
-
-        return InferRegionFromExerciseName(exerciseName);
-    }
-
-    private static string? ResolveMuscleName(int? muscleId, string? exerciseName, IReadOnlyDictionary<int, Muscle> musclesById)
-    {
-        if (muscleId.HasValue && musclesById.TryGetValue(muscleId.Value, out var muscle) && !string.IsNullOrWhiteSpace(muscle.Name))
-        {
-            return muscle.Name;
-        }
-
-        var regionKey = ResolveRegionKey(muscleId, exerciseName, musclesById);
-        return BodyRegionCatalog.FirstOrDefault(region => string.Equals(region.Key, regionKey, StringComparison.OrdinalIgnoreCase))?.Label;
-    }
-
-    private static string? ResolveMuscleGroup(int? muscleId, string? exerciseName, IReadOnlyDictionary<int, Muscle> musclesById)
-    {
-        if (muscleId.HasValue && musclesById.TryGetValue(muscleId.Value, out var muscle) && !string.IsNullOrWhiteSpace(muscle.MuscleGroup))
-        {
-            return muscle.MuscleGroup;
-        }
-
-        var regionKey = ResolveRegionKey(muscleId, exerciseName, musclesById);
-        return BodyRegionCatalog.FirstOrDefault(region => string.Equals(region.Key, regionKey, StringComparison.OrdinalIgnoreCase))?.Group;
-    }
-
-    private static string? MapRegionFromMuscle(Muscle muscle)
-    {
         var normalizedName = Normalize(muscle.Name);
 
         foreach (var region in BodyRegionCatalog)
@@ -865,13 +827,40 @@ else
 
         return group switch
         {
-            "chest" => "pectoralis-major",
-            "abdominals" => side == "front" ? "rectus-abdominis" : "external-obliques",
-            "arms" => side == "back" ? "triceps-brachii" : "biceps-brachii",
-            "back" => side == "back" ? "latissimus-dorsi" : "trapezius",
-            "legs" => side == "back" ? "biceps-femoris" : "quadriceps-femoris",
+            "chest" => "chest",
+            "shoulders" => side switch
+            {
+                "back" => "rear-delts",
+                "both" => "side-delts",
+                _ => "front-delts"
+            },
+            "arms" => side switch
+            {
+                "back" => "triceps",
+                "both" => "forearms",
+                _ => "biceps"
+            },
+            "back" => side == "back" ? "lats" : "upper-back",
+            "core" => "abs",
+            "glutes" => "glutes",
+            "legs" => side switch
+            {
+                "back" => "hamstrings",
+                "both" => "calves",
+                _ => "quads"
+            },
             _ => null
         };
+    }
+
+    private static string? ResolveMuscleGroup(Muscle muscle)
+    {
+        if (!string.IsNullOrWhiteSpace(muscle.MuscleGroup))
+        {
+            return muscle.MuscleGroup;
+        }
+
+        return ResolveRegionGroup(ResolveRegionKey(muscle));
     }
 
     private static string? InferRegionFromExerciseName(string? exerciseName)
@@ -885,56 +874,102 @@ else
 
         if (name.Contains("bench") || name.Contains("press banca") || name.Contains("pec") || name.Contains("chest"))
         {
-            return "pectoralis-major";
+            return "chest";
+        }
+
+        if (name.Contains("rear delt") || name.Contains("reverse fly") || name.Contains("face pull"))
+        {
+            return "rear-delts";
+        }
+
+        if (name.Contains("lateral raise") || name.Contains("side raise"))
+        {
+            return "side-delts";
+        }
+
+        if (name.Contains("shoulder press") || name.Contains("overhead press") || name.Contains("military press"))
+        {
+            return "front-delts";
         }
 
         if (name.Contains("curl") || name.Contains("bicep"))
         {
-            return "biceps-brachii";
+            return "biceps";
         }
 
         if (name.Contains("tricep") || name.Contains("dip") || name.Contains("fondo"))
         {
-            return "triceps-brachii";
+            return "triceps";
         }
 
         if (name.Contains("pull") || name.Contains("row") || name.Contains("lat") || name.Contains("dominada"))
         {
-            return "latissimus-dorsi";
+            return "lats";
         }
 
         if (name.Contains("shrug") || name.Contains("trap"))
         {
-            return "trapezius";
+            return "traps";
         }
 
-        if (name.Contains("squat") || name.Contains("sentadilla") || name.Contains("lunge"))
+        if (name.Contains("adductor"))
         {
-            return "quadriceps-femoris";
+            return "adductors";
         }
 
-        if (name.Contains("deadlift") || name.Contains("peso muerto") || name.Contains("hamstring"))
+        if (name.Contains("abductor"))
         {
-            return "biceps-femoris";
+            return "abductors";
         }
 
-        if (name.Contains("glute"))
+        if (name.Contains("squat") || name.Contains("sentadilla") || name.Contains("lunge") || name.Contains("leg extension"))
         {
-            return "gluteus-maximus";
+            return "quads";
+        }
+
+        if (name.Contains("deadlift") || name.Contains("peso muerto") || name.Contains("hamstring") || name.Contains("leg curl") || name.Contains("rdl"))
+        {
+            return "hamstrings";
+        }
+
+        if (name.Contains("glute") || name.Contains("hip thrust") || name.Contains("puente"))
+        {
+            return "glutes";
         }
 
         if (name.Contains("calf"))
         {
-            return "gastrocnemius";
+            return "calves";
+        }
+
+        if (name.Contains("serratus"))
+        {
+            return "serratus";
+        }
+
+        if (name.Contains("oblique"))
+        {
+            return "obliques";
+        }
+
+        if (name.Contains("hip flexor") || name.Contains("knee raise"))
+        {
+            return "hip-flexors";
         }
 
         if (name.Contains("ab") || name.Contains("core") || name.Contains("crunch"))
         {
-            return "rectus-abdominis";
+            return "abs";
         }
 
         return null;
     }
+
+    private static string? ResolveRegionLabel(string? regionKey)
+        => BodyRegionCatalog.FirstOrDefault(region => string.Equals(region.Key, regionKey, StringComparison.OrdinalIgnoreCase))?.Label;
+
+    private static string? ResolveRegionGroup(string? regionKey)
+        => BodyRegionCatalog.FirstOrDefault(region => string.Equals(region.Key, regionKey, StringComparison.OrdinalIgnoreCase))?.Group;
 
     private static string Normalize(string? value)
         => new((value ?? string.Empty)
@@ -1035,15 +1070,32 @@ else
 
     private static string FormatExerciseMuscleLine(WeeklyWorkoutExerciseResource exercise)
     {
-        var muscleNames = new[] { exercise.PrimaryMuscle, exercise.SecondaryMuscle }
+        var primaryMuscles = exercise.PrimaryMuscles
             .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return muscleNames.Count > 0
-            ? string.Join(" / ", muscleNames)
-            : "Muscle target not mapped";
+        var secondaryMuscles = exercise.SecondaryMuscles
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (primaryMuscles.Count > 0 && secondaryMuscles.Count > 0)
+        {
+            return $"{string.Join(", ", primaryMuscles)} · {string.Join(", ", secondaryMuscles)}";
+        }
+
+        if (primaryMuscles.Count > 0)
+        {
+            return string.Join(", ", primaryMuscles);
+        }
+
+        if (secondaryMuscles.Count > 0)
+        {
+            return string.Join(", ", secondaryMuscles);
+        }
+
+        return "Muscle target not mapped";
     }
 
     private Variant GetViewButtonVariant(string viewMode)
