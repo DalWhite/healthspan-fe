@@ -1,6 +1,6 @@
 public class TitleService
 {
-    private string _title;
+    private string _title = string.Empty;
     public string Title
     {
         get => _title;
@@ -11,7 +11,7 @@ public class TitleService
         }
     }
 
-    public event Action OnChange;
+    public event Action? OnChange;
 
     private void NotifyStateChanged() => OnChange?.Invoke();
 }

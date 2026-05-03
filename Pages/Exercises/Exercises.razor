@@ -567,6 +567,7 @@
     private PagedResult<GetExerciseResource> pagedData;
     private string selectedExerciseType = "";
     private List<string> selectedMuscleGroups = new List<string>();
+    private List<ExerciseTypeResource> exerciseTypes = new List<ExerciseTypeResource>();
     private List<string> exerciseTypeOptions = new List<string>();
     private List<string> muscleGroupOptions = new List<string>();
     private string sortBy = "date";
@@ -637,12 +638,12 @@
     {
         try
         {
-            // Load exercise types
-            var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
-            if (allTypes != null)
-            {
-                exerciseTypeOptions = allTypes.Select(t => t.Name).OrderBy(n => n).ToList();
-            }
+            exerciseTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes")
+                ?? new List<ExerciseTypeResource>();
+            exerciseTypeOptions = exerciseTypes
+                .Select(t => t.Name)
+                .OrderBy(n => n)
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -664,7 +665,7 @@
             if (!string.IsNullOrWhiteSpace(selectedExerciseType))
             {
                 // Get the exercise type ID by the name
-                var exerciseType = await GetExerciseTypeByName(selectedExerciseType);
+                var exerciseType = GetExerciseTypeByName(selectedExerciseType);
                 if (exerciseType != null)
                 {
                     url += $"&exerciseTypeId={exerciseType.Id}";
@@ -742,35 +743,8 @@
         return null;
     }
 
-    // Implementation for the GetExerciseTypeByName function
-    private async Task<ExerciseTypeResource> GetExerciseTypeByName(string name)
-    {
-        try
-        {
-            // If we have a cached list of exercise types, use that instead of making a new API call
-            if (exerciseTypeOptions.Count > 0)
-            {
-                // We'll need to get the full exercise type resource with ID
-                var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
-                return allTypes?.FirstOrDefault(t => t.Name == name);
-            }
-            else
-            {
-                // If we don't have the cached list yet, make the API call
-                var allTypes = await Http.GetFromJsonAsync<List<ExerciseTypeResource>>("/ExerciseTypes");
-
-                // Cache the exercise type names for future use
-                exerciseTypeOptions = allTypes?.Select(t => t.Name).OrderBy(n => n).ToList() ?? new List<string>();
-
-                return allTypes?.FirstOrDefault(t => t.Name == name);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error getting exercise type: {ex.Message}");
-            return null;
-        }
-    }
+    private ExerciseTypeResource? GetExerciseTypeByName(string name)
+        => exerciseTypes.FirstOrDefault(t => t.Name == name);
 
     // Dialog for filtering
     private async Task OpenFilterDialog()
