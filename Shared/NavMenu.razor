@@ -1,16 +1,38 @@
 ﻿@inject AuthenticationStateProvider AuthenticationStateProvider
-@inject HttpClient Http
+@inject AppStateService AppState
 
 <MudNavMenu>
+    <MudNavGroup Title="Health" Icon="@Icons.Material.Filled.MonitorHeart" Expanded="true">
+        <MudNavLink Href="health/dashboard" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.SpaceDashboard">
+            Dashboard
+        </MudNavLink>
+
+        <MudNavLink Href="health/blood-tests" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Biotech">
+            Blood Tests
+        </MudNavLink>
+
+        <MudNavLink Href="health/biomarkers" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.QueryStats">
+            Biomarkers
+        </MudNavLink>
+
+        @* <MudNavLink Href="health/assessments" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.FactCheck">
+            Assessments
+        </MudNavLink> *@
+    </MudNavGroup>
+
     <MudNavLink Href="exercises" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.FitnessCenter">
         Exercises
     </MudNavLink>
+
+    @* <MudNavLink Href="workouts" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CalendarToday">
+        Workouts
+    </MudNavLink> *@
 
     <MudNavLink Href="exercises/types" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ListAlt">
         Exercise Types
     </MudNavLink>
 
-    @if (isTrainer)
+    @if (_isTrainer)
     {
         <MudNavLink Href="trainees" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
             Trainees
@@ -19,22 +41,15 @@
 </MudNavMenu>
 
 @code {
-    private bool isTrainer = false;
+    private bool _isTrainer = false;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity.IsAuthenticated)
+        if (authState.User.Identity?.IsAuthenticated == true)
         {
-            var userRoles = await Http.GetFromJsonAsync<string[]>($"/Users/roles");
-
-            if (userRoles.Contains("Trainer"))
-            {
-                isTrainer = true;
-            }
+            var roles = await AppState.GetUserRolesAsync();
+            _isTrainer = roles.Contains("Trainer");
         }
-
     }
 }

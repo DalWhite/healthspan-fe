@@ -2,68 +2,54 @@
 @inject HttpClient Http
 @using healthspan_fe_wasm_pwa.Shared
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject AppStateService AppState
 
-<PageTitle>ExerciseTypesCreate</PageTitle>
+<PageTitle>Create Exercise Type</PageTitle>
 
-<MudTextField @bind-Value="_addTypeResource.Name"
-              Label="Name"
-              Variant="Variant.Text"></MudTextField>
-<MudTextField @bind-Value="_addTypeResource.Description"
-              Label="Description"
-              Variant="Variant.Text"></MudTextField>
-<MudTextField @bind-Value="_addTypeResource.ImageRoute"
-              Label="ImageUrl"
-              Variant="Variant.Text"></MudTextField>
-
-<MudSelect T="int?"
-           Label="Primary Muscle"
-           @bind-Value="_addTypeResource.PrimaryMuscleId">
-    @foreach (var muscle in Muscles)
-    {
-        <MudSelectItem Value="@muscle.Id"> @muscle.Name </MudSelectItem>
-    }
-</MudSelect>
-
-<MudSelect T="int?"
-           Label="Secondary Muscle"
-           @bind-Value="_addTypeResource.SecondaryMuscleId">
-    @foreach (var muscle in Muscles)
-    {
-        <MudSelectItem Value="@muscle.Id"> @muscle.Name </MudSelectItem>
-    }
-</MudSelect>
-
-<div style="float: right; margin-top: 30px;">
-    <MudButton @onclick="AddExerciseType"
-               Variant="Variant.Filled"
-               Color="Color.Primary">Create</MudButton>
-</div>
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
+    <ExerciseTypeForm Model="_model"
+                      OnSubmit="HandleSubmit"
+                      OnCancel="NavigateBack" />
+</MudContainer>
 @code {
-    private bool typeAdded = false;
-    private AddExerciseTypeResource? _addTypeResource = new();
-    private List<Muscle> Muscles = new();
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            Muscles = await Http.GetFromJsonAsync<List<Muscle>>("api/muscles");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading muscles: {ex.Message}");
-            Muscles = new List<Muscle>();
-        }
+    private UpdateExerciseTypeResource _model = new();
 
-        await base.OnInitializedAsync();
-    }
-
-    private async Task AddExerciseType()
+    private async Task HandleSubmit(UpdateExerciseTypeResource model)
     {
-        var response = await Http.PostAsJsonAsync("/ExerciseTypes", _addTypeResource);
+        var createModel = new AddExerciseTypeResource
+        {
+            Name = model.Name,
+            Description = model.Description,
+            ImageRoute = model.ImageRoute,
+            MuscleAssignments = model.MuscleAssignments
+                .Select(assignment => new ExerciseTypeMuscleAssignmentResource
+                {
+                    MuscleId = assignment.MuscleId,
+                    Role = assignment.Role,
+                    SortOrder = assignment.SortOrder
+                })
+                .ToList(),
+            ParentExerciseTypeId = model.ParentExerciseTypeId,
+            WeightType = model.WeightType,
+            Tags = model.Tags
+        };
+
+        var response = await Http.PostAsJsonAsync("/ExerciseTypes", createModel);
         if (response.IsSuccessStatusCode)
         {
-            typeAdded = true;
+            AppState.InvalidateExerciseTypes();
+            Snackbar.Add("Exercise type created successfully!", Severity.Success);
+            NavigationManager.NavigateTo("/exercises/types");
         }
+        else
+        {
+            Snackbar.Add("Failed to create exercise type. Please try again.", Severity.Error);
+        }
+    }
+
+    private void NavigateBack()
+    {
         NavigationManager.NavigateTo("/exercises/types");
     }
 }

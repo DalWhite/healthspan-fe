@@ -4,106 +4,141 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject IAccountManagement Acct
-@inject Blazored.LocalStorage.ISyncLocalStorageService localStorage
+@inject Blazored.LocalStorage.ISyncLocalStorageService LocalStorage
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
-<script>
-  window.downloadFileFromStream = async (fileName, contentStreamReference) => {
-    const arrayBuffer = await contentStreamReference.arrayBuffer();
-    const blob = new Blob([arrayBuffer]);
-    const url = URL.createObjectURL(blob);
-    const anchorElement = document.createElement('a');
-    anchorElement.href = url;
-    anchorElement.download = fileName ?? '';
-    anchorElement.click();
-    anchorElement.remove();
-    URL.revokeObjectURL(url);
-  }
-</script>
+<PageTitle>Settings</PageTitle>
 
-<h1>settings</h1>
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Settings</MudText>
 
-<MudButton OnClick="@Logout" Color="Color.Primary">Logout</MudButton>
-<MudSwitch @bind-Checked="@_isDarkMode" Size="Size.Small" Color="Color.Primary" Class="ma-4" T="bool"
-            Label="Dark Theme" ValueChanged="HandleValueChanged" />
+    <!-- Account Section -->
+    <MudCard Class="mb-4">
+        <MudCardContent>
+            <MudText Typo="Typo.h6" Class="mb-3">Account</MudText>
+            <MudButton OnClick="Logout" Color="MudBlazor.Color.Error" Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Logout">
+                Logout
+            </MudButton>
+        </MudCardContent>
+    </MudCard>
 
-<MudButton OnClick="@GetExercisesTemplate" Color="Color.Primary">Download Template</MudButton>
+    <!-- Theme Section -->
+    <MudCard Class="mb-4">
+        <MudCardContent>
+            <MudText Typo="Typo.h6" Class="mb-3">Appearance</MudText>
+            <MudSwitch Value="_isDarkMode" Size="MudBlazor.Size.Small" Color="MudBlazor.Color.Primary"
+                       Label="Dark Theme" ValueChanged="HandleDarkModeChanged" T="bool" />
+        </MudCardContent>
+    </MudCard>
 
-<MudFileUpload T="IBrowserFile" Accept=".csv" FilesChanged="UploadTemplate" MaximumFileCount="1">
-    <ButtonTemplate>
-        <MudButton HtmlTag="label"
-                   Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.CloudUpload"
-                   for="@context.Id">
-            Import exercises
-        </MudButton>
-    </ButtonTemplate>
-</MudFileUpload>
-@if (files != null)
-{
-    <MudList>
-        @foreach (var file in files)
-        {
-            <MudListItem Icon="@Icons.Material.Filled.AttachFile">
-                @file.Name <code>@file.Size bytes</code>
-            </MudListItem>
-        }
-    </MudList>
-}
-<MudButton OnClick="@SendFile" Color="Color.Primary">Start Import</MudButton>
+    <!-- Data Section -->
+    <MudCard Class="mb-4">
+        <MudCardContent>
+            <MudText Typo="Typo.h6" Class="mb-3">Data Import / Export</MudText>
 
-<MudText>v0.0.1</MudText>
+            <div class="d-flex flex-wrap gap-3 align-center">
+                <MudButton OnClick="DownloadTemplate" Color="MudBlazor.Color.Primary" Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Download">
+                    Download Template
+                </MudButton>
+
+                <MudFileUpload T="IBrowserFile" Accept=".csv" FilesChanged="OnFileSelected" MaximumFileCount="1">
+                    <ButtonTemplate>
+                        <MudButton HtmlTag="label" Variant="Variant.Outlined" Color="MudBlazor.Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                                   for="@context.Id">
+                            Select CSV
+                        </MudButton>
+                    </ButtonTemplate>
+                </MudFileUpload>
+
+                @if (_selectedFile != null)
+                {
+                    <MudButton OnClick="ImportFile" Color="MudBlazor.Color.Success" Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.Upload">
+                        Import "@_selectedFile.Name"
+                    </MudButton>
+                }
+            </div>
+        </MudCardContent>
+    </MudCard>
+
+    <MudText Typo="Typo.caption" Color="MudBlazor.Color.Dark" Style="opacity: 0.4;">v0.0.1</MudText>
+</MudContainer>
 
 @code {
     private bool _isDarkMode;
-    IList<IBrowserFile> files = new List<IBrowserFile>();
-    async Task Logout()
-    {
-        if (await Acct.CheckAuthenticatedAsync())
-        {
-            await Acct.LogoutAsync();
-        }
+    private IBrowserFile? _selectedFile;
 
-        NavigationManager.NavigateTo("/login", true);
-    }
-    async Task GetExercisesTemplate()
-    {
-        var response =await Http.GetByteArrayAsync("/data/import/template");
-        var fileStream = new MemoryStream(response);
-        var fileName = "exercises-template.csv";
-        using var streamRef = new DotNetStreamReference(stream: fileStream);
-
-        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
-
-    }
     protected override void OnInitialized()
     {
-        if (localStorage.ContainKey("_isDarkMode"))
+        if (LocalStorage.ContainKey("_isDarkMode"))
+            _isDarkMode = LocalStorage.GetItem<bool>("_isDarkMode");
+    }
+
+    private async Task Logout()
+    {
+        if (await Acct.CheckAuthenticatedAsync())
+            await Acct.LogoutAsync();
+        NavigationManager.NavigateTo("/login", true);
+    }
+
+    private void HandleDarkModeChanged(bool value)
+    {
+        _isDarkMode = value;
+        LocalStorage.SetItem("_isDarkMode", value);
+    }
+
+    private async Task DownloadTemplate()
+    {
+        try
         {
-            _isDarkMode = localStorage.GetItem<bool>("_isDarkMode");
+            var bytes = await Http.GetByteArrayAsync("/data/import/template");
+            using var stream = new DotNetStreamReference(new MemoryStream(bytes));
+            await JS.InvokeVoidAsync("downloadFileFromStream", "exercises-template.csv", stream);
+        }
+        catch
+        {
+            Snackbar.Add("Failed to download template.", Severity.Error);
         }
     }
-    private void HandleValueChanged(bool value)
+
+    private void OnFileSelected(IBrowserFile file)
+        => _selectedFile = file;
+
+    private async Task ImportFile()
     {
-        localStorage.SetItem("_isDarkMode", value);
+        if (_selectedFile == null)
+        {
+            Snackbar.Add("Please select a file first.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(_selectedFile.OpenReadStream());
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(_selectedFile.ContentType);
+            content.Add(fileContent, "\"files\"", "exercises.csv");
+
+            var response = await Http.PostAsync("/data/import", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Import completed successfully!", Severity.Success);
+                _selectedFile = null;
+            }
+            else
+            {
+                Snackbar.Add("Import failed. Please check your file and try again.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Import error: {ex.Message}", Severity.Error);
+        }
     }
-
-
-    void UploadTemplate(IBrowserFile file)
-    {
-        files.Add(file);
-    }
-    async Task SendFile()
-    {
-        var file = files.First();
-        using var content = new MultipartFormDataContent();
-        var fileStream = new StreamContent(file.OpenReadStream());
-        fileStream.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-
-        content.Add(content: fileStream, "\"files\"", "exercises.csv");
-        var response = await Http.PostAsync("/data/import", content);
-    }
-
 }

@@ -1,0 +1,155 @@
+@page "/exercises/types/{ExerciseTypeId:int}/edit"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject TitleService TitleService
+@inject AppStateService AppState
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Edit Exercise Type</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
+    @if (_isLoading)
+    {
+        <LoadingState Message="Loading exercise type..." />
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary"
+                   OnClick="@(() => NavigationManager.NavigateTo("/exercises/types"))">
+            Back to Exercise Types
+        </MudButton>
+    }
+    else if (_et != null)
+    {
+        <ExerciseTypeForm Model="_model"
+                          OnSubmit="SaveAsync"
+                          OnCancel="Cancel" />
+                          
+        <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Error" OnClick="ConfirmDeleteAsync"
+                   StartIcon="@Icons.Material.Filled.Delete" Class="mt-4">
+            Delete Exercise Type
+        </MudButton>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Warning">Exercise type not found.</MudAlert>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public int ExerciseTypeId { get; set; }
+
+    private GetExerciseTypeResource? _et;
+    private UpdateExerciseTypeResource _model = new();
+    private List<Muscle> _muscles = new();
+    private bool _isLoading = true;
+    private string _errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _muscles = await AppState.GetMusclesAsync();
+            _et = await Http.GetFromJsonAsync<GetExerciseTypeResource>($"/ExerciseTypes/{ExerciseTypeId}");
+
+            if (_et != null)
+            {
+                TitleService.Title = $"Edit — {_et.Name}";
+                _model = new UpdateExerciseTypeResource
+                {
+                    Id = _et.Id,
+                    Name = _et.Name,
+                    Description = _et.Description,
+                    ImageRoute = _et.ImageRoute,
+                    MuscleAssignments = _et.MuscleAssignments
+                        .Select(assignment => new ExerciseTypeMuscleAssignmentResource
+                        {
+                            MuscleId = assignment.MuscleId,
+                            Role = assignment.Role,
+                            SortOrder = assignment.SortOrder
+                        })
+                        .ToList(),
+                    ParentExerciseTypeId = _et.ParentExerciseTypeId,
+                    IsFavourite = _et.IsFavourite,
+                    WeightType = _et.WeightType,
+                    Tags = _et.Tags
+                };
+            }
+            else
+            {
+                _errorMessage = "Exercise type not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error loading exercise type: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAsync(UpdateExerciseTypeResource payload)
+    {
+        try
+        {
+            var response = await Http.PutAsJsonAsync("/ExerciseTypes", payload);
+
+            if (response.IsSuccessStatusCode)
+            {
+                AppState.InvalidateExerciseTypes();
+                Snackbar.Add("Exercise type saved successfully!", Severity.Success);
+                NavigationManager.NavigateTo("/exercises/types");
+            }
+            else
+            {
+                Snackbar.Add("Failed to save exercise type.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Delete Exercise Type",
+            $"Permanently delete '{_et?.Name}'? This action cannot be undone.",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (confirmed == true)
+            await DeleteAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_et == null) return;
+        try
+        {
+            var response = await Http.DeleteAsync($"/ExerciseTypes/{_et.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                AppState.InvalidateExerciseTypes();
+                Snackbar.Add("Exercise type deleted.", Severity.Warning);
+                NavigationManager.NavigateTo("/exercises/types");
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete exercise type.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void Cancel()
+        => NavigationManager.NavigateTo("/exercises/types");
+}

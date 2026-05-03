@@ -1,0 +1,47 @@
+@using ApexCharts
+
+@if (Points.Count == 0)
+{
+    <div class="hs-sparkline-empty">No trend</div>
+}
+else
+{
+    <ApexChart TItem="TrendPointResource" Options="_options" Height="@Height">
+        <ApexPointSeries TItem="TrendPointResource"
+                         Items="@Points"
+                         Name="Trend"
+                         SeriesType="SeriesType.Line"
+                         XValue='@(point => point.Date.ToString("yyyy-MM-dd"))'
+                         YAggregate="@(points => AverageValues(points))" />
+    </ApexChart>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<TrendPointResource> Points { get; set; } = Array.Empty<TrendPointResource>();
+    [Parameter] public string? ColorHex { get; set; }
+    [Parameter] public int Height { get; set; } = 82;
+
+    private readonly ApexChartOptions<TrendPointResource> _options = new();
+
+    protected override void OnParametersSet()
+    {
+        _options.Chart = new Chart { Sparkline = new ChartSparkline { Enabled = true }, Toolbar = new Toolbar { Show = false } };
+        _options.Stroke = new Stroke { Curve = Curve.Smooth, Width = 2.4 };
+        _options.DataLabels = new DataLabels { Enabled = false };
+        _options.Tooltip = new Tooltip { Enabled = false };
+        _options.Colors = new List<string> { ColorHex ?? "#0f5f67" };
+        _options.Fill = new Fill
+        {
+            Type = new List<FillType> { FillType.Gradient },
+            Gradient = new FillGradient
+            {
+                ShadeIntensity = 0.25,
+                OpacityFrom = 0.45,
+                OpacityTo = 0.05
+            }
+        };
+    }
+
+    private decimal AverageValues(IEnumerable<TrendPointResource> points)
+        => points.Where(x => x.Value.HasValue).Select(x => x.Value!.Value).DefaultIfEmpty().Average();
+}

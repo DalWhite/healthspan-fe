@@ -73,12 +73,12 @@
 
 
                     <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
+                               Color="MudBlazor.Color.Primary"
                                OnClick="DoLoginAsync"
                                FullWidth="true"
                                Class="mb-3 rounded-button">Log In</MudButton>
                     <MudButton Variant="Variant.Outlined"
-                               Color="Color.Secondary"
+                               Color="MudBlazor.Color.Secondary"
                                StartIcon="@Icons.Custom.Brands.Google"
                                Disabled="@(!GoogleButtonEnabled)"
                                Loading="@googleBusy"
@@ -92,7 +92,7 @@
                              Align="Align.Center"
                              Class="mt-3">
                         New here? <MudButton Variant="Variant.Text"
-                                   Color="Color.Primary"
+                                   Color="MudBlazor.Color.Primary"
                                    OnClick="NavigateToRegister">Create an account</MudButton>
                     </MudText>
                 </MudForm>
@@ -176,7 +176,7 @@
 
         if (result.Succeeded)
         {
-            Navigation.NavigateTo("/exercises");
+            Navigation.NavigateTo("/health/dashboard");
         }
         else
         {
@@ -228,7 +228,7 @@
 
         if (result.Succeeded)
         {
-            Navigation.NavigateTo("/exercises");
+            Navigation.NavigateTo("/health/dashboard");
         }
         else
         {

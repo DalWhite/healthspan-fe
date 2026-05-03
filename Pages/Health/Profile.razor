@@ -1,0 +1,1187 @@
+@page "/profile"
+@page "/health/profile"
+@using System.Net.Http.Json
+@using System.Security.Claims
+@using healthspan_fe_wasm_pwa.Components.Profile
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject AppStateService AppState
+@inject HealthspanApiClient ApiClient
+@inject HttpClient Http
+@inject TitleService TitleService
+
+<PageTitle>Profile</PageTitle>
+
+@if (_isLoading)
+{
+    <LoadingState Message="Loading profile..." Size="Size.Large" />
+}
+else
+{
+    <div class="hs-health-shell hs-profile-shell">
+        <MudPaper Class="hs-profile-hero">
+            <div class="hs-profile-hero-copy">
+                <MudText Typo="Typo.overline" Class="hs-dashboard-eyebrow">Weekly planning view</MudText>
+                <MudText Typo="Typo.h4">@DisplayName</MudText>
+                @if (!string.IsNullOrWhiteSpace(_email))
+                {
+                    <MudText Typo="Typo.body2" Class="hs-profile-identity">@_email</MudText>
+                }
+                <MudText Typo="Typo.body1" Class="hs-profile-hero-copy-text">
+                    Review the exact week you trained, inspect the load on the body map, then carry the right sessions and exercises into next week.
+                </MudText>
+                <div class="hs-profile-chip-row">
+                    <MudChip Color="Color.Secondary" Variant="Variant.Outlined">@SelectedWeekRangeLabel</MudChip>
+                    <MudChip Color="Color.Default" Variant="Variant.Outlined">@FormatCount(_weeklySnapshots.Count, "tracked week", "tracked weeks")</MudChip>
+                    <MudChip Color="Color.Primary" Variant="Variant.Outlined">@FormatCount(_assessmentCount, "assessment", "assessments")</MudChip>
+                </div>
+            </div>
+
+            <div class="hs-profile-hero-stats">
+                <div class="hs-hero-stat hs-hero-stat-emphasis">
+                    <span class="hs-hero-stat-value">@FormatLoad(SelectedWeek?.TotalLoad ?? 0)</span>
+                    <span class="hs-hero-stat-label">Selected week load</span>
+                    <span class="hs-hero-stat-foot">@GetWeekDeltaHeadline()</span>
+                </div>
+                <div class="hs-hero-stat">
+                    <span class="hs-hero-stat-value">@((SelectedWeek?.WorkoutCount ?? 0).ToString())</span>
+                    <span class="hs-hero-stat-label">Workout sessions</span>
+                </div>
+                <div class="hs-hero-stat">
+                    <span class="hs-hero-stat-value">@CarryForwardExercises.Count()</span>
+                    <span class="hs-hero-stat-label">Carry-forward anchors</span>
+                </div>
+                <div class="hs-hero-stat">
+                    <span class="hs-hero-stat-value">@FormatDate(_latestAssessmentDate)</span>
+                    <span class="hs-hero-stat-label">Latest assessment</span>
+                </div>
+            </div>
+        </MudPaper>
+
+        @if (_errorMessages.Count > 0)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true">@string.Join(" ", _errorMessages)</MudAlert>
+        }
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="hs-health-panel hs-profile-panel-rich">
+                    <div class="hs-detail-heading">
+                        <div>
+                            <MudText Typo="Typo.h6">Weekly muscle load</MudText>
+                            <MudText Typo="Typo.body2" Class="hs-muted-copy">Switch the selected week and body view to see where work accumulated.</MudText>
+                        </div>
+
+                        @if (_weeklySnapshots.Count > 0)
+                        {
+                            <MudSelect T="DateTime"
+                                       Value="_selectedWeekStart"
+                                       ValueChanged="OnWeekChanged"
+                                       Label="Week"
+                                       Dense="true"
+                                       Variant="Variant.Outlined"
+                                       Class="hs-profile-week-select">
+                                @foreach (var snapshot in _weeklySnapshots)
+                                {
+                                    <MudSelectItem T="DateTime" Value="@snapshot.WeekStart">@FormatWeekRange(snapshot.WeekStart)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+                    </div>
+
+                    @if (SelectedWeek == null)
+                    {
+                        <EmptyState Icon="@Icons.Material.Filled.AccessibilityNew"
+                                    Title="No workout history yet"
+                                    Subtitle="Log workouts with muscle assignments to populate the body heatmap." />
+                    }
+                    else
+                    {
+                        <div class="hs-profile-filter-row mt-3">
+                            <MudButtonGroup Variant="Variant.Outlined" Color="Color.Secondary">
+                                <MudButton Variant="@GetViewButtonVariant("both")" OnClick='@(() => SetBodyViewMode("both"))'>Both</MudButton>
+                                <MudButton Variant="@GetViewButtonVariant("front")" OnClick='@(() => SetBodyViewMode("front"))'>Front</MudButton>
+                                <MudButton Variant="@GetViewButtonVariant("back")" OnClick='@(() => SetBodyViewMode("back"))'>Back</MudButton>
+                            </MudButtonGroup>
+
+                            <div class="hs-profile-focus-strip">
+                                @foreach (var focus in SelectedWeekFocusGroups)
+                                {
+                                    <MudChip Color="Color.Secondary" Variant="Variant.Outlined" Size="Size.Small">@focus</MudChip>
+                                }
+                            </div>
+                        </div>
+
+                        <MuscleLoadBodyMap Regions="SelectedWeek.Regions" ViewMode="_bodyViewMode" />
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="5">
+                <MudPaper Class="hs-health-panel hs-sticky-panel hs-profile-decision-panel">
+                    <MudText Typo="Typo.h6">Carry this into next week</MudText>
+
+                    @if (SelectedWeek == null)
+                    {
+                        <EmptyState Icon="@Icons.Material.Filled.Insights"
+                                    Title="No weekly summary yet"
+                                    Subtitle="Weekly metrics appear here once workout data is available." />
+                    }
+                    else
+                    {
+                        <div class="hs-profile-summary-grid mt-3">
+                            <div class="hs-profile-summary-card hs-profile-summary-card-accent">
+                                <div class="hs-profile-summary-label">Total load</div>
+                                <div class="hs-profile-summary-value">@FormatLoad(SelectedWeek.TotalLoad)</div>
+                            </div>
+                            <div class="hs-profile-summary-card">
+                                <div class="hs-profile-summary-label">Exercises</div>
+                                <div class="hs-profile-summary-value">@SelectedWeek.ExerciseCount</div>
+                            </div>
+                            <div class="hs-profile-summary-card">
+                                <div class="hs-profile-summary-label">Sessions</div>
+                                <div class="hs-profile-summary-value">@SelectedWeek.WorkoutCount</div>
+                            </div>
+                            <div class="hs-profile-summary-card">
+                                <div class="hs-profile-summary-label">Active muscles</div>
+                                <div class="hs-profile-summary-value">@SelectedWeek.Regions.Count(region => region.Load > 0)</div>
+                            </div>
+                        </div>
+
+                        <div class="hs-profile-insight-banner mt-4">
+                            <div class="hs-profile-insight-title">Decision note</div>
+                            <div class="hs-profile-insight-copy">@BuildPlanningNarrative()</div>
+                        </div>
+
+                        <div class="hs-profile-section mt-4">
+                            <MudText Typo="Typo.subtitle2">Anchor exercises</MudText>
+                            @foreach (var exercise in CarryForwardExercises)
+                            {
+                                <div class="hs-profile-anchor-card">
+                                    <div>
+                                        <div class="hs-list-card-title">@exercise.Name</div>
+                                        <div class="hs-muted-copy">@exercise.SessionLabel - @FormatShortDate(exercise.SessionDate)</div>
+                                    </div>
+                                    <div class="hs-profile-anchor-meta">
+                                        <span>@exercise.Prescription</span>
+                                        <span>@FormatLoad(exercise.Load)</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="hs-profile-section mt-4">
+                            <MudText Typo="Typo.subtitle2">Top-loaded muscles</MudText>
+                            @foreach (var region in TopSelectedRegions)
+                            {
+                                <div class="hs-profile-muscle-row">
+                                    <div>
+                                        <div class="hs-list-card-title">@region.Label</div>
+                                        <div class="hs-muted-copy">@region.Group</div>
+                                    </div>
+                                    <div class="hs-profile-muscle-bar-shell">
+                                        <div class="hs-profile-muscle-bar" style="width:@($"{Math.Max(12d, region.RelativeLoad * 100d):0.#}%"); background:@GetRegionBarColor(region.RelativeLoad)"></div>
+                                        <span class="hs-profile-muscle-value">@FormatLoad(region.Load)</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudPaper Class="hs-health-panel hs-profile-panel-rich">
+                    <div class="hs-detail-heading">
+                        <div>
+                            <MudText Typo="Typo.h6">Workouts this week</MudText>
+                            <MudText Typo="Typo.body2" Class="hs-muted-copy">Exact sessions and exercise prescriptions from the selected week so you can mirror or adjust them next week.</MudText>
+                        </div>
+
+                        @if (SelectedWeek != null)
+                        {
+                            <MudChip Color="Color.Default" Variant="Variant.Outlined">@SelectedWeek.WorkoutCount sessions</MudChip>
+                        }
+                    </div>
+
+                    @if (SelectedWeek == null || !OrderedSelectedSessions.Any())
+                    {
+                        <EmptyState Icon="@Icons.Material.Filled.CalendarMonth"
+                                    Title="No workouts logged in this week"
+                                    Subtitle="Choose another tracked week or add sessions to build a next-week template." />
+                    }
+                    else
+                    {
+                        <div class="hs-profile-session-grid mt-3">
+                            @foreach (var session in OrderedSelectedSessions)
+                            {
+                                <div class="hs-profile-session-card">
+                                    <div class="hs-profile-session-head">
+                                        <div>
+                                            <div class="hs-list-card-title">@session.Label</div>
+                                            <div class="hs-muted-copy">@FormatSessionDate(session.Date)</div>
+                                        </div>
+                                        <div class="hs-profile-session-summary">
+                                            <span>@FormatLoad(session.TotalLoad)</span>
+                                            <span>@FormatCount(session.ExerciseCount, "exercise", "exercises")</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="hs-profile-focus-strip hs-profile-focus-strip-tight">
+                                        @foreach (var focus in session.FocusGroups)
+                                        {
+                                            <MudChip Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">@focus</MudChip>
+                                        }
+                                    </div>
+
+                                    <div class="hs-profile-exercise-stack">
+                                        @foreach (var exercise in session.Exercises)
+                                        {
+                                            <div class="hs-profile-exercise-card">
+                                                <div class="hs-profile-exercise-head">
+                                                    <div>
+                                                        <div class="hs-profile-exercise-name">@exercise.Name</div>
+                                                        <div class="hs-muted-copy">@FormatExerciseMuscleLine(exercise)</div>
+                                                    </div>
+                                                    <div class="hs-profile-exercise-load">@FormatLoad(exercise.Load)</div>
+                                                </div>
+                                                <div class="hs-profile-exercise-meta">
+                                                    <span>@exercise.Prescription</span>
+                                                    @if (exercise.MaxRepetition.HasValue)
+                                                    {
+                                                        <span>1RM @exercise.MaxRepetition.Value.ToString("0.#") kg</span>
+                                                    }
+                                                </div>
+                                                @if (exercise.Tags.Count > 0)
+                                                {
+                                                    <div class="hs-profile-tag-row">
+                                                        @foreach (var tag in exercise.Tags)
+                                                        {
+                                                            <span class="hs-profile-inline-tag">@tag</span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudPaper Class="hs-health-panel hs-profile-panel-rich">
+                    <div class="hs-detail-heading">
+                        <div>
+                            <MudText Typo="Typo.h6">Physical adaptations</MudText>
+                            <MudText Typo="Typo.body2" Class="hs-muted-copy">Radar comparison of the nine Galpin adaptations across three historical snapshots.</MudText>
+                        </div>
+                    </div>
+
+                    @if (_radarSeries.Count == 0)
+                    {
+                        <EmptyState Icon="@Icons.Material.Filled.Radar"
+                                    Title="No adaptation assessments yet"
+                                    Subtitle="Complete assessments over time to compare last year, two months ago, and now." />
+                    }
+                    else
+                    {
+                        @if (_missingRadarSnapshots.Count > 0)
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                                @string.Join(" ", _missingRadarSnapshots)
+                            </MudAlert>
+                        }
+
+                        <AdaptationRadarChart Axes="_radarAxes" Series="_radarSeries" />
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </div>
+}
+
+@code {
+    private static readonly List<BodyRegionDefinition> BodyRegionCatalog =
+    [
+        new("chest", "Chest", "front", "Chest"),
+        new("front-delts", "Front delts", "front", "Shoulders"),
+        new("side-delts", "Side delts", "both", "Shoulders"),
+        new("rear-delts", "Rear delts", "back", "Shoulders"),
+        new("lats", "Lats", "back", "Back"),
+        new("upper-back", "Upper back", "back", "Back"),
+        new("traps", "Traps", "back", "Back"),
+        new("biceps", "Biceps", "front", "Arms"),
+        new("triceps", "Triceps", "back", "Arms"),
+        new("forearms", "Forearms", "both", "Arms"),
+        new("abs", "Abs", "front", "Core"),
+        new("obliques", "Obliques", "front", "Core"),
+        new("serratus", "Serratus", "front", "Core"),
+        new("hip-flexors", "Hip flexors", "front", "Legs"),
+        new("glutes", "Glutes", "back", "Glutes"),
+        new("quads", "Quads", "front", "Legs"),
+        new("hamstrings", "Hamstrings", "back", "Legs"),
+        new("adductors", "Adductors", "front", "Legs"),
+        new("abductors", "Abductors", "back", "Legs"),
+        new("calves", "Calves", "back", "Legs")
+    ];
+
+    private bool _isLoading = true;
+    private string _displayName = "Performance profile";
+    private string? _email;
+    private int _assessmentCount;
+    private DateTime? _latestAssessmentDate;
+    private DateTime _selectedWeekStart;
+    private string _bodyViewMode = "both";
+    private readonly List<string> _errorMessages = new();
+    private readonly List<string> _missingRadarSnapshots = new();
+    private readonly List<WeeklyBodyLoadSnapshot> _weeklySnapshots = new();
+    private readonly List<AdaptationRadarAxis> _radarAxes = new();
+    private readonly List<AdaptationRadarSeries> _radarSeries = new();
+
+    private WeeklyBodyLoadSnapshot? SelectedWeek => _weeklySnapshots.FirstOrDefault(snapshot => snapshot.WeekStart == _selectedWeekStart);
+
+    private WeeklyBodyLoadSnapshot? PreviousSelectedWeek
+    {
+        get
+        {
+            var selectedIndex = _weeklySnapshots.FindIndex(snapshot => snapshot.WeekStart == _selectedWeekStart);
+            return selectedIndex >= 0 && selectedIndex + 1 < _weeklySnapshots.Count
+                ? _weeklySnapshots[selectedIndex + 1]
+                : null;
+        }
+    }
+
+    private IEnumerable<WeeklyWorkoutSessionResource> OrderedSelectedSessions
+        => SelectedWeek?.Sessions
+               .OrderBy(session => session.Date)
+               .ThenBy(session => session.Label)
+           ?? Enumerable.Empty<WeeklyWorkoutSessionResource>();
+
+    private IEnumerable<WeeklyWorkoutExerciseResource> CarryForwardExercises
+        => OrderedSelectedSessions
+            .SelectMany(session => session.Exercises)
+            .Where(exercise => !string.IsNullOrWhiteSpace(exercise.Name))
+            .GroupBy(exercise => exercise.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(item => item.Load)
+                .ThenByDescending(item => item.MaxRepetition ?? 0)
+                .First())
+            .OrderByDescending(item => item.Load)
+            .ThenByDescending(item => item.MaxRepetition ?? 0)
+            .Take(4);
+
+    private IEnumerable<MuscleLoadRegionResource> TopSelectedRegions
+        => SelectedWeek is null
+            ? Enumerable.Empty<MuscleLoadRegionResource>()
+            : SelectedWeek.Regions
+                .Where(region => region.Load > 0)
+                .OrderByDescending(region => region.Load)
+                .Take(5);
+
+    private IEnumerable<string> SelectedWeekFocusGroups
+        => OrderedSelectedSessions
+            .SelectMany(session => session.FocusGroups)
+            .Where(group => !string.IsNullOrWhiteSpace(group))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(4);
+
+    private string DisplayName => string.IsNullOrWhiteSpace(_displayName) ? "Performance profile" : _displayName;
+
+    private string SelectedWeekRangeLabel
+        => SelectedWeek is null ? "No week selected" : FormatWeekRange(SelectedWeek.WeekStart);
+
+    protected override async Task OnInitializedAsync()
+    {
+        TitleService.Title = "Profile";
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        _isLoading = true;
+        _errorMessages.Clear();
+        _missingRadarSnapshots.Clear();
+
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            ApplyIdentity(authState.User);
+
+            var muscles = await AppState.GetMusclesAsync();
+            var exercises = await LoadExercisesAsync();
+            var assessments = await LoadAssessmentsAsync();
+            var catalog = await LoadCatalogAsync();
+
+            _assessmentCount = assessments.Count;
+            _latestAssessmentDate = assessments.OrderByDescending(item => item.AssessedOnUtc).FirstOrDefault()?.AssessedOnUtc;
+
+            _weeklySnapshots.Clear();
+            _weeklySnapshots.AddRange(BuildWeeklySnapshots(exercises, muscles));
+
+            if (_weeklySnapshots.Count > 0)
+            {
+                _selectedWeekStart = _weeklySnapshots[0].WeekStart;
+            }
+
+            _radarAxes.Clear();
+            _radarAxes.AddRange(BuildRadarAxes(catalog));
+
+            _radarSeries.Clear();
+            _radarSeries.AddRange(BuildRadarSeries(_radarAxes, assessments));
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ApplyIdentity(ClaimsPrincipal user)
+    {
+        var email = GetClaimValue(user, ClaimTypes.Email) ?? GetClaimValue(user, "email") ?? user.Identity?.Name;
+        var name = GetClaimValue(user, ClaimTypes.GivenName)
+            ?? GetClaimValue(user, ClaimTypes.Name)
+            ?? GetClaimValue(user, "name");
+
+        _email = email;
+        _displayName = !string.IsNullOrWhiteSpace(name)
+            ? name
+            : (!string.IsNullOrWhiteSpace(email) ? email.Split('@')[0] : "Performance profile");
+    }
+
+    private static string? GetClaimValue(ClaimsPrincipal user, string claimType)
+        => user.FindFirst(claimType)?.Value;
+
+    private async Task<List<GetExerciseResource>> LoadExercisesAsync()
+    {
+        try
+        {
+            return await Http.GetFromJsonAsync<List<GetExerciseResource>>(BuildExercisesPath()) ?? new List<GetExerciseResource>();
+        }
+        catch (Exception ex)
+        {
+            _errorMessages.Add($"Exercise history could not be loaded: {ex.Message}");
+            return new List<GetExerciseResource>();
+        }
+    }
+
+    private async Task<List<GetGalpinAssessmentResource>> LoadAssessmentsAsync()
+    {
+        try
+        {
+            return (await ApiClient.GetGalpinAssessmentsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _errorMessages.Add($"Assessment history could not be loaded: {ex.Message}");
+            return new List<GetGalpinAssessmentResource>();
+        }
+    }
+
+    private async Task<List<GalpinAdaptationCatalogItemResource>> LoadCatalogAsync()
+    {
+        try
+        {
+            return (await ApiClient.GetGalpinCatalogAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _errorMessages.Add($"Assessment catalog could not be loaded: {ex.Message}");
+            return new List<GalpinAdaptationCatalogItemResource>();
+        }
+    }
+
+    private static string BuildExercisesPath()
+        => "/Exercises?sortBy=date&descending=true";
+
+    private static List<WeeklyBodyLoadSnapshot> BuildWeeklySnapshots(IEnumerable<GetExerciseResource> exercises, IReadOnlyList<Muscle> muscles)
+    {
+        var musclesById = muscles
+            .Where(muscle => muscle.Id.HasValue)
+            .ToDictionary(muscle => muscle.Id!.Value, muscle => muscle);
+
+        var snapshots = new List<WeeklyBodyLoadSnapshot>();
+
+        foreach (var weekGroup in exercises
+                     .Where(exercise => exercise.Workout?.Date.HasValue == true)
+                     .GroupBy(exercise => StartOfWeek(exercise.Workout!.Date!.Value.Date))
+                     .OrderByDescending(group => group.Key))
+        {
+            var regionLoads = BodyRegionCatalog.ToDictionary(region => region.Key, _ => 0d);
+            var sessions = new List<WeeklyWorkoutSessionResource>();
+            var totalLoad = 0d;
+            var sessionGroups = weekGroup
+                .GroupBy(ResolveSessionKey)
+                .Select(group => new SessionGroup(group.Key, group.OrderBy(item => item.Type?.Name).ThenBy(item => item.Id).ToList()))
+                .OrderBy(group => group.Date)
+                .ThenBy(group => group.Key)
+                .ToList();
+
+            var sessionSequenceByDay = new Dictionary<DateTime, int>();
+
+            foreach (var sessionGroup in sessionGroups)
+            {
+                sessionSequenceByDay.TryGetValue(sessionGroup.Date, out var currentSequence);
+                var nextSequence = currentSequence + 1;
+                sessionSequenceByDay[sessionGroup.Date] = nextSequence;
+
+                var sessionExercises = new List<WeeklyWorkoutExerciseResource>();
+                var focusLoadByGroup = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                var sessionLoad = 0d;
+
+                foreach (var exercise in sessionGroup.Exercises)
+                {
+                    var load = ComputeLoad(exercise);
+                    totalLoad += load;
+                    sessionLoad += load;
+
+                    var distributedLoads = ExerciseMuscleAssignmentHelper.DistributeLoad(exercise.Type?.MuscleAssignments, load);
+
+                    if (distributedLoads.Count > 0)
+                    {
+                        foreach (var share in distributedLoads)
+                        {
+                            if (!musclesById.TryGetValue(share.MuscleId, out var muscle))
+                            {
+                                continue;
+                            }
+
+                            AddLoad(regionLoads, ResolveRegionKey(muscle), share.Load);
+                            AddFocusLoad(focusLoadByGroup, ResolveMuscleGroup(muscle), share.Load);
+                        }
+                    }
+                    else
+                    {
+                        var fallbackRegionKey = InferRegionFromExerciseName(exercise.Type?.Name);
+                        AddLoad(regionLoads, fallbackRegionKey, load);
+                        AddFocusLoad(focusLoadByGroup, ResolveRegionGroup(fallbackRegionKey), load);
+                    }
+
+                    var primaryMuscles = ExerciseMuscleAssignmentHelper
+                        .GetMuscleNames(
+                            ExerciseMuscleAssignmentHelper.GetAssignmentsByRole(exercise.Type?.MuscleAssignments, "Primary"),
+                            musclesById)
+                        .ToList();
+
+                    var secondaryMuscles = ExerciseMuscleAssignmentHelper
+                        .GetMuscleNames(
+                            ExerciseMuscleAssignmentHelper.GetAssignmentsByRole(exercise.Type?.MuscleAssignments, "Secondary"),
+                            musclesById)
+                        .ToList();
+
+                    if (primaryMuscles.Count == 0 && secondaryMuscles.Count == 0)
+                    {
+                        var fallbackLabel = ResolveRegionLabel(InferRegionFromExerciseName(exercise.Type?.Name));
+                        if (!string.IsNullOrWhiteSpace(fallbackLabel))
+                        {
+                            primaryMuscles.Add(fallbackLabel);
+                        }
+                    }
+
+                    sessionExercises.Add(new WeeklyWorkoutExerciseResource
+                    {
+                        Name = exercise.Type?.Name ?? "Exercise",
+                        Prescription = FormatExercisePrescription(exercise),
+                        PrimaryMuscles = primaryMuscles,
+                        SecondaryMuscles = secondaryMuscles,
+                        Load = load,
+                        MaxRepetition = exercise.MaxRepetition,
+                        Tags = (exercise.Type?.Tags ?? [])
+                            .Select(tag => tag.Name)
+                            .Where(name => !string.IsNullOrWhiteSpace(name))
+                            .Select(name => name!.Trim())
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .Take(4)
+                            .ToList()
+                    });
+                }
+
+                var sessionLabel = ResolveSessionLabel(sessionGroup.Exercises, sessionGroup.Date, nextSequence);
+
+                foreach (var exercise in sessionExercises)
+                {
+                    exercise.SessionLabel = sessionLabel;
+                    exercise.SessionDate = sessionGroup.Date;
+                }
+
+                sessions.Add(new WeeklyWorkoutSessionResource
+                {
+                    Key = sessionGroup.Key,
+                    Date = sessionGroup.Date,
+                    Label = sessionLabel,
+                    TotalLoad = sessionLoad,
+                    ExerciseCount = sessionExercises.Count,
+                    FocusGroups = focusLoadByGroup
+                        .OrderByDescending(item => item.Value)
+                        .ThenBy(item => item.Key)
+                        .Select(item => item.Key)
+                        .Take(3)
+                        .ToList(),
+                    Exercises = sessionExercises
+                        .OrderByDescending(item => item.Load)
+                        .ThenBy(item => item.Name)
+                        .ToList()
+                });
+            }
+
+            var maxRegionLoad = regionLoads.Values.DefaultIfEmpty().Max();
+            var snapshot = new WeeklyBodyLoadSnapshot
+            {
+                WeekStart = weekGroup.Key,
+                TotalLoad = totalLoad,
+                WorkoutCount = sessions.Count,
+                ExerciseCount = sessions.Sum(session => session.ExerciseCount),
+                Sessions = sessions,
+                Regions = BodyRegionCatalog.Select(region => new MuscleLoadRegionResource
+                {
+                    Key = region.Key,
+                    Label = region.Label,
+                    Side = region.Side,
+                    Group = region.Group,
+                    Load = regionLoads.GetValueOrDefault(region.Key),
+                    RelativeLoad = maxRegionLoad <= 0 ? 0 : regionLoads.GetValueOrDefault(region.Key) / maxRegionLoad
+                }).ToList()
+            };
+
+            snapshots.Add(snapshot);
+        }
+
+        return snapshots;
+    }
+
+    private static string ResolveSessionKey(GetExerciseResource exercise)
+    {
+        if (exercise.Workout?.Id != Guid.Empty)
+        {
+            return exercise.Workout!.Id.ToString();
+        }
+
+        var dateKey = exercise.Workout?.Date?.Date.ToString("yyyy-MM-dd") ?? "undated";
+        var typeKey = Normalize(exercise.Workout?.Type);
+        return string.IsNullOrWhiteSpace(typeKey) ? dateKey : $"{dateKey}:{typeKey}";
+    }
+
+    private static string ResolveSessionLabel(IReadOnlyList<GetExerciseResource> sessionExercises, DateTime sessionDate, int sessionSequence)
+    {
+        var workoutType = sessionExercises
+            .Select(item => item.Workout?.Type)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+        if (!string.IsNullOrWhiteSpace(workoutType))
+        {
+            return workoutType!;
+        }
+
+        return sessionSequence > 1
+            ? $"{sessionDate:dddd} session {sessionSequence}"
+            : $"{sessionDate:dddd} session";
+    }
+
+    private static List<AdaptationRadarAxis> BuildRadarAxes(IReadOnlyList<GalpinAdaptationCatalogItemResource> catalog)
+    {
+        var catalogLookup = catalog.ToDictionary(item => item.Adaptation, item => item);
+
+        return Enum.GetValues<GalpinAdaptationType>()
+            .Select(adaptation => new AdaptationRadarAxis
+            {
+                Key = adaptation.ToString(),
+                Label = catalogLookup.TryGetValue(adaptation, out var item) && !string.IsNullOrWhiteSpace(item.DisplayName)
+                    ? item.DisplayName!
+                    : HealthDisplayHelpers.ResolveAdaptationLabel(adaptation)
+            })
+            .ToList();
+    }
+
+    private List<AdaptationRadarSeries> BuildRadarSeries(IReadOnlyList<AdaptationRadarAxis> axes, IReadOnlyList<GetGalpinAssessmentResource> assessments)
+    {
+        var series = new List<AdaptationRadarSeries>();
+        var ordered = assessments.OrderBy(item => item.AssessedOnUtc).ToList();
+        var latest = ordered.LastOrDefault();
+
+        if (latest == null)
+        {
+            return series;
+        }
+
+        var usedAssessmentIds = new HashSet<Guid>();
+
+        AddSnapshotSeries(series, usedAssessmentIds, axes, ordered.LastOrDefault(item => item.AssessedOnUtc <= latest.AssessedOnUtc.AddYears(-1)), "last-year", "Last year", "#c8942f");
+        AddSnapshotSeries(series, usedAssessmentIds, axes, ordered.LastOrDefault(item => item.AssessedOnUtc <= latest.AssessedOnUtc.AddMonths(-2)), "two-months", "2 months ago", "#0f5f67");
+        AddSnapshotSeries(series, usedAssessmentIds, axes, latest, "now", "Now", "#ae1d0d");
+
+        if (!series.Any(item => item.Key == "last-year"))
+        {
+            _missingRadarSnapshots.Add("No assessment far enough back to paint the last-year overlay yet.");
+        }
+
+        if (!series.Any(item => item.Key == "two-months"))
+        {
+            _missingRadarSnapshots.Add("No assessment older than two months is available yet.");
+        }
+
+        return series;
+    }
+
+    private void AddSnapshotSeries(
+        ICollection<AdaptationRadarSeries> series,
+        ISet<Guid> usedAssessmentIds,
+        IReadOnlyList<AdaptationRadarAxis> axes,
+        GetGalpinAssessmentResource? assessment,
+        string key,
+        string label,
+        string color)
+    {
+        if (assessment == null || !usedAssessmentIds.Add(assessment.Id))
+        {
+            return;
+        }
+
+        var values = axes.ToDictionary(
+            axis => axis.Key,
+            axis =>
+            {
+                var adaptation = Enum.Parse<GalpinAdaptationType>(axis.Key);
+                return assessment.Scores?.FirstOrDefault(score => score.Adaptation == adaptation)?.Score ?? 0d;
+            });
+
+        series.Add(new AdaptationRadarSeries
+        {
+            Key = key,
+            Label = label,
+            AccentColor = color,
+            Caption = assessment.AssessedOnUtc.ToString("dd MMM yyyy"),
+            Values = values
+        });
+    }
+
+    private static double ComputeLoad(GetExerciseResource exercise)
+    {
+        if (exercise.Volume.HasValue && exercise.Volume.Value > 0)
+        {
+            return exercise.Volume.Value;
+        }
+
+        if (!exercise.Series.HasValue || !exercise.Repetitions.HasValue || exercise.Series.Value <= 0 || exercise.Repetitions.Value <= 0)
+        {
+            return 0;
+        }
+
+        var weightType = exercise.WeightType ?? exercise.Type?.WeightType ?? ExerciseWeightType.Standard;
+        decimal effectiveWeight = weightType switch
+        {
+            ExerciseWeightType.BodyWeight => (exercise.BodyWeight ?? exercise.Weight ?? 0) + (exercise.AddedWeight ?? 0),
+            ExerciseWeightType.None => 0,
+            _ => exercise.Weight ?? 0
+        };
+
+        if (effectiveWeight <= 0)
+        {
+            return 0;
+        }
+
+        return (double)(effectiveWeight * exercise.Series.Value * exercise.Repetitions.Value);
+    }
+
+    private static void AddLoad(IDictionary<string, double> regionLoads, string? regionKey, double load)
+    {
+        if (string.IsNullOrWhiteSpace(regionKey) || !regionLoads.ContainsKey(regionKey) || load <= 0)
+        {
+            return;
+        }
+
+        regionLoads[regionKey] += load;
+    }
+
+    private static void AddFocusLoad(IDictionary<string, double> focusLoads, string? group, double load)
+    {
+        if (string.IsNullOrWhiteSpace(group) || load <= 0)
+        {
+            return;
+        }
+
+        focusLoads.TryGetValue(group, out var existingLoad);
+        focusLoads[group] = existingLoad + load;
+    }
+
+    private static string? ResolveRegionKey(Muscle muscle)
+    {
+        if (!string.IsNullOrWhiteSpace(muscle.Slug) &&
+            BodyRegionCatalog.Any(region => string.Equals(region.Key, muscle.Slug, StringComparison.OrdinalIgnoreCase)))
+        {
+            return muscle.Slug;
+        }
+
+        var normalizedName = Normalize(muscle.Name);
+
+        foreach (var region in BodyRegionCatalog)
+        {
+            if (Normalize(region.Label) == normalizedName)
+            {
+                return region.Key;
+            }
+        }
+
+        var side = (muscle.Side ?? muscle.Position ?? string.Empty).ToLowerInvariant();
+        var group = (muscle.MuscleGroup ?? string.Empty).ToLowerInvariant();
+
+        return group switch
+        {
+            "chest" => "chest",
+            "shoulders" => side switch
+            {
+                "back" => "rear-delts",
+                "both" => "side-delts",
+                _ => "front-delts"
+            },
+            "arms" => side switch
+            {
+                "back" => "triceps",
+                "both" => "forearms",
+                _ => "biceps"
+            },
+            "back" => side == "back" ? "lats" : "upper-back",
+            "core" => "abs",
+            "glutes" => "glutes",
+            "legs" => side switch
+            {
+                "back" => "hamstrings",
+                "both" => "calves",
+                _ => "quads"
+            },
+            _ => null
+        };
+    }
+
+    private static string? ResolveMuscleGroup(Muscle muscle)
+    {
+        if (!string.IsNullOrWhiteSpace(muscle.MuscleGroup))
+        {
+            return muscle.MuscleGroup;
+        }
+
+        return ResolveRegionGroup(ResolveRegionKey(muscle));
+    }
+
+    private static string? InferRegionFromExerciseName(string? exerciseName)
+    {
+        if (string.IsNullOrWhiteSpace(exerciseName))
+        {
+            return null;
+        }
+
+        var name = exerciseName.ToLowerInvariant();
+
+        if (name.Contains("bench") || name.Contains("press banca") || name.Contains("pec") || name.Contains("chest"))
+        {
+            return "chest";
+        }
+
+        if (name.Contains("rear delt") || name.Contains("reverse fly") || name.Contains("face pull"))
+        {
+            return "rear-delts";
+        }
+
+        if (name.Contains("lateral raise") || name.Contains("side raise"))
+        {
+            return "side-delts";
+        }
+
+        if (name.Contains("shoulder press") || name.Contains("overhead press") || name.Contains("military press"))
+        {
+            return "front-delts";
+        }
+
+        if (name.Contains("curl") || name.Contains("bicep"))
+        {
+            return "biceps";
+        }
+
+        if (name.Contains("tricep") || name.Contains("dip") || name.Contains("fondo"))
+        {
+            return "triceps";
+        }
+
+        if (name.Contains("pull") || name.Contains("row") || name.Contains("lat") || name.Contains("dominada"))
+        {
+            return "lats";
+        }
+
+        if (name.Contains("shrug") || name.Contains("trap"))
+        {
+            return "traps";
+        }
+
+        if (name.Contains("adductor"))
+        {
+            return "adductors";
+        }
+
+        if (name.Contains("abductor"))
+        {
+            return "abductors";
+        }
+
+        if (name.Contains("squat") || name.Contains("sentadilla") || name.Contains("lunge") || name.Contains("leg extension"))
+        {
+            return "quads";
+        }
+
+        if (name.Contains("deadlift") || name.Contains("peso muerto") || name.Contains("hamstring") || name.Contains("leg curl") || name.Contains("rdl"))
+        {
+            return "hamstrings";
+        }
+
+        if (name.Contains("glute") || name.Contains("hip thrust") || name.Contains("puente"))
+        {
+            return "glutes";
+        }
+
+        if (name.Contains("calf"))
+        {
+            return "calves";
+        }
+
+        if (name.Contains("serratus"))
+        {
+            return "serratus";
+        }
+
+        if (name.Contains("oblique"))
+        {
+            return "obliques";
+        }
+
+        if (name.Contains("hip flexor") || name.Contains("knee raise"))
+        {
+            return "hip-flexors";
+        }
+
+        if (name.Contains("ab") || name.Contains("core") || name.Contains("crunch"))
+        {
+            return "abs";
+        }
+
+        return null;
+    }
+
+    private static string? ResolveRegionLabel(string? regionKey)
+        => BodyRegionCatalog.FirstOrDefault(region => string.Equals(region.Key, regionKey, StringComparison.OrdinalIgnoreCase))?.Label;
+
+    private static string? ResolveRegionGroup(string? regionKey)
+        => BodyRegionCatalog.FirstOrDefault(region => string.Equals(region.Key, regionKey, StringComparison.OrdinalIgnoreCase))?.Group;
+
+    private static string Normalize(string? value)
+        => new((value ?? string.Empty)
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant)
+            .ToArray());
+
+    private static DateTime StartOfWeek(DateTime date)
+    {
+        var diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
+        return date.AddDays(-diff);
+    }
+
+    private static string FormatCount(int count, string singular, string plural)
+        => $"{count} {(count == 1 ? singular : plural)}";
+
+    private static string FormatDate(DateTime? value)
+        => value?.ToString("dd MMM yyyy") ?? "Not available";
+
+    private static string FormatShortDate(DateTime value)
+        => value == default ? "No date" : value.ToString("dd MMM");
+
+    private static string FormatSessionDate(DateTime value)
+        => value == default ? "No date" : value.ToString("ddd dd MMM yyyy");
+
+    private static string FormatWeekRange(DateTime weekStart)
+        => $"{weekStart:dd MMM} - {weekStart.AddDays(6):dd MMM yyyy}";
+
+    private static string FormatLoad(double load)
+        => load <= 0
+            ? "0 kg"
+            : load >= 100
+                ? $"{Math.Round(load):0} kg"
+                : $"{load:0.#} kg";
+
+    private static string FormatExercisePrescription(GetExerciseResource exercise)
+    {
+        var weightType = exercise.WeightType ?? exercise.Type?.WeightType ?? ExerciseWeightType.Standard;
+        var structure = exercise.Series.HasValue && exercise.Repetitions.HasValue && exercise.Series.Value > 0 && exercise.Repetitions.Value > 0
+            ? $"{exercise.Series.Value} x {exercise.Repetitions.Value}"
+            : exercise.Series.HasValue && exercise.Series.Value > 0
+                ? $"{exercise.Series.Value} sets"
+                : exercise.Repetitions.HasValue && exercise.Repetitions.Value > 0
+                    ? $"{exercise.Repetitions.Value} reps"
+                    : string.Empty;
+
+        string? loadDescriptor = weightType switch
+        {
+            ExerciseWeightType.BodyWeight => BuildBodyWeightDescriptor(exercise),
+            ExerciseWeightType.None => "No external load",
+            _ => exercise.Weight.HasValue && exercise.Weight.Value > 0
+                ? FormatWeight(exercise.Weight.Value)
+                : null
+        };
+
+        if (!string.IsNullOrWhiteSpace(structure) && !string.IsNullOrWhiteSpace(loadDescriptor))
+        {
+            return $"{structure} @ {loadDescriptor}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(structure))
+        {
+            return structure;
+        }
+
+        if (!string.IsNullOrWhiteSpace(loadDescriptor))
+        {
+            return loadDescriptor;
+        }
+
+        return exercise.Volume.HasValue && exercise.Volume.Value > 0
+            ? $"Volume {exercise.Volume.Value:0} kg"
+            : "Load not logged";
+    }
+
+    private static string BuildBodyWeightDescriptor(GetExerciseResource exercise)
+    {
+        var baseWeight = exercise.BodyWeight.HasValue && exercise.BodyWeight.Value > 0
+            ? FormatBodyWeight(exercise.BodyWeight.Value)
+            : "BW";
+
+        if (exercise.AddedWeight.HasValue && exercise.AddedWeight.Value != 0)
+        {
+            var sign = exercise.AddedWeight.Value > 0 ? "+" : "-";
+            return $"{baseWeight} {sign} {FormatWeight(Math.Abs(exercise.AddedWeight.Value))}";
+        }
+
+        return baseWeight;
+    }
+
+    private static string FormatBodyWeight(decimal bodyWeight)
+        => $"{bodyWeight:0.#} kg BW";
+
+    private static string FormatWeight(decimal value)
+        => value >= 100m
+            ? $"{Math.Round(value):0} kg"
+            : $"{value:0.#} kg";
+
+    private static string FormatExerciseMuscleLine(WeeklyWorkoutExerciseResource exercise)
+    {
+        var primaryMuscles = exercise.PrimaryMuscles
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var secondaryMuscles = exercise.SecondaryMuscles
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (primaryMuscles.Count > 0 && secondaryMuscles.Count > 0)
+        {
+            return $"{string.Join(", ", primaryMuscles)} · {string.Join(", ", secondaryMuscles)}";
+        }
+
+        if (primaryMuscles.Count > 0)
+        {
+            return string.Join(", ", primaryMuscles);
+        }
+
+        if (secondaryMuscles.Count > 0)
+        {
+            return string.Join(", ", secondaryMuscles);
+        }
+
+        return "Muscle target not mapped";
+    }
+
+    private Variant GetViewButtonVariant(string viewMode)
+        => string.Equals(_bodyViewMode, viewMode, StringComparison.OrdinalIgnoreCase) ? Variant.Filled : Variant.Outlined;
+
+    private void SetBodyViewMode(string viewMode)
+        => _bodyViewMode = viewMode;
+
+    private void OnWeekChanged(DateTime weekStart)
+        => _selectedWeekStart = weekStart;
+
+    private string GetWeekDeltaHeadline()
+    {
+        var selectedWeek = SelectedWeek;
+        if (selectedWeek == null)
+        {
+            return "Select a tracked week";
+        }
+
+        var previousWeek = PreviousSelectedWeek;
+        if (previousWeek == null || previousWeek.TotalLoad <= 0)
+        {
+            return selectedWeek.TotalLoad > 0
+                ? "First comparable tracked week"
+                : "No measurable load recorded";
+        }
+
+        var delta = (selectedWeek.TotalLoad - previousWeek.TotalLoad) / previousWeek.TotalLoad;
+        if (Math.Abs(delta) < 0.05d)
+        {
+            return "Load is flat versus the prior tracked week";
+        }
+
+        var direction = delta > 0 ? "above" : "below";
+        return $"{Math.Abs(delta * 100d):0}% {direction} the prior tracked week";
+    }
+
+    private string BuildPlanningNarrative()
+    {
+        var selectedWeek = SelectedWeek;
+        if (selectedWeek == null)
+        {
+            return "Choose a tracked week to review the sessions and decide what should carry forward.";
+        }
+
+        if (!OrderedSelectedSessions.Any())
+        {
+            return "No complete workout sessions were logged in this week yet.";
+        }
+
+        var rankedRegions = TopSelectedRegions.ToList();
+        var lead = rankedRegions.FirstOrDefault();
+        var secondary = rankedRegions.Skip(1).FirstOrDefault();
+        var anchorNames = CarryForwardExercises.Select(exercise => exercise.Name).Take(3).ToList();
+        var anchorCopy = anchorNames.Count > 0
+            ? $"Prioritize {string.Join(", ", anchorNames)} when you lay out next week."
+            : "Use the session list below to decide which lifts should repeat next week.";
+
+        if (lead == null)
+        {
+            return $"{GetWeekDeltaHeadline()}. {anchorCopy}";
+        }
+
+        if (secondary == null)
+        {
+            return $"{GetWeekDeltaHeadline()}. {lead.Label} carried most of the work at {FormatLoad(lead.Load)} across {selectedWeek.WorkoutCount} sessions. {anchorCopy}";
+        }
+
+        return $"{GetWeekDeltaHeadline()}. {lead.Label} led the week at {FormatLoad(lead.Load)}, with {secondary.Label} next at {FormatLoad(secondary.Load)} across {selectedWeek.WorkoutCount} sessions. {anchorCopy}";
+    }
+
+    private static string GetRegionBarColor(double relativeLoad)
+    {
+        var clamped = Math.Clamp(relativeLoad, 0d, 1d);
+        var start = (R: 205d, G: 220d, B: 223d);
+        var end = (R: 174d, G: 29d, B: 13d);
+        var r = (int)Math.Round(start.R + ((end.R - start.R) * clamped));
+        var g = (int)Math.Round(start.G + ((end.G - start.G) * clamped));
+        var b = (int)Math.Round(start.B + ((end.B - start.B) * clamped));
+        return $"rgb({r}, {g}, {b})";
+    }
+
+    private sealed record BodyRegionDefinition(string Key, string Label, string Side, string Group);
+
+    private sealed record SessionGroup(string Key, List<GetExerciseResource> Exercises)
+    {
+        public DateTime Date => Exercises.FirstOrDefault()?.Workout?.Date?.Date ?? default;
+    }
+}

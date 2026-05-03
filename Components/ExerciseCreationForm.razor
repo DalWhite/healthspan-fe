@@ -1,109 +1,116 @@
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
-<EditForm EditContext="_editContext" OnValidSubmit="AddExerciseToTheForm">
+<EditForm EditContext="_editContext" OnValidSubmit="SubmitExercise">
     <DataAnnotationsValidator />
     <ValidationSummary />
 
     <MudContainer>
-    <MudDatePicker Label="Fecha"
-                   @bind-Date="_workoutToAdd.Date"
-                   Variant="Variant.Outlined"
-                   class="ma-2" />
-    <MudAutocomplete T="GetExerciseTypeResource"
-                     Label="Ejercicio"
-                     Variant="Variant.Outlined"
-                     class="ma-2"
-                     Value="_selectedType"
-                     ValueChanged="OnTypeChanged"
-                     ToStringFunc="@(et => et?.Name ?? string.Empty)"
-                     SearchFunc="SearchExerciseTypes"
-                     CoerceText="true"
-                     Clearable="true"
-                     />
-    <MudNumericField class="ma-2"
-                     @bind-Value="_exercise.Series"
-                     Label="Series"
-                     Variant="Variant.Outlined"
-                     InputType="InputType.Number"
-                     />
-    <MudNumericField class="ma-2"
-                     @bind-Value="_exercise.Repetitions"
-                     Label="Repeticiones"
-                     Variant="Variant.Outlined"
-                     InputType="InputType.Number"
-                     />
+        <MudDatePicker Label="Date"
+                       @bind-Date="_workout.Date"
+                       Variant="Variant.Outlined"
+                       Class="ma-2" />
+
+        <MudAutocomplete T="GetExerciseTypeResource"
+                         Label="Exercise"
+                         Variant="Variant.Outlined"
+                         Class="ma-2"
+                         Value="_selectedType"
+                         ValueChanged="OnTypeChanged"
+                         ToStringFunc="@(et => et?.Name ?? string.Empty)"
+                         SearchFunc="SearchExerciseTypes"
+                         CoerceText="true"
+                         Clearable="true" />
+
+        <MudNumericField Class="ma-2"
+                         @bind-Value="_exercise.Series"
+                         Label="Sets"
+                         Variant="Variant.Outlined"
+                         InputType="InputType.Number" />
+
+        <MudNumericField Class="ma-2"
+                         @bind-Value="_exercise.Repetitions"
+                         Label="Repetitions"
+                         Variant="Variant.Outlined"
+                         InputType="InputType.Number" />
+
         @if (_exercise.WeightType == ExerciseWeightType.BodyWeight)
         {
-            <MudNumericField class="ma-2"
+            <MudNumericField Class="ma-2"
                              @bind-Value="_exercise.BodyWeight"
-                             ValueExpression="() => _exercise.BodyWeight"
-                             Label="Peso corporal"
+                             Label="Body Weight (kg)"
                              Variant="Variant.Outlined"
                              InputType="InputType.Number"
-                             HelperText="Tu peso actual."
-                             Immediate="true"
-                             />
+                             HelperText="Your current body weight."
+                             Immediate="true" />
 
-            <MudNumericField class="ma-2"
+            <MudNumericField Class="ma-2"
                              @bind-Value="_exercise.AddedWeight"
-                             ValueExpression="() => _exercise.AddedWeight"
-                             Label="Peso añadido"
+                             Label="Added Weight (kg)"
                              Variant="Variant.Outlined"
                              InputType="InputType.Number"
-                             HelperText="Peso extra usado en el ejercicio."
-                             Immediate="true"
-                             />
+                             HelperText="Extra weight used in the exercise."
+                             Immediate="true" />
+
+            <MudText Typo="Typo.caption" Class="mx-2 mb-2 hs-muted-copy">
+                1RM will use @ExerciseLoadCalculator.GetEffectiveLoad(_exercise, CurrentUserBodyWeight).ToString("0.#") kg total load.
+            </MudText>
         }
         else
         {
-            <MudNumericField class="ma-2"
+            <MudNumericField Class="ma-2"
                              @bind-Value="_exercise.Weight"
-                             Label="Peso"
+                             Label="Weight (kg)"
                              Variant="Variant.Outlined"
                              Step=".5M"
                              InputType="InputType.Number"
-                             HelperText="Peso usado en el ejercicio."
-                             />
+                             HelperText="Weight used in the exercise." />
         }
     </MudContainer>
-
 </EditForm>
 
 <MudFab @onclick="OnFabClick"
-    Color="Color.Primary"
-    StartIcon="@Icons.Material.Filled.Add"
-    style="float: right;"
-    Size="Size.Small"
-    class="mr-8" />
+        Color="MudBlazor.Color.Primary"
+        StartIcon="@Icons.Material.Filled.Add"
+        Style="float: right;"
+        Size="MudBlazor.Size.Small"
+        Class="mr-8" />
 
 @code {
     [Parameter] public GetExerciseTypeResource[]? ExerciseTypes { get; set; }
     [Parameter] public decimal? CurrentUserBodyWeight { get; set; }
     [Parameter] public Guid WorkoutId { get; set; }
-    [Parameter] public string? traineeId { get; set; }
+    [Parameter] public string? TraineeId { get; set; }
+    [Parameter] public int? InitialExerciseTypeId { get; set; }
+    [Parameter] public DateTime? InitialDate { get; set; }
     [Parameter] public EventCallback<AddExerciseResource> OnExerciseAdded { get; set; }
 
     private AddExerciseResource _exercise = new();
     private GetExerciseTypeResource? _selectedType;
-    private WorkoutPostResource _workoutToAdd = new() { Date = DateTime.Now };
+    private WorkoutPostResource _workout = new() { Date = DateTime.Now };
     private EditContext? _editContext;
+    private int? _appliedInitialExerciseTypeId;
+    private DateTime? _appliedInitialDate;
 
     protected override void OnInitialized() => _editContext = new EditContext(_exercise);
 
-    protected override void OnParametersSet() => ApplySelectedTypeToModel();
+    protected override void OnParametersSet()
+    {
+        ApplyInitialDate();
+        ApplyInitialType();
+        SyncTypeToModel();
+    }
 
     private Task<IEnumerable<GetExerciseTypeResource>> SearchExerciseTypes(string value)
     {
-        if (string.IsNullOrWhiteSpace(value))
-            return Task.FromResult(ExerciseTypes?.AsEnumerable() ?? Enumerable.Empty<GetExerciseTypeResource>());
-
-        var results = ExerciseTypes?.Where(x => !string.IsNullOrEmpty(x.Name) && x.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
-                      ?? Enumerable.Empty<GetExerciseTypeResource>();
-
+        var all = ExerciseTypes?.AsEnumerable() ?? Enumerable.Empty<GetExerciseTypeResource>();
+        var results = string.IsNullOrWhiteSpace(value)
+            ? all
+            : all.Where(x => x.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) == true);
         return Task.FromResult(results);
     }
 
-    private void ApplySelectedTypeToModel()
+    private void SyncTypeToModel()
     {
         if (_selectedType is null)
         {
@@ -120,69 +127,133 @@
         {
             if (_exercise.BodyWeight == null && CurrentUserBodyWeight != null)
                 _exercise.BodyWeight = CurrentUserBodyWeight;
-
             _exercise.AddedWeight ??= 0m;
         }
-
-        StateHasChanged();
+        else if (_exercise.WeightType == ExerciseWeightType.None)
+        {
+            _exercise.Weight = 0m;
+            _exercise.BodyWeight = null;
+            _exercise.AddedWeight = null;
+        }
+        else
+        {
+            _exercise.BodyWeight = null;
+            _exercise.AddedWeight = null;
+        }
     }
 
-    private async Task AddExerciseToTheForm()
+    private void ApplyInitialDate()
     {
-        if (_exercise.WeightType == ExerciseWeightType.BodyWeight)
-        {
-            if (_exercise.BodyWeight == null && CurrentUserBodyWeight != null)
-                _exercise.BodyWeight = CurrentUserBodyWeight;
+        var normalizedDate = (InitialDate ?? DateTime.Now).Date;
 
-            _exercise.AddedWeight ??= 0m;
-            _exercise.Weight = (_exercise.BodyWeight ?? 0m) + (_exercise.AddedWeight ?? 0m);
+        if (_appliedInitialDate != normalizedDate)
+        {
+            _workout.Date = normalizedDate;
+            _appliedInitialDate = normalizedDate;
+        }
+        else if (!_workout.Date.HasValue)
+        {
+            _workout.Date = normalizedDate;
+        }
+    }
+
+    private void ApplyInitialType()
+    {
+        if (InitialExerciseTypeId == _appliedInitialExerciseTypeId &&
+            (_selectedType != null || !InitialExerciseTypeId.HasValue))
+        {
+            return;
         }
 
-        if (WorkoutId == Guid.Empty)
-            WorkoutId = await GetLastWorkoutIdOrNewIfNoWorkoutForSelectedDate(_workoutToAdd.Date);
+        if (!InitialExerciseTypeId.HasValue)
+        {
+            _selectedType = null;
+            _appliedInitialExerciseTypeId = null;
+            return;
+        }
 
-        _exercise.WorkoutId = WorkoutId;
+        var match = ExerciseTypes?.FirstOrDefault(type => type.Id == InitialExerciseTypeId.Value);
+        if (match is null)
+        {
+            return;
+        }
+
+        _selectedType = match;
+        _appliedInitialExerciseTypeId = InitialExerciseTypeId;
+    }
+
+    private async Task SubmitExercise()
+    {
+        ExerciseLoadCalculator.NormalizeForSubmission(_exercise, CurrentUserBodyWeight);
+
+        // Resolve or create workout for the selected date
+        var workoutId = WorkoutId != Guid.Empty
+            ? WorkoutId
+            : await ResolveWorkoutIdAsync(_workout.Date);
+
+        if (workoutId == Guid.Empty)
+            return;
+
+        _exercise.WorkoutId = workoutId;
         _exercise.TypeId = _selectedType?.Id;
 
         var response = await Http.PostAsJsonAsync("/Exercises", _exercise);
 
         if (response.IsSuccessStatusCode)
+        {
             await OnExerciseAdded.InvokeAsync(_exercise);
-
-        _exercise = new();
-        _selectedType = null;
-        _editContext = new EditContext(_exercise);
+            ResetForm();
+        }
+        else
+        {
+            Snackbar.Add("Failed to add exercise. Please try again.", Severity.Error);
+        }
     }
 
-    private async Task<Guid> GetLastWorkoutIdOrNewIfNoWorkoutForSelectedDate(DateTime? selectedDate)
+    private async Task<Guid> ResolveWorkoutIdAsync(DateTime? date)
     {
-        var workoutsUrl = traineeId != null ? $"/workouts?traineeId={traineeId}" : "/workouts";
-        var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>(workoutsUrl);
+        var url = TraineeId != null ? $"/workouts?traineeId={TraineeId}" : "/workouts";
+        var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>(url);
 
-        var workoutForSelectedDate = workouts?
-            .FirstOrDefault(w => w.Date.HasValue && selectedDate.HasValue && w.Date.Value.Date == selectedDate.Value.Date);
+        var existing = workouts?.FirstOrDefault(w =>
+            w.Date.HasValue && date.HasValue && w.Date.Value.Date == date.Value.Date);
 
-        if (workoutForSelectedDate == null)
+        if (existing != null) return existing.Id;
+
+        // Create a new workout for this date and notify the user
+        var newWorkout = new WorkoutPostResource { Type = "default", UserId = TraineeId, Date = date ?? DateTime.Now };
+        var resp = await Http.PostAsJsonAsync("/Workouts", newWorkout);
+        var created = await resp.Content.ReadFromJsonAsync<GetWorkoutResource>();
+        Snackbar.Add($"New workout created for {(date ?? DateTime.Now).ToShortDateString()}.", Severity.Info);
+        if (created?.Id == null)
         {
-            var postResource = new WorkoutPostResource { Type = "default", UserId = traineeId, Date = selectedDate ?? DateTime.Now };
-            var response = await Http.PostAsJsonAsync("/Workouts", postResource);
-            var newWorkout = await response.Content.ReadFromJsonAsync<GetWorkoutResource>();
-            return newWorkout?.Id ?? Guid.NewGuid();
+            Snackbar.Add("Failed to read created workout. Please try again.", Severity.Error);
+            return Guid.Empty;
         }
+        return created.Id;
+    }
 
-        return workoutForSelectedDate.Id;
+    private void ResetForm()
+    {
+        _exercise = new();
+        _selectedType = null;
+        _workout = new WorkoutPostResource();
+        _editContext = new EditContext(_exercise);
+        ApplyInitialDate();
+        ApplyInitialType();
+        SyncTypeToModel();
     }
 
     private void OnTypeChanged(GetExerciseTypeResource? newType)
     {
         _selectedType = newType;
-        ApplySelectedTypeToModel();
+        SyncTypeToModel();
     }
 
     private async Task OnFabClick()
     {
         _editContext ??= new EditContext(_exercise);
         if (_editContext.Validate())
-            await AddExerciseToTheForm();
+            await SubmitExercise();
     }
 }

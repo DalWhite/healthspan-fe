@@ -1,21 +1,23 @@
-@page "/exercises/create/{traineeId?}"
+@page "/exercises/create/{TraineeId?}"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@using Microsoft.AspNetCore.Components
 
 <PageTitle>Create Exercise</PageTitle>
 
 <MudPaper Class="pa-4">
     <MudContainer MaxWidth="MaxWidth.Medium">
-        <ExerciseCreationForm ExerciseTypes="@exerciseTypes"
-                              WorkoutId="@workoutId"
-                              OnExerciseAdded="OnExerciseAdded"
-                              traineeId="@traineeId" />
+        <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
+                              TraineeId="@TraineeId"
+                              InitialExerciseTypeId="@ExerciseTypeId"
+                              InitialDate="@_initialDate"
+                              OnExerciseAdded="HandleExerciseAdded" />
 
         <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
-                   Color="Color.Primary"
+                   Color="MudBlazor.Color.Primary"
                    Variant="Variant.Outlined"
-                   Class="ml-8 rounded-button"
+                   Class="ml-8 mt-4 rounded-button"
                    OnClick="NavigateBack">
             Back
         </MudButton>
@@ -23,20 +25,28 @@
 </MudPaper>
 
 @code {
-    [Parameter] public string? traineeId { get; set; }
+    [Parameter] public string? TraineeId { get; set; }
+    [SupplyParameterFromQuery(Name = "exerciseTypeId")]
+    public int? ExerciseTypeId { get; set; }
 
-    private GetExerciseTypeResource[] exerciseTypes = Array.Empty<GetExerciseTypeResource>();
-    private Guid workoutId = Guid.Empty;
+    private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
+    private readonly DateTime _initialDate = DateTime.Today;
 
     protected override async Task OnInitializedAsync()
     {
-        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>(("/ExerciseTypes"))
-                        ?? Array.Empty<GetExerciseTypeResource>();
+        _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes")
+                         ?? Array.Empty<GetExerciseTypeResource>();
     }
 
-    private void OnExerciseAdded(AddExerciseResource resource)
-        => Snackbar.Add("Exercise added successfully!", Severity.Success);
+    private Task HandleExerciseAdded(AddExerciseResource _)
+    {
+        Snackbar.Add("Exercise added successfully!", Severity.Success);
+        NavigateBack();
+        return Task.CompletedTask;
+    }
 
     private void NavigateBack()
-        => NavigationManager.NavigateTo("/Exercises", forceLoad: false);
+        => NavigationManager.NavigateTo(
+            TraineeId is null ? "/Exercises" : $"/trainees/{TraineeId}/exercises",
+            forceLoad: false);
 }

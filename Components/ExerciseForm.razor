@@ -1,0 +1,167 @@
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<EditForm EditContext="_editContext" OnValidSubmit="Submit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudContainer>
+        <MudDatePicker Label="Date"
+                       @bind-Date="Date"
+                       Variant="Variant.Outlined"
+                       Class="ma-2" />
+
+        <MudAutocomplete T="GetExerciseTypeResource"
+                         Label="Exercise"
+                         Variant="Variant.Outlined"
+                         Class="ma-2"
+                         Value="_selectedType"
+                         ValueChanged="OnTypeChanged"
+                         ToStringFunc="@(et => et?.Name ?? string.Empty)"
+                         SearchFunc="SearchExerciseTypes"
+                         CoerceText="true"
+                         Clearable="true" />
+
+        <MudNumericField Class="ma-2"
+                         @bind-Value="Exercise.Series"
+                         Label="Sets"
+                         Variant="Variant.Outlined"
+                         InputType="InputType.Number" />
+
+        <MudNumericField Class="ma-2"
+                         @bind-Value="Exercise.Repetitions"
+                         Label="Repetitions"
+                         Variant="Variant.Outlined"
+                         InputType="InputType.Number" />
+
+        @if (Exercise.WeightType == ExerciseWeightType.BodyWeight)
+        {
+            <MudNumericField Class="ma-2"
+                             @bind-Value="Exercise.BodyWeight"
+                             Label="Body Weight (kg)"
+                             Variant="Variant.Outlined"
+                             InputType="InputType.Number"
+                             HelperText="Your current body weight."
+                             Immediate="true" />
+
+            <MudNumericField Class="ma-2"
+                             @bind-Value="Exercise.AddedWeight"
+                             Label="Added Weight (kg)"
+                             Variant="Variant.Outlined"
+                             InputType="InputType.Number"
+                             HelperText="Extra weight used in the exercise."
+                             Immediate="true" />
+
+            <MudText Typo="Typo.caption" Class="mx-2 mb-2 hs-muted-copy">
+                1RM will use @ExerciseLoadCalculator.GetEffectiveLoad(Exercise, CurrentUserBodyWeight).ToString("0.#") kg total load.
+            </MudText>
+        }
+        else
+        {
+            <MudNumericField Class="ma-2"
+                             @bind-Value="Exercise.Weight"
+                             Label="Weight (kg)"
+                             Variant="Variant.Outlined"
+                             Step=".5M"
+                             InputType="InputType.Number"
+                             HelperText="Weight used in the exercise." />
+        }
+    </MudContainer>
+</EditForm>
+
+<div class="d-flex justify-end pr-8 mt-4">
+    <MudButton Color="MudBlazor.Color.Primary" Variant="Variant.Filled" OnClick="TriggerSubmit">Save Form</MudButton>
+</div>
+
+@code {
+    [Parameter] public AddExerciseResource Exercise { get; set; } = new();
+    [Parameter] public DateTime? Date { get; set; }
+    [Parameter] public EventCallback<DateTime?> DateChanged { get; set; }
+    [Parameter] public GetExerciseTypeResource[]? ExerciseTypes { get; set; }
+    [Parameter] public decimal? CurrentUserBodyWeight { get; set; }
+    [Parameter] public EventCallback<AddExerciseResource> OnSubmit { get; set; }
+
+    private EditContext? _editContext;
+    private GetExerciseTypeResource? _selectedType;
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(Exercise);
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Exercise.TypeId.HasValue && ExerciseTypes != null && _selectedType == null)
+        {
+            _selectedType = ExerciseTypes.FirstOrDefault(x => x.Id == Exercise.TypeId);
+        }
+
+        if (Exercise.WeightType == ExerciseWeightType.BodyWeight)
+        {
+            Exercise.BodyWeight ??= CurrentUserBodyWeight;
+            Exercise.AddedWeight ??= 0m;
+        }
+    }
+
+    private Task<IEnumerable<GetExerciseTypeResource>> SearchExerciseTypes(string value)
+    {
+        var all = ExerciseTypes?.AsEnumerable() ?? Enumerable.Empty<GetExerciseTypeResource>();
+        var results = string.IsNullOrWhiteSpace(value)
+            ? all
+            : all.Where(x => x.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) == true);
+        return Task.FromResult(results);
+    }
+
+    private void OnTypeChanged(GetExerciseTypeResource? newType)
+    {
+        _selectedType = newType;
+        if (newType != null)
+        {
+            Exercise.TypeId = newType.Id;
+            Exercise.WeightType = newType.WeightType ?? ExerciseWeightType.Standard;
+        }
+        else
+        {
+            Exercise.TypeId = null;
+            Exercise.WeightType = ExerciseWeightType.Standard;
+        }
+
+        if (Exercise.WeightType == ExerciseWeightType.BodyWeight)
+        {
+            Exercise.BodyWeight ??= CurrentUserBodyWeight;
+            Exercise.AddedWeight ??= 0m;
+        }
+        else if (Exercise.WeightType == ExerciseWeightType.None)
+        {
+            Exercise.Weight = 0m;
+            Exercise.BodyWeight = null;
+            Exercise.AddedWeight = null;
+        }
+        else
+        {
+            Exercise.BodyWeight = null;
+            Exercise.AddedWeight = null;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task TriggerSubmit()
+    {
+        _editContext ??= new EditContext(Exercise);
+        if (_editContext.Validate())
+        {
+            await Submit();
+        }
+    }
+
+    private async Task Submit()
+    {
+        ExerciseLoadCalculator.NormalizeForSubmission(Exercise, CurrentUserBodyWeight);
+
+        if (OnSubmit.HasDelegate)
+        {
+            await OnSubmit.InvokeAsync(Exercise);
+        }
+    }
+}

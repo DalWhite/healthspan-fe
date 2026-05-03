@@ -150,6 +150,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         {
             await _localStorage.SetItemAsync("authToken", tokenObject.accessToken);
             await _localStorage.SetItemAsync("refreshToken", tokenObject.refreshToken);
+            SetAuthorizationHeader(tokenObject.accessToken);
         }
     }
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -157,6 +158,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         var savedToken = await _localStorage.GetItemAsync<string>("authToken");
         if (string.IsNullOrWhiteSpace(savedToken))
         {
+            SetAuthorizationHeader(null);
             return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
         }
 
@@ -173,6 +175,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
             var refreshResult = await RefreshToken();
             if (!refreshResult.Succeeded)
             {
+                SetAuthorizationHeader(null);
                 return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
 
@@ -185,7 +188,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
     private async Task<ClaimsPrincipal> GetUserInfoAndBuildClaimsIdentityUserAndSetAsAuthenticatedIfSuccess(string? savedToken, ClaimsPrincipal user)
     {
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);
+        SetAuthorizationHeader(savedToken);
         var userResponse = await _httpClient.GetAsync("manage/info");
         userResponse.EnsureSuccessStatusCode();
         var userJson = await userResponse.Content.ReadAsStringAsync();
@@ -214,10 +217,11 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
     public async Task LogoutAsync()
     {
         var savedToken = await _localStorage.GetItemAsync<string>("authToken");
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);
+        SetAuthorizationHeader(savedToken);
         await _httpClient.PostAsync("Logout", null);
         await _localStorage.RemoveItemAsync("authToken");
         await _localStorage.RemoveItemAsync("refreshToken");
+        SetAuthorizationHeader(null);
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
@@ -229,6 +233,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
     public async Task<FormResult> RefreshToken()
     {
         var refreshToken = await _localStorage.GetItemAsync<string>("refreshToken");
+        SetAuthorizationHeader(null);
         var refreshResult = await _httpClient.PostAsJsonAsync(
             "refresh", new
             {
@@ -239,6 +244,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         {
             await _localStorage.RemoveItemAsync("authToken");
             await _localStorage.RemoveItemAsync("refreshToken");
+            SetAuthorizationHeader(null);
             NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
             return new FormResult
             {
@@ -252,8 +258,15 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         await _localStorage.SetItemAsync("authToken", result?.accessToken);
         await _localStorage.SetItemAsync("refreshToken", result?.refreshToken);
 
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result?.accessToken);
+        SetAuthorizationHeader(result?.accessToken);
         return new FormResult() { Succeeded = true };
+    }
+
+    private void SetAuthorizationHeader(string? accessToken)
+    {
+        _httpClient.DefaultRequestHeaders.Authorization = string.IsNullOrWhiteSpace(accessToken)
+            ? null
+            : new AuthenticationHeaderValue("Bearer", accessToken);
     }
 
     private static string[] ExtractProblemDetails(string? rawResponse, string fallback)

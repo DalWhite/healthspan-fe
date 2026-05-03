@@ -1,148 +1,21 @@
 ﻿@page "/exercises/types"
-@inject HttpClient Http
-@inject NavigationManager NavigationManager
-@using healthspan_fe_wasm_pwa.Shared
 @inject TitleService TitleService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Exercise Types</PageTitle>
 
-@if (_exerciseTypes == null)
-{
-    <MudProgressCircular Color="Color.Default" Indeterminate="true" />
-}
-else
-{
-    <ToolBarContent>
-        <MudTextField @bind-Value="searchString1" Placeholder="Search"
-                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                      IconSize="Size.Medium" Class="mt-0"/>
-        <MudSwitch T="bool" ValueChanged="@HandleValueChanged" Color="Color.Primary" Label="Favorites"/>
+<ExerciseTypeGrid FavouritesOnly="false" ShowSearch="true" TraineeId="@null" />
 
-
-
-    </ToolBarContent>
-    <MudGrid Class="exercise-types-grid">
-        @foreach (var exerciseType in _filteredExerciseTypes)
-        {
-            <MudItem xs="12" sm="6" md="4" lg="3" xl="2">
-                <MudCard Class="exercise-card" @onclick="() => GoToDetails(exerciseType)">
-                    <MudCardMedia Image="@GetExerciseImageUrl(exerciseType)" Alt="@exerciseType.Name" Height="140" />
-                    <MudCardContent>
-                        <MudText Typo="Typo.h6">@exerciseType.Name</MudText>
-                        <MudText Typo="Typo.body2">@GetMuscleNameById(exerciseType.PrimaryMuscleId)</MudText>
-                    </MudCardContent>
-                    <MudCardActions>
-                        <MudIconButton Icon="@GetFavoriteIcon(exerciseType)" Color="Color.Primary" OnClick="(e) => MarkAsFavorite(e, exerciseType)" />
-                    </MudCardActions>
-                </MudCard>
-            </MudItem>
-        }
-    </MudGrid>
-}
-
-<MudFab @onclick="GoToCreateExerciseType" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" class="fixed-create-button" />
+<MudFab @onclick="GoToCreate" Color="MudBlazor.Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+        Class="fixed-create-button" Label="New Exercise Type" />
 
 @code {
-    private bool favouriteOnly = false;
-    private string searchString1 = "";
-    private GetExerciseTypeResource[]? _exerciseTypes;
-    private GetExerciseTypeResource[]? _filteredExerciseTypes;
-    private List<Muscle> Muscles = new();
-    private async Task HandleValueChanged(bool newValue)
-{
-    favouriteOnly = newValue;
+    protected override void OnInitialized()
+    {
+        TitleService.Title = "Exercise Types";
+    }
 
-    Console.WriteLine($"Favourite only filter changed to: {favouriteOnly}");
-
-    _filteredExerciseTypes = _exerciseTypes
-        .Where(et => !favouriteOnly || et.IsFavourite)
-        .Where(et => FilterFunc(et, searchString1))
-        .ToArray();
-
-    StateHasChanged(); // Trigger a UI update
+    private void GoToCreate()
+        => NavigationManager.NavigateTo("/exercises/types/create");
 }
 
-    private string GetFavoriteIcon(GetExerciseTypeResource exerciseType)
-    {
-        return exerciseType.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder;
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
-        Muscles = await Http.GetFromJsonAsync<List<Muscle>>("api/muscles");
-        _filteredExerciseTypes = _exerciseTypes;
-        TitleService.Title = "Exercise types";
-    }
-
-    private string GetExerciseImageUrl(GetExerciseTypeResource exerciseType)
-    {
-        return !string.IsNullOrEmpty(exerciseType.ImageRoute)
-            ? exerciseType.ImageRoute
-            : $"ExerciseImages/{exerciseType.Name}.jpg";
-    }
-
-    private async Task MarkAsFavorite(MouseEventArgs e, GetExerciseTypeResource exerciseType)
-    {
-        try
-        {
-            var updateExerciseTypeResource = new UpdateExerciseTypeResource
-            {
-                Id = exerciseType.Id,
-                Name = exerciseType.Name,
-                Description = exerciseType.Description,
-                ImageRoute = exerciseType.ImageRoute,
-                PrimaryMuscleId = exerciseType.PrimaryMuscleId,
-                SecondaryMuscleId = exerciseType.SecondaryMuscleId,
-                IsFavourite = !exerciseType.IsFavourite
-            };
-            var response = await Http.PutAsJsonAsync($"/ExerciseTypes", updateExerciseTypeResource);
-
-            if (response.IsSuccessStatusCode)
-            {
-                exerciseType.IsFavourite = !exerciseType.IsFavourite;
-            // Refresh the list based on the updated favourite status
-            _filteredExerciseTypes = _exerciseTypes
-                .Where(et => !favouriteOnly || et.IsFavourite)
-                .Where(et => FilterFunc(et, searchString1))
-                .ToArray();
-
-            StateHasChanged(); // Trigger a UI update
-            }
-            else
-            {
-                Console.WriteLine("Failed to mark exercise as favorite.");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error occurred: {ex.Message}");
-        }
-    }
-
-    private string GetMuscleNameById(int? muscleId)
-    {
-        return Muscles.FirstOrDefault(m => m.Id == muscleId)?.Name ?? "Not specified";
-    }
-
-    private void GoToDetails(GetExerciseTypeResource exerciseType)
-    {
-        NavigationManager.NavigateTo($"/exercises/types/{exerciseType.Id}/details");
-    }
-
-    private bool FilterFunc(GetExerciseTypeResource element, string searchString)
-    {
-        if (string.IsNullOrWhiteSpace(searchString))
-            return true;
-        if (element.Name?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
-            return true;
-        if (element.Description?.Contains(searchString, StringComparison.OrdinalIgnoreCase) ?? false)
-            return true;
-        return false;
-    }
-
-    private void GoToCreateExerciseType()
-    {
-        NavigationManager.NavigateTo("/exercises/types/create");
-    }
-}

@@ -8,72 +8,45 @@
 
 @if (Exercise == null)
 {
-    <MudProgressCircular Color="Color.Default"
+    <MudProgressCircular Color="MudBlazor.Color.Default"
                          Indeterminate="true" />
 }
 else
 {
     <MudPaper Class="pa-4">
+        <ExerciseForm Exercise="_editModel"
+                      @bind-Date="_workoutDate"
+                      ExerciseTypes="exerciseTypes"
+                      OnSubmit="UpdateExercise" />
 
-        <MudForm Model="Exercise">
-            <MudDatePicker Label="Date"
-                           @bind-Date="Exercise.Workout.Date"
-                           Variant="Variant.Outlined"
-                           FullWidth />
-            <MudSelect Label="Exercise"
-                       Variant="Variant.Outlined"
-                       @bind-Value="Exercise.Type">
-                @if (exerciseTypes != null)
-                {
-                    @foreach (var exerciseType in exerciseTypes)
-                    {
-                        <MudSelectItem Value="@exerciseType">@exerciseType.Name</MudSelectItem>
-                    }
-                }
-            </MudSelect>
-            <MudNumericField Label="Series"
-                             @bind-Value="Exercise.Series"
-                             Variant="Variant.Outlined"
-                             FullWidth />
-            <MudNumericField Label="Repetitions"
-                             @bind-Value="Exercise.Repetitions"
-                             Variant="Variant.Outlined"
-                             FullWidth />
-            <MudNumericField Label="Weight (kg)"
-                             @bind-Value="Exercise.Weight"
-                             Variant="Variant.Outlined"
-                             FullWidth />
+        <ExerciseMetrics Metrics="ExerciseMetrics"></ExerciseMetrics>
 
-            <ExerciseMetrics Metrics="ExerciseMetrics"></ExerciseMetrics>
-            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
-                       Color="Color.Primary"
-                       Variant="Variant.Outlined"
-                       Class="ml-0 mt-4 rounded-button"
-                       OnClick="GoBack">
-                Back
-            </MudButton>
-            <MudButton ButtonType="ButtonType.Button"
-                       Color="Color.Primary"
-                       Variant="Variant.Outlined"
-                       Class="ml-0 mt-4 rounded-button"
-                       OnClick="UpdateExercise">Save</MudButton>
-            <MudButton Color="Color.Warning"
-                       Variant="Variant.Outlined"
-                       Class="ml-0 mt-4 rounded-button"
-                       OnClick="Delete">Delete</MudButton>
-        </MudForm>
+        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
+                   Color="MudBlazor.Color.Primary"
+                   Variant="Variant.Outlined"
+                   Class="ml-0 mt-4 rounded-button"
+                   OnClick="GoBack">
+            Back
+        </MudButton>
+        <MudButton Color="MudBlazor.Color.Warning"
+                   Variant="Variant.Outlined"
+                   Class="ml-0 mt-4 rounded-button"
+                   OnClick="Delete">Delete</MudButton>
     </MudPaper>
 }
 @code {
     [Parameter]
     public string ExerciseId { get; set; }
     public GetExerciseResource? Exercise { get; set; }
+    private AddExerciseResource _editModel = new();
+    private DateTime? _workoutDate = DateTime.Now;
     private GetExerciseMetrics ExerciseMetrics { get; set; }
-    private GetExerciseTypeResource[] exerciseTypes;
+    private GetExerciseTypeResource[] exerciseTypes = Array.Empty<GetExerciseTypeResource>();
 
     protected override async Task OnInitializedAsync()
     {
-        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes")
+            ?? Array.Empty<GetExerciseTypeResource>();
         await LoadExercise();
         await LoadMetrics();
     }
@@ -85,14 +58,45 @@ else
     private async Task LoadExercise()
     {
         Exercise = await Http.GetFromJsonAsync<GetExerciseResource?>($"/exercises/{ExerciseId}");
-
+        if (Exercise != null)
+        {
+            _editModel = new AddExerciseResource
+            {
+                WorkoutId = Exercise.Workout?.Id,
+                TypeId = Exercise.Type?.Id,
+                Series = Exercise.Series ?? 0,
+                Repetitions = Exercise.Repetitions ?? 0,
+                Weight = Exercise.Weight ?? 0,
+                BodyWeight = Exercise.BodyWeight,
+                AddedWeight = Exercise.AddedWeight,
+                WeightType = Exercise.Type?.WeightType ?? ExerciseWeightType.Standard
+            };
+            _workoutDate = Exercise.Workout?.Date ?? DateTime.Now;
+        }
     }
 
     private async Task UpdateExercise()
     {
         try
         {
-            var response = await Http.PutAsJsonAsync($"/exercises", Exercise);
+            _editModel.WorkoutId = await ResolveWorkoutIdAsync(_workoutDate);
+            var response = await Http.PutAsJsonAsync("/exercises", new UpdateExerciseResource
+            {
+                Id = Guid.Parse(ExerciseId),
+                Series = _editModel.Series,
+                Repetitions = _editModel.Repetitions,
+                Weight = _editModel.Weight,
+                BodyWeight = _editModel.BodyWeight,
+                AddedWeight = _editModel.AddedWeight,
+                WeightType = _editModel.WeightType,
+                Type = exerciseTypes.FirstOrDefault(type => type.Id == _editModel.TypeId),
+                Workout = new GetWorkoutResource
+                {
+                    Id = _editModel.WorkoutId ?? Guid.Empty,
+                    Date = _workoutDate
+                }
+            });
+
             if (response.IsSuccessStatusCode)
             {
                 Snackbar.Add("Exercise updated successfully.", Severity.Success);
@@ -107,6 +111,19 @@ else
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
         }
     }
+
+    private async Task<Guid> ResolveWorkoutIdAsync(DateTime? date)
+    {
+        var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("/workouts");
+        var existing = workouts?.FirstOrDefault(w => w.Date.HasValue && date.HasValue && w.Date.Value.Date == date.Value.Date);
+        if (existing != null) return existing.Id;
+
+        var newWorkout = new WorkoutPostResource { Type = "default", Date = date ?? DateTime.Now };
+        var resp = await Http.PostAsJsonAsync("/Workouts", newWorkout);
+        var created = await resp.Content.ReadFromJsonAsync<GetWorkoutResource>();
+        return created?.Id ?? Guid.NewGuid();
+    }
+
     private async Task Delete()
     {
         await Http.DeleteAsync($"/exercises/{ExerciseId}");
