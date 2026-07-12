@@ -5,6 +5,13 @@
     <DataAnnotationsValidator />
     <ValidationSummary />
 
+    @if (!string.IsNullOrWhiteSpace(_submissionError))
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mx-2 mb-2">
+            @_submissionError
+        </MudAlert>
+    }
+
     <MudContainer>
         <MudDatePicker Label="Date"
                        @bind-Date="_workout.Date"
@@ -91,6 +98,7 @@
     private EditContext? _editContext;
     private int? _appliedInitialExerciseTypeId;
     private DateTime? _appliedInitialDate;
+    private string? _submissionError;
 
     protected override void OnInitialized() => _editContext = new EditContext(_exercise);
 
@@ -184,6 +192,13 @@
 
     private async Task SubmitExercise()
     {
+        if (_selectedType is null)
+        {
+            _submissionError = "Choose an exercise before saving.";
+            return;
+        }
+
+        _submissionError = null;
         ExerciseLoadCalculator.NormalizeForSubmission(_exercise, CurrentUserBodyWeight);
 
         // Resolve or create workout for the selected date
@@ -201,8 +216,9 @@
 
         if (response.IsSuccessStatusCode)
         {
-            await OnExerciseAdded.InvokeAsync(_exercise);
+            var addedExercise = CloneExercise(_exercise);
             ResetForm();
+            await OnExerciseAdded.InvokeAsync(addedExercise);
         }
         else
         {
@@ -239,6 +255,7 @@
         _selectedType = null;
         _workout = new WorkoutPostResource();
         _editContext = new EditContext(_exercise);
+        _submissionError = null;
         ApplyInitialDate();
         ApplyInitialType();
         SyncTypeToModel();
@@ -247,8 +264,25 @@
     private void OnTypeChanged(GetExerciseTypeResource? newType)
     {
         _selectedType = newType;
+        if (newType is not null)
+        {
+            _submissionError = null;
+        }
         SyncTypeToModel();
     }
+
+    private static AddExerciseResource CloneExercise(AddExerciseResource source)
+        => new()
+        {
+            WorkoutId = source.WorkoutId,
+            TypeId = source.TypeId,
+            Series = source.Series,
+            Repetitions = source.Repetitions,
+            Weight = source.Weight,
+            WeightType = source.WeightType,
+            BodyWeight = source.BodyWeight,
+            AddedWeight = source.AddedWeight
+        };
 
     private async Task OnFabClick()
     {

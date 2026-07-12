@@ -158,8 +158,9 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         var savedToken = await _localStorage.GetItemAsync<string>("authToken");
         if (string.IsNullOrWhiteSpace(savedToken))
         {
+            _authenticated = false;
             SetAuthorizationHeader(null);
-            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+            return CreateUnauthenticatedState();
         }
 
         _authenticated = false;
@@ -176,7 +177,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
             if (!refreshResult.Succeeded)
             {
                 SetAuthorizationHeader(null);
-                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+                return CreateUnauthenticatedState();
             }
 
             savedToken = await _localStorage.GetItemAsync<string>("authToken");
@@ -222,7 +223,8 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         await _localStorage.RemoveItemAsync("authToken");
         await _localStorage.RemoveItemAsync("refreshToken");
         SetAuthorizationHeader(null);
-        NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+        _authenticated = false;
+        NotifyAuthenticationStateChanged(Task.FromResult(CreateUnauthenticatedState()));
     }
 
     public async Task<bool> CheckAuthenticatedAsync()
@@ -245,7 +247,8 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
             await _localStorage.RemoveItemAsync("authToken");
             await _localStorage.RemoveItemAsync("refreshToken");
             SetAuthorizationHeader(null);
-            NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+            _authenticated = false;
+            NotifyAuthenticationStateChanged(Task.FromResult(CreateUnauthenticatedState()));
             return new FormResult
             {
                 Succeeded = false,
@@ -268,6 +271,9 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
             ? null
             : new AuthenticationHeaderValue("Bearer", accessToken);
     }
+
+    private AuthenticationState CreateUnauthenticatedState()
+        => new(Unauthenticated);
 
     private static string[] ExtractProblemDetails(string? rawResponse, string fallback)
     {

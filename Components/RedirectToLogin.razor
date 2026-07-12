@@ -10,6 +10,13 @@
             return;
         }
 
-        NavigationManager.NavigateTo("/login");
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        if (relativePath.StartsWith("login", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var returnUrl = $"/{relativePath.TrimStart('/')}";
+        NavigationManager.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
     }
 }
