@@ -8,6 +8,7 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
+@inject ThemeState ThemeState
 
 <PageTitle>Settings</PageTitle>
 
@@ -29,7 +30,7 @@
     <MudCard Class="mb-4 hs-surface">
         <MudCardContent>
             <MudText Typo="Typo.h6" Class="mb-3">Appearance</MudText>
-            <MudSwitch Value="_isDarkMode" Size="MudBlazor.Size.Small" Color="MudBlazor.Color.Primary"
+            <MudSwitch Value="ThemeState.IsDarkMode" Size="MudBlazor.Size.Small" Color="MudBlazor.Color.Primary"
                        Label="Dark Theme" ValueChanged="HandleDarkModeChanged" T="bool" />
         </MudCardContent>
     </MudCard>
@@ -70,14 +71,7 @@
 </MudContainer>
 
 @code {
-    private bool _isDarkMode;
     private IBrowserFile? _selectedFile;
-
-    protected override void OnInitialized()
-    {
-        if (LocalStorage.ContainKey("_isDarkMode"))
-            _isDarkMode = LocalStorage.GetItem<bool>("_isDarkMode");
-    }
 
     private async Task Logout()
     {
@@ -88,8 +82,8 @@
 
     private void HandleDarkModeChanged(bool value)
     {
-        _isDarkMode = value;
         LocalStorage.SetItem("_isDarkMode", value);
+        ThemeState.SetDarkMode(value);
     }
 
     private async Task DownloadTemplate()

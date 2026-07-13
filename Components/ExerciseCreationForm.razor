@@ -1,5 +1,5 @@
 @inject HttpClient Http
-@inject ISnackbar Snackbar
+@using System.Text.Json
 
 <EditForm EditContext="_editContext" OnValidSubmit="SubmitExercise">
     <DataAnnotationsValidator />
@@ -81,6 +81,8 @@
                Color="MudBlazor.Color.Primary"
                Variant="Variant.Filled"
                StartIcon="@Icons.Material.Filled.Save"
+               Disabled="@_isSaving"
+               Loading="@_isSaving"
                FullWidth="true">
         Save exercise
     </MudButton>
@@ -102,6 +104,7 @@
     private int? _appliedInitialExerciseTypeId;
     private DateTime? _appliedInitialDate;
     private string? _submissionError;
+    private bool _isSaving;
 
     protected override void OnInitialized() => _editContext = new EditContext(_exercise);
 
@@ -195,6 +198,11 @@
 
     private async Task SubmitExercise()
     {
+        if (_isSaving)
+        {
+            return;
+        }
+
         if (_selectedType is null)
         {
             _submissionError = "Choose an exercise before saving.";
@@ -202,30 +210,50 @@
         }
 
         _submissionError = null;
-        ExerciseLoadCalculator.NormalizeForSubmission(_exercise, CurrentUserBodyWeight);
+        _isSaving = true;
 
-        // Resolve or create workout for the selected date
-        var workoutId = WorkoutId != Guid.Empty
-            ? WorkoutId
-            : await ResolveWorkoutIdAsync(_workout.Date);
-
-        if (workoutId == Guid.Empty)
-            return;
-
-        _exercise.WorkoutId = workoutId;
-        _exercise.TypeId = _selectedType?.Id;
-
-        var response = await Http.PostAsJsonAsync("/Exercises", _exercise);
-
-        if (response.IsSuccessStatusCode)
+        try
         {
+            ExerciseLoadCalculator.NormalizeForSubmission(_exercise, CurrentUserBodyWeight);
+
+            // Resolve or create workout for the selected date
+            var workoutId = WorkoutId != Guid.Empty
+                ? WorkoutId
+                : await ResolveWorkoutIdAsync(_workout.Date);
+
+            if (workoutId == Guid.Empty)
+                return;
+
+            _exercise.WorkoutId = workoutId;
+            _exercise.TypeId = _selectedType.Id;
+
+            using var response = await Http.PostAsJsonAsync("/Exercises", _exercise);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _submissionError = "The exercise could not be saved. Please try again.";
+                return;
+            }
+
             var addedExercise = CloneExercise(_exercise);
             ResetForm();
             await OnExerciseAdded.InvokeAsync(addedExercise);
         }
-        else
+        catch (HttpRequestException)
         {
-            Snackbar.Add("Failed to add exercise. Please try again.", Severity.Error);
+            _submissionError = "The exercise could not be saved. Check your connection and try again.";
+        }
+        catch (TaskCanceledException)
+        {
+            _submissionError = "Saving took too long. Please try again.";
+        }
+        catch (JsonException)
+        {
+            _submissionError = "The server returned an incomplete response. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
         }
     }
 
@@ -239,14 +267,19 @@
 
         if (existing != null) return existing.Id;
 
-        // Create a new workout for this date and notify the user
+        // Create a new workout for this date. The page reports success only after the exercise is saved.
         var newWorkout = new WorkoutPostResource { Type = "default", UserId = TraineeId, Date = date ?? DateTime.Now };
-        var resp = await Http.PostAsJsonAsync("/Workouts", newWorkout);
+        using var resp = await Http.PostAsJsonAsync("/Workouts", newWorkout);
+        if (!resp.IsSuccessStatusCode)
+        {
+            _submissionError = "The workout could not be prepared. Please try again.";
+            return Guid.Empty;
+        }
+
         var created = await resp.Content.ReadFromJsonAsync<GetWorkoutResource>();
-        Snackbar.Add($"New workout created for {(date ?? DateTime.Now).ToShortDateString()}.", Severity.Info);
         if (created?.Id == null)
         {
-            Snackbar.Add("Failed to read created workout. Please try again.", Severity.Error);
+            _submissionError = "The workout response was incomplete. Please try again.";
             return Guid.Empty;
         }
         return created.Id;

@@ -6,7 +6,10 @@
 
 @if (_isLoading)
 {
-    <LoadingState Message="Loading Galpin assessments..." Size="Size.Large" />
+    <PageShell>
+        <PageHeader Title="Galpin Assessments" />
+        <LoadingState Message="Loading Galpin assessments..." Size="Size.Large" />
+    </PageShell>
 }
 else
 {

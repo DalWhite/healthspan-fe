@@ -48,9 +48,10 @@
     .hs-history-table td.no-break { white-space: nowrap; }
 </style>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.Large" Class="hs-page-shell">
     @if (_exercises == null || _kpis == null)
     {
+        <PageHeader Title="Exercise details" />
         <LoadingState Message="Loading exercise data..." Size="MudBlazor.Size.Large" />
     }
     else

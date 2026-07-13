@@ -36,11 +36,11 @@ User-facing terminology should change as follows:
 
 ## Implementation status
 
-Updated 12 July 2026:
+Updated 13 July 2026:
 
 - Step 1 completed: baseline validation, authentication cleanup, return URLs, and reliable edit/delete behavior.
-- Step 2 completed: grouped task-based navigation, four-item mobile bottom navigation, and new Training route aliases. Existing frontend and API routes remain available.
-- Step 3 completed: compact page-header/shell primitives, expanded design tokens, responsive app shell, aligned theme palettes, and removal of broad global MudBlazor overrides.
+- Step 2 completed: grouped task-based navigation, five-item mobile bottom navigation with a left-aligned Menu drawer launcher, and new Training route aliases. Existing frontend and API routes remain available.
+- Step 3 completed and verified: reusable page shell, compact semantic header, toolbar, surface, loading, empty, and error patterns; expanded design tokens; shared light/dark theme state across authenticated and login layouts; a chrome-free mobile top edge; responsive content widths; persistent route headings during loading; keyboard focus styles; 44px mobile touch targets; safe-area spacing; and removal of broad global MudBlazor overrides.
 - Steps 4–10 remain planned.
 
 ## 1. Stabilize the current baseline — P0, small

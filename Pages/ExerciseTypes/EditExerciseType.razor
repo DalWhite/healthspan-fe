@@ -18,11 +18,10 @@
     }
     else if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
-        <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary"
-                   OnClick="@(() => NavigationManager.NavigateTo("/training/library"))">
-            Back to Exercise Library
-        </MudButton>
+        <ErrorState Title="Exercise type could not be loaded"
+                    Message="@_errorMessage"
+                    ActionLabel="Back to Exercise Library"
+                    OnAction="@(() => NavigationManager.NavigateTo("/training/library"))" />
     }
     else if (_et != null)
     {

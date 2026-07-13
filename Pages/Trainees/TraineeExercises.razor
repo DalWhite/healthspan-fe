@@ -52,7 +52,7 @@ else
                 <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Intensity ?? 0)">Intensity</MudTableSortLabel></MudTh>
             </HeaderContent>
             <GroupHeaderTemplate>
-                <MudTh Class="mud-table-cell-custom-group" colspan="8">
+                <MudTh Class="hs-table-cell-custom-group" colspan="8">
                     @{
                         if (DateTime.TryParse(context.Key?.ToString(), out var groupDate))
                         {

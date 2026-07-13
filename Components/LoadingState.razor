@@ -4,7 +4,11 @@
     <MudProgressCircular Color="MudBlazor.Color.Primary" Indeterminate="true" Size="@Size" />
     @if (!string.IsNullOrEmpty(Message))
     {
-        <MudText Typo="Typo.body2" Class="mt-2" Style="opacity: 0.6;">@Message</MudText>
+        <MudText Typo="Typo.body2" Class="hs-state-copy mt-2">@Message</MudText>
+    }
+    else
+    {
+        <span class="hs-visually-hidden">Loading</span>
     }
 </div>
 

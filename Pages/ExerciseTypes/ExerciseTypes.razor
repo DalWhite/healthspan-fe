@@ -5,7 +5,7 @@
 
 <PageTitle>Exercise Library</PageTitle>
 
-<div class="hs-page-shell">
+<PageShell>
     <PageHeader Title="Exercise Library">
         <Actions>
             <MudButton Variant="Variant.Filled"
@@ -18,7 +18,7 @@
     </PageHeader>
 
     <ExerciseTypeGrid FavouritesOnly="false" ShowSearch="true" TraineeId="@null" />
-</div>
+</PageShell>
 
 @code {
     protected override void OnInitialized()

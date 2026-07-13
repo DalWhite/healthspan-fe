@@ -9,11 +9,11 @@
 
 <PageTitle>Training History</PageTitle>
 
-<div class="hs-page-shell">
+<PageShell>
     <PageHeader Title="Training History" />
 
 <!-- Sort & Filter Controls -->
-<div class="sort-controls hs-toolbar">
+<PageToolbar Class="sort-controls" AriaLabel="Training history controls">
     <MudButtonGroup Color="MudBlazor.Color.Primary" Variant="Variant.Outlined" Size="MudBlazor.Size.Small">
         <MudButton OnClick="@(() => SortExercisesBy("date"))" Variant="@GetSortButtonVariant("date")">Date</MudButton>
         <MudButton OnClick="OpenFilterDialog" Variant="@(_isFilterActive ? Variant.Filled : Variant.Outlined)">
@@ -48,7 +48,7 @@
             </MudButton>
         </div>
     }
-</div>
+</PageToolbar>
 
 <!-- Content -->
 @if (_isLoading)
@@ -196,7 +196,7 @@ else
     </div>
 }
 
-</div>
+</PageShell>
 
 @code {
     // ── State ──────────────────────────────────────────────────────────────────

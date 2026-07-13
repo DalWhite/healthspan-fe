@@ -8,7 +8,10 @@
 
 @if (_isLoading)
 {
-    <LoadingState Message="Loading dashboard..." Size="Size.Large" />
+    <PageShell>
+        <PageHeader Title="Health Dashboard" />
+        <LoadingState Message="Loading dashboard..." Size="Size.Large" />
+    </PageShell>
 }
 else
 {

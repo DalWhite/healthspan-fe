@@ -7,13 +7,19 @@
 
 @if (_isLoading)
 {
-    <LoadingState Message="Loading review workflow..." Size="Size.Large" />
+    <PageShell>
+        <PageHeader Title="Review Blood Test" />
+        <LoadingState Message="Loading review workflow..." Size="Size.Large" />
+    </PageShell>
 }
 else if (_bloodTest == null)
 {
-    <EmptyState Icon="@Icons.Material.Filled.FactCheck"
-                Title="Blood test not found"
-                Subtitle="The requested blood test could not be loaded for review." />
+    <PageShell>
+        <PageHeader Title="Review Blood Test" />
+        <EmptyState Icon="@Icons.Material.Filled.FactCheck"
+                    Title="Blood test not found"
+                    Subtitle="The requested blood test could not be loaded for review." />
+    </PageShell>
 }
 else
 {

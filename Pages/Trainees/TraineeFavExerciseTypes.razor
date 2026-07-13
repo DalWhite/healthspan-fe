@@ -3,11 +3,11 @@
 
 <PageTitle>Favourite Exercises</PageTitle>
 
-<div class="hs-page-shell">
+<PageShell>
     <PageHeader Title="Favourite Exercises" />
 
     <ExerciseTypeGrid TraineeId="@TraineeId" FavouritesOnly="true" ShowSearch="true" />
-</div>
+</PageShell>
 
 @code {
     [Parameter] public string TraineeId { get; set; } = "";

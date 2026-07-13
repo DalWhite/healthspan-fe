@@ -1,9 +1,28 @@
 @inherits LayoutComponentBase
+@inject Blazored.LocalStorage.ISyncLocalStorageService LocalStorage
+@inject ThemeState ThemeState
+@implements IDisposable
 
-<MudThemeProvider />
+<MudThemeProvider IsDarkMode="@ThemeState.IsDarkMode" Theme="@HealthspanTheme.Default" />
 
-<MudLayout class="main-layout">
-    <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh;">
+<MudLayout Class="hs-login-layout">
+    <div class="hs-login-layout-content">
         @Body
     </div>
 </MudLayout>
+
+@code {
+    protected override void OnInitialized()
+    {
+        ThemeState.Changed += HandleThemeChanged;
+
+        if (LocalStorage.ContainKey("_isDarkMode"))
+            ThemeState.SetDarkMode(LocalStorage.GetItem<bool>("_isDarkMode"));
+    }
+
+    private void HandleThemeChanged()
+        => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+        => ThemeState.Changed -= HandleThemeChanged;
+}

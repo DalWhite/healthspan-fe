@@ -13,7 +13,10 @@
 
 @if (_isLoading)
 {
-    <LoadingState Message="Loading profile..." Size="Size.Large" />
+    <PageShell>
+        <PageHeader Title="Profile" />
+        <LoadingState Message="Loading profile..." Size="Size.Large" />
+    </PageShell>
 }
 else
 {

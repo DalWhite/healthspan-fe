@@ -6,7 +6,10 @@
 
 @if (_isLoading)
 {
-    <LoadingState Message="Loading biomarkers..." Size="Size.Large" />
+    <PageShell>
+        <PageHeader Title="Biomarkers" />
+        <LoadingState Message="Loading biomarkers..." Size="Size.Large" />
+    </PageShell>
 }
 else
 {

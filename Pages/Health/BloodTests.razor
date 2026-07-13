@@ -7,7 +7,10 @@
 
 @if (_isLoading)
 {
-    <LoadingState Message="Loading blood tests..." Size="Size.Large" />
+    <PageShell>
+        <PageHeader Title="Blood Tests" />
+        <LoadingState Message="Loading blood tests..." Size="Size.Large" />
+    </PageShell>
 }
 else
 {

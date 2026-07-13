@@ -5,6 +5,7 @@ using MudBlazor.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Healthspan.Authentication;
 using Blazored.LocalStorage;
+using healthspan_fe_wasm_pwa.Shared;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -15,6 +16,7 @@ builder.Services.AddAuthorizationCore();
 
 builder.Services.AddScoped<TitleService>();
 builder.Services.AddScoped<AppStateService>();
+builder.Services.AddScoped<ThemeState>();
 
 builder.Services.AddScoped<IAccountManagement, JwtAuthenticationStateProvider>();
 builder.Services.AddScoped<JwtAuthenticationStateProvider>();
