@@ -1,19 +1,26 @@
 ﻿@page "/exercises/types/create"
 @inject HttpClient Http
+@page "/training/library/create"
 @using healthspan_fe_wasm_pwa.Shared
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject AppStateService AppState
+@inject TitleService TitleService
 
-<PageTitle>Create Exercise Type</PageTitle>
+<PageTitle>Add Exercise Type</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.Small" Class="hs-page-shell">
+    <PageHeader Title="Add Exercise Type" />
+
     <ExerciseTypeForm Model="_model"
                       OnSubmit="HandleSubmit"
                       OnCancel="NavigateBack" />
 </MudContainer>
 @code {
     private UpdateExerciseTypeResource _model = new();
+
+    protected override void OnInitialized()
+        => TitleService.Title = "Add Exercise Type";
 
     private async Task HandleSubmit(UpdateExerciseTypeResource model)
     {
@@ -40,7 +47,7 @@
         {
             AppState.InvalidateExerciseTypes();
             Snackbar.Add("Exercise type created successfully!", Severity.Success);
-            NavigationManager.NavigateTo("/exercises/types");
+            NavigationManager.NavigateTo("/training/library");
         }
         else
         {
@@ -50,6 +57,6 @@
 
     private void NavigateBack()
     {
-        NavigationManager.NavigateTo("/exercises/types");
+        NavigationManager.NavigateTo("/training/library");
     }
 }

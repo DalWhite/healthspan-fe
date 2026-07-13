@@ -1,28 +1,34 @@
 @page "/exercises/create/{TraineeId?}"
 @inject HttpClient Http
+@page "/training/today"
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject TitleService TitleService
 @using Microsoft.AspNetCore.Components
 
-<PageTitle>Create Exercise</PageTitle>
+<PageTitle>Log Exercise</PageTitle>
 
-<MudPaper Class="pa-4">
-    <MudContainer MaxWidth="MaxWidth.Medium">
-        <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
-                              TraineeId="@TraineeId"
-                              InitialExerciseTypeId="@ExerciseTypeId"
-                              InitialDate="@_initialDate"
-                              OnExerciseAdded="HandleExerciseAdded" />
+<div class="hs-page-shell hs-page-shell-narrow">
+    <PageHeader Title="Log Exercise" />
 
-        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
-                   Color="MudBlazor.Color.Primary"
-                   Variant="Variant.Outlined"
-                   Class="ml-8 mt-4 rounded-button"
-                   OnClick="NavigateBack">
-            Back
-        </MudButton>
-    </MudContainer>
-</MudPaper>
+    <MudPaper Class="hs-surface hs-form-surface">
+        <MudContainer MaxWidth="MaxWidth.Medium">
+            <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
+                                  TraineeId="@TraineeId"
+                                  InitialExerciseTypeId="@ExerciseTypeId"
+                                  InitialDate="@_initialDate"
+                                  OnExerciseAdded="HandleExerciseAdded" />
+
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
+                       Color="MudBlazor.Color.Primary"
+                       Variant="Variant.Outlined"
+                       Class="mt-4 rounded-button"
+                       OnClick="NavigateBack">
+                Back to history
+            </MudButton>
+        </MudContainer>
+    </MudPaper>
+</div>
 
 @code {
     [Parameter] public string? TraineeId { get; set; }
@@ -34,6 +40,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        TitleService.Title = "Log Exercise";
         _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes")
                          ?? Array.Empty<GetExerciseTypeResource>();
     }
@@ -47,6 +54,6 @@
 
     private void NavigateBack()
         => NavigationManager.NavigateTo(
-            TraineeId is null ? "/Exercises" : $"/trainees/{TraineeId}/exercises",
+            TraineeId is null ? "/training/history" : $"/trainees/{TraineeId}/exercises",
             forceLoad: false);
 }

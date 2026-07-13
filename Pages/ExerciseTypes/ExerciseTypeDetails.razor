@@ -1,5 +1,6 @@
 @page "/exercises/types/{ExerciseTypeId:int}/details/{TraineeId?}"
 @inject HttpClient Http
+@page "/training/library/{ExerciseTypeId:int}"
 @using ApexCharts
 @inject TitleService TitleService
 @inject IJSRuntime JSRuntime
@@ -54,10 +55,9 @@
     }
     else
     {
-        <MudText Typo="Typo.h4" Class="mb-2"
-                 Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">
+        <h1 class="hs-page-title hs-detail-page-title">
             @_title
-        </MudText>
+        </h1>
 
         <MudGrid>
             <MudItem xs="12">

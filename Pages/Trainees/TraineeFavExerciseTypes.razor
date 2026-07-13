@@ -1,12 +1,13 @@
 ﻿@page "/trainees/{TraineeId}/favourite-exercises"
 @inject TitleService TitleService
-@inject NavigationManager NavigationManager
 
 <PageTitle>Favourite Exercises</PageTitle>
 
-<ExerciseTypeGrid TraineeId="@TraineeId" FavouritesOnly="true" ShowSearch="true" />
+<div class="hs-page-shell">
+    <PageHeader Title="Favourite Exercises" />
 
-<MudFab @onclick="GoToCreate" Color="MudBlazor.Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="fixed-create-button" />
+    <ExerciseTypeGrid TraineeId="@TraineeId" FavouritesOnly="true" ShowSearch="true" />
+</div>
 
 @code {
     [Parameter] public string TraineeId { get; set; } = "";
@@ -14,6 +15,4 @@
     protected override void OnInitialized()
         => TitleService.Title = "Favourite Exercises";
 
-    private void GoToCreate()
-        => NavigationManager.NavigateTo("/exercises/types/create");
 }

@@ -1,19 +1,23 @@
 @page "/exercises/edit/{ExerciseId}"
 @inject HttpClient Http
+@page "/training/history/{ExerciseId}/edit"
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject TitleService TitleService
 
 
 <PageTitle>Edit Exercise</PageTitle>
 
-@if (Exercise == null)
-{
-    <MudProgressCircular Color="MudBlazor.Color.Default"
-                         Indeterminate="true" />
-}
-else
-{
-    <MudPaper Class="pa-4">
+<div class="hs-page-shell hs-page-shell-narrow">
+    <PageHeader Title="Edit Exercise" />
+
+    @if (Exercise == null)
+    {
+        <LoadingState Message="Loading exercise..." />
+    }
+    else
+    {
+        <MudPaper Class="hs-surface hs-form-surface">
         <ExerciseForm Exercise="_editModel"
                       @bind-Date="_workoutDate"
                       ExerciseTypes="exerciseTypes"
@@ -32,8 +36,9 @@ else
                    Variant="Variant.Outlined"
                    Class="ml-0 mt-4 rounded-button"
                    OnClick="Delete">Delete</MudButton>
-    </MudPaper>
-}
+        </MudPaper>
+    }
+</div>
 @code {
     [Parameter]
     public string ExerciseId { get; set; } = string.Empty;
@@ -45,6 +50,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        TitleService.Title = "Edit Exercise";
         exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes")
             ?? Array.Empty<GetExerciseTypeResource>();
         await LoadExercise();
@@ -157,6 +163,6 @@ else
     }
     private void GoBack()
     {
-        NavigationManager.NavigateTo("/Exercises", forceLoad: false);
+        NavigationManager.NavigateTo("/training/history", forceLoad: false);
     }
 }

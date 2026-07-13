@@ -21,8 +21,6 @@ else
         @if (ShowSearch)
         {
             <section class="hs-et-toolbar">
-                <MudText Typo="Typo.h5">Exercise Library</MudText>
-
                 <MudTextField Value="_search"
                               ValueChanged="@((string value) => OnSearchChanged(value))"
                               Placeholder="Search exercises, variations, or tags..."
@@ -128,17 +126,6 @@ else
                                                OnClick="@(() => OpenStats(exercise))"
                                                Title="View stats"
                                                aria-label="View stats"
-                                               Class="hs-et-action-icon" />
-                            </span>
-
-                            <span class="hs-et-action-slot" @onclick:stopPropagation="true">
-                                <MudIconButton Icon="@Icons.Material.Filled.Add"
-                                               Color="MudBlazor.Color.Success"
-                                               Size="MudBlazor.Size.Small"
-                                               Variant="Variant.Filled"
-                                               OnClick="@(() => GoToCreateExercise(exercise))"
-                                               Title="Create exercise for today"
-                                               aria-label="Create exercise for today"
                                                Class="hs-et-action-icon" />
                             </span>
 
@@ -271,20 +258,12 @@ else
         => NavigationManager.NavigateTo(GetStatsRoute(exercise));
 
     private void GoToEditExerciseType(GetExerciseTypeResource exercise)
-        => NavigationManager.NavigateTo($"/exercises/types/{exercise.Id}/edit");
-
-    private void GoToCreateExercise(GetExerciseTypeResource exercise)
-        => NavigationManager.NavigateTo(GetCreateExerciseRoute(exercise));
+        => NavigationManager.NavigateTo($"/training/library/{exercise.Id}/edit");
 
     private string GetStatsRoute(GetExerciseTypeResource exercise)
         => TraineeId != null
             ? $"/exercises/types/{exercise.Id}/details/{TraineeId}"
-            : $"/exercises/types/{exercise.Id}/details";
-
-    private string GetCreateExerciseRoute(GetExerciseTypeResource exercise)
-        => TraineeId != null
-            ? $"/exercises/create/{TraineeId}?exerciseTypeId={exercise.Id}"
-            : $"/exercises/create?exerciseTypeId={exercise.Id}";
+            : $"/training/library/{exercise.Id}";
 
     private async Task ToggleFavourite(MouseEventArgs _, GetExerciseTypeResource exercise)
     {
@@ -330,5 +309,5 @@ else
     }
 
     private void GoToCreateExerciseType()
-        => NavigationManager.NavigateTo("/exercises/types/create");
+        => NavigationManager.NavigateTo("/training/library/create");
 }

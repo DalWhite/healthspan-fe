@@ -34,6 +34,15 @@ User-facing terminology should change as follows:
 - Improve API contracts and authorization alongside the workflows that depend on them.
 - Deliver in vertical slices with regression coverage rather than performing a full frontend rewrite.
 
+## Implementation status
+
+Updated 12 July 2026:
+
+- Step 1 completed: baseline validation, authentication cleanup, return URLs, and reliable edit/delete behavior.
+- Step 2 completed: grouped task-based navigation, four-item mobile bottom navigation, and new Training route aliases. Existing frontend and API routes remain available.
+- Step 3 completed: compact page-header/shell primitives, expanded design tokens, responsive app shell, aligned theme palettes, and removal of broad global MudBlazor overrides.
+- Steps 4–10 remain planned.
+
 ## 1. Stabilize the current baseline — P0, small
 
 Complete the known prerequisite fixes before reorganizing navigation:

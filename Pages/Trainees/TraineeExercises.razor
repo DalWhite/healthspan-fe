@@ -5,6 +5,9 @@
 
 <PageTitle>Exercises</PageTitle>
 
+<div class="hs-page-shell">
+<PageHeader Title="Trainee Training History" />
+
 @if (_exercises == null)
 {
     <LoadingState Message="Loading exercises..." />
@@ -76,6 +79,7 @@ else
     <MudFab @onclick="GoToCreate" Color="MudBlazor.Color.Primary" StartIcon="@Icons.Material.Filled.Add"
             Class="fixed-create-button" />
 }
+</div>
 
 @code {
     [Parameter] public string TraineeId { get; set; } = "";
@@ -94,7 +98,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Exercises";
+        TitleService.Title = "Trainee Training History";
         _exercises = await Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?userId={TraineeId}");
     }
 

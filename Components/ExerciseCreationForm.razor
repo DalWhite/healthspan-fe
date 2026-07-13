@@ -76,12 +76,15 @@
     </MudContainer>
 </EditForm>
 
-<MudFab @onclick="OnFabClick"
-        Color="MudBlazor.Color.Primary"
-        StartIcon="@Icons.Material.Filled.Add"
-        Style="float: right;"
-        Size="MudBlazor.Size.Small"
-        Class="mr-8" />
+<div class="hs-form-primary-action">
+    <MudButton OnClick="OnSaveClick"
+               Color="MudBlazor.Color.Primary"
+               Variant="Variant.Filled"
+               StartIcon="@Icons.Material.Filled.Save"
+               FullWidth="true">
+        Save exercise
+    </MudButton>
+</div>
 
 @code {
     [Parameter] public GetExerciseTypeResource[]? ExerciseTypes { get; set; }
@@ -284,7 +287,7 @@
             AddedWeight = source.AddedWeight
         };
 
-    private async Task OnFabClick()
+    private async Task OnSaveClick()
     {
         _editContext ??= new EditContext(_exercise);
         if (_editContext.Validate())

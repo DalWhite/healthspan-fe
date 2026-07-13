@@ -21,7 +21,7 @@ else
         <MudPaper Class="hs-profile-hero">
             <div class="hs-profile-hero-copy">
                 <MudText Typo="Typo.overline" Class="hs-dashboard-eyebrow">Weekly planning view</MudText>
-                <MudText Typo="Typo.h4">@DisplayName</MudText>
+                <h1 class="hs-native-page-title">@DisplayName</h1>
                 @if (!string.IsNullOrWhiteSpace(_email))
                 {
                     <MudText Typo="Typo.body2" Class="hs-profile-identity">@_email</MudText>

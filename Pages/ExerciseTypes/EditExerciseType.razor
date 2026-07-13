@@ -1,5 +1,6 @@
 @page "/exercises/types/{ExerciseTypeId:int}/edit"
 @inject HttpClient Http
+@page "/training/library/{ExerciseTypeId:int}/edit"
 @inject NavigationManager NavigationManager
 @inject TitleService TitleService
 @inject AppStateService AppState
@@ -8,7 +9,9 @@
 
 <PageTitle>Edit Exercise Type</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.Small" Class="hs-page-shell">
+    <PageHeader Title="@(_et?.Name is { Length: > 0 } ? $"Edit {_et.Name}" : "Edit Exercise Type")" />
+
     @if (_isLoading)
     {
         <LoadingState Message="Loading exercise type..." />
@@ -17,8 +20,8 @@
     {
         <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
         <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary"
-                   OnClick="@(() => NavigationManager.NavigateTo("/exercises/types"))">
-            Back to Exercise Types
+                   OnClick="@(() => NavigationManager.NavigateTo("/training/library"))">
+            Back to Exercise Library
         </MudButton>
     }
     else if (_et != null)
@@ -102,7 +105,7 @@
             {
                 AppState.InvalidateExerciseTypes();
                 Snackbar.Add("Exercise type saved successfully!", Severity.Success);
-                NavigationManager.NavigateTo("/exercises/types");
+                NavigationManager.NavigateTo("/training/library");
             }
             else
             {
@@ -137,7 +140,7 @@
             {
                 AppState.InvalidateExerciseTypes();
                 Snackbar.Add("Exercise type deleted.", Severity.Warning);
-                NavigationManager.NavigateTo("/exercises/types");
+                NavigationManager.NavigateTo("/training/library");
             }
             else
             {
@@ -151,5 +154,5 @@
     }
 
     private void Cancel()
-        => NavigationManager.NavigateTo("/exercises/types");
+        => NavigationManager.NavigateTo("/training/library");
 }

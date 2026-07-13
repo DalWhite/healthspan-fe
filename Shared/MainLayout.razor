@@ -2,7 +2,6 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @using System.Security.Claims
-@inject TitleService TitleService
 @inject Blazored.LocalStorage.ISyncLocalStorageService LocalStorage
 
 <MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_theme" />
@@ -10,24 +9,40 @@
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1">
+    <MudAppBar Elevation="0" Class="hs-appbar">
         <MudIconButton Icon="@Icons.Material.Filled.Menu"
                        Color="MudBlazor.Color.Inherit"
                        Edge="Edge.Start"
+                       aria-label="Toggle navigation"
                        OnClick="ToggleDrawer" />
-        <MudText Typo="Typo.h6">@TitleService.Title</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled"
+                   Color="MudBlazor.Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Class="hs-appbar-primary-action"
+                   OnClick="GoToToday">
+            Log workout
+        </MudButton>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="@_drawerOpen" Elevation="1" Class="drawer-responsive">
-        <MudDrawerHeader>
-            <MudText Typo="Typo.h6">Healthspan</MudText>
+    <MudDrawer @bind-Open="@_drawerOpen"
+               Elevation="0"
+               Variant="@DrawerVariant.Responsive"
+               Breakpoint="@Breakpoint.Md"
+               Class="hs-app-drawer">
+        <MudDrawerHeader Class="hs-drawer-header">
+            <div class="hs-brand-mark">H</div>
+            <div>
+                <MudText Typo="Typo.h6" Class="hs-brand-name">Healthspan</MudText>
+                <MudText Typo="Typo.caption" Class="hs-brand-caption">Health + training</MudText>
+            </div>
         </MudDrawerHeader>
         <NavMenu />
 
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
-                <div class="hs-account-dock ml-6 mb-6">
+                <div class="hs-account-dock">
                     <MudIconButton OnClick="GoToSettings"
                                    Icon="@Icons.Material.Filled.Settings"
                                    aria-label="settings" />
@@ -45,16 +60,35 @@
         </AuthorizeView>
     </MudDrawer>
 
-    <MudMainContent Class="main-content">
-        <MudContainer Class="mt-6">
+    <MudMainContent Class="main-content hs-main-content">
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="hs-app-content">
             @Body
         </MudContainer>
     </MudMainContent>
+
+    <nav class="hs-mobile-bottom-nav" aria-label="Primary navigation">
+        <NavLink href="/health/dashboard" class="hs-mobile-nav-link" Match="NavLinkMatch.Prefix">
+            <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" Size="MudBlazor.Size.Small" />
+            <span>Health</span>
+        </NavLink>
+        <NavLink href="/training/today" class="hs-mobile-nav-link hs-mobile-nav-primary" Match="NavLinkMatch.All">
+            <MudIcon Icon="@Icons.Material.Filled.AddCircle" Size="MudBlazor.Size.Small" />
+            <span>Today</span>
+        </NavLink>
+        <NavLink href="/training/history" class="hs-mobile-nav-link" Match="NavLinkMatch.Prefix">
+            <MudIcon Icon="@Icons.Material.Filled.History" Size="MudBlazor.Size.Small" />
+            <span>History</span>
+        </NavLink>
+        <NavLink href="/training/library" class="hs-mobile-nav-link" Match="NavLinkMatch.Prefix">
+            <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="MudBlazor.Size.Small" />
+            <span>Library</span>
+        </NavLink>
+    </nav>
 </MudLayout>
 
 @code {
     private bool _isDarkMode;
-    private bool _drawerOpen = false;
+    private bool _drawerOpen = true;
 
     private readonly MudTheme _theme = new()
     {
@@ -62,21 +96,24 @@
         {
             Primary = "#ae1d0d",
             Secondary = "#035960",
-            AppbarBackground = "#02363a"
+            AppbarBackground = "#082f33",
+            DrawerBackground = "#f7faf9",
+            Background = "#f3f7f6",
+            Surface = "#ffffff"
         },
         PaletteDark = new PaletteDark
         {
             Primary = "#ae1d0d",
             Secondary = "#05a0ac",
-            AppbarBackground = "#108b37"
+            AppbarBackground = "#102c30",
+            DrawerBackground = "#13272a",
+            Background = "#0e1c1f",
+            Surface = "#172b2e"
         }
     };
 
     protected override async Task OnInitializedAsync()
     {
-        // Subscribe to title changes
-        TitleService.OnChange += StateHasChanged;
-
         // Restore dark mode preference
         if (LocalStorage.ContainKey("_isDarkMode"))
             _isDarkMode = LocalStorage.GetItem<bool>("_isDarkMode");
@@ -95,9 +132,8 @@
             NavigationManager.NavigateTo("/login");
     }
 
-    public void Dispose() => TitleService.OnChange -= StateHasChanged;
-
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void GoToToday() => NavigationManager.NavigateTo("/training/today");
     private void GoToProfile() => NavigationManager.NavigateTo("/profile");
     private void GoToSettings() => NavigationManager.NavigateTo("/settings");
     private void OnAvatarKeyDown(KeyboardEventArgs e)

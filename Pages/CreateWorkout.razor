@@ -5,6 +5,9 @@
 
 <PageTitle>Create Workout</PageTitle>
 
+<div class="hs-page-shell hs-page-shell-narrow">
+<PageHeader Title="Create Workout" />
+
 <MudDatePicker Label="Workout date"
                Editable="true"
                @bind-Date="workout.Date"
@@ -46,6 +49,7 @@
 <ExerciseCreationForm ExerciseTypes="@exerciseTypes"
                       WorkoutId="@workoutId"
                       OnExerciseAdded="HandleExerciseAdded"></ExerciseCreationForm>
+</div>
 
 
 @code {

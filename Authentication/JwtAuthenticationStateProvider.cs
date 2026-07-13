@@ -88,11 +88,8 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
                     password
                 });
 
-            if (result.IsSuccessStatusCode)
+            if (result.IsSuccessStatusCode && await CompleteSignInAsync(result))
             {
-                await ExtractAccessTokenAndStoreInLocalStorage(result);
-                NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
-
                 return new FormResult { Succeeded = true };
             }
         }
@@ -118,10 +115,8 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
                     idToken
                 });
 
-            if (response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode && await CompleteSignInAsync(response))
             {
-                await ExtractAccessTokenAndStoreInLocalStorage(response);
-                NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
                 return new FormResult { Succeeded = true };
             }
 
@@ -142,16 +137,31 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         }
     }
 
-    private async Task ExtractAccessTokenAndStoreInLocalStorage(HttpResponseMessage result)
+    private async Task<bool> CompleteSignInAsync(HttpResponseMessage response)
+    {
+        if (!await ExtractAccessTokenAndStoreInLocalStorage(response))
+        {
+            return false;
+        }
+
+        var authenticationState = await GetAuthenticationStateAsync();
+        NotifyAuthenticationStateChanged(Task.FromResult(authenticationState));
+        return authenticationState.User.Identity?.IsAuthenticated == true;
+    }
+
+    private async Task<bool> ExtractAccessTokenAndStoreInLocalStorage(HttpResponseMessage result)
     {
         var responseContent = await result.Content.ReadAsStringAsync();
         var tokenObject = JsonSerializer.Deserialize<AuthLoginResponse>(responseContent);
-        if (tokenObject?.accessToken is not null)
+        if (string.IsNullOrWhiteSpace(tokenObject?.accessToken))
         {
-            await _localStorage.SetItemAsync("authToken", tokenObject.accessToken);
-            await _localStorage.SetItemAsync("refreshToken", tokenObject.refreshToken);
-            SetAuthorizationHeader(tokenObject.accessToken);
+            return false;
         }
+
+        await _localStorage.SetItemAsync("authToken", tokenObject.accessToken);
+        await _localStorage.SetItemAsync("refreshToken", tokenObject.refreshToken);
+        SetAuthorizationHeader(tokenObject.accessToken);
+        return true;
     }
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {

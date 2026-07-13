@@ -11,11 +11,11 @@
 
 <PageTitle>Settings</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
-    <MudText Typo="Typo.h4" Class="mb-4">Settings</MudText>
+<MudContainer MaxWidth="MaxWidth.Small" Class="hs-page-shell">
+    <PageHeader Title="Settings" />
 
     <!-- Account Section -->
-    <MudCard Class="mb-4">
+    <MudCard Class="mb-4 hs-surface">
         <MudCardContent>
             <MudText Typo="Typo.h6" Class="mb-3">Account</MudText>
             <MudButton OnClick="Logout" Color="MudBlazor.Color.Error" Variant="Variant.Outlined"
@@ -26,7 +26,7 @@
     </MudCard>
 
     <!-- Theme Section -->
-    <MudCard Class="mb-4">
+    <MudCard Class="mb-4 hs-surface">
         <MudCardContent>
             <MudText Typo="Typo.h6" Class="mb-3">Appearance</MudText>
             <MudSwitch Value="_isDarkMode" Size="MudBlazor.Size.Small" Color="MudBlazor.Color.Primary"
@@ -35,7 +35,7 @@
     </MudCard>
 
     <!-- Data Section -->
-    <MudCard Class="mb-4">
+    <MudCard Class="mb-4 hs-surface">
         <MudCardContent>
             <MudText Typo="Typo.h6" Class="mb-3">Data Import / Export</MudText>
 

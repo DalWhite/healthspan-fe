@@ -1,7 +1,7 @@
 ﻿@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject AppStateService AppState
 
-<MudNavMenu>
+<MudNavMenu Class="hs-nav-menu">
     <MudNavGroup Title="Health" Icon="@Icons.Material.Filled.MonitorHeart" Expanded="true">
         <MudNavLink Href="health/dashboard" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.SpaceDashboard">
             Dashboard
@@ -15,29 +15,43 @@
             Biomarkers
         </MudNavLink>
 
-        @* <MudNavLink Href="health/assessments" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.FactCheck">
+        <MudNavLink Href="health/assessments" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.FactCheck">
             Assessments
-        </MudNavLink> *@
+        </MudNavLink>
     </MudNavGroup>
 
-    <MudNavLink Href="exercises" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.FitnessCenter">
-        Exercises
-    </MudNavLink>
+    <MudNavGroup Title="Training" Icon="@Icons.Material.Filled.FitnessCenter" Expanded="true">
+        <MudNavLink Href="training/today" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.AddCircle">
+            Today
+        </MudNavLink>
 
-    @* <MudNavLink Href="workouts" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CalendarToday">
-        Workouts
-    </MudNavLink> *@
+        <MudNavLink Href="training/history" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.History">
+            Training History
+        </MudNavLink>
 
-    <MudNavLink Href="exercises/types" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ListAlt">
-        Exercise Types
-    </MudNavLink>
+        <MudNavLink Href="training/library" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MenuBook">
+            Exercise Library
+        </MudNavLink>
+    </MudNavGroup>
 
     @if (_isTrainer)
     {
-        <MudNavLink Href="trainees" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
-            Trainees
-        </MudNavLink>
+        <MudNavGroup Title="Coaching" Icon="@Icons.Material.Filled.Groups">
+            <MudNavLink Href="trainees" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
+                Trainees
+            </MudNavLink>
+        </MudNavGroup>
     }
+
+    <MudNavGroup Title="Account" Icon="@Icons.Material.Filled.AccountCircle">
+        <MudNavLink Href="profile" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">
+            Profile
+        </MudNavLink>
+
+        <MudNavLink Href="settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">
+            Settings
+        </MudNavLink>
+    </MudNavGroup>
 </MudNavMenu>
 
 @code {

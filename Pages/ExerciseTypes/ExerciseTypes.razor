@@ -1,21 +1,32 @@
 ﻿@page "/exercises/types"
 @inject TitleService TitleService
+@page "/training/library"
 @inject NavigationManager NavigationManager
 
-<PageTitle>Exercise Types</PageTitle>
+<PageTitle>Exercise Library</PageTitle>
 
-<ExerciseTypeGrid FavouritesOnly="false" ShowSearch="true" TraineeId="@null" />
+<div class="hs-page-shell">
+    <PageHeader Title="Exercise Library">
+        <Actions>
+            <MudButton Variant="Variant.Filled"
+                       Color="MudBlazor.Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="GoToCreate">
+                New type
+            </MudButton>
+        </Actions>
+    </PageHeader>
 
-<MudFab @onclick="GoToCreate" Color="MudBlazor.Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-        Class="fixed-create-button" Label="New Exercise Type" />
+    <ExerciseTypeGrid FavouritesOnly="false" ShowSearch="true" TraineeId="@null" />
+</div>
 
 @code {
     protected override void OnInitialized()
     {
-        TitleService.Title = "Exercise Types";
+        TitleService.Title = "Exercise Library";
     }
 
     private void GoToCreate()
-        => NavigationManager.NavigateTo("/exercises/types/create");
+        => NavigationManager.NavigateTo("/training/library/create");
 }
 

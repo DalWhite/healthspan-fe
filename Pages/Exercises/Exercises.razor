@@ -1,15 +1,19 @@
 ﻿@page "/exercises"
 @inject HttpClient Http
+@page "/training/history"
 @inject NavigationManager NavigationManager
 @inject TitleService TitleService
 @inject AppStateService AppState
 @inject IDialogService DialogService
 @using static healthspan_fe_wasm_pwa.Components.ExerciseFilterDialog
 
-<PageTitle>Exercises</PageTitle>
+<PageTitle>Training History</PageTitle>
+
+<div class="hs-page-shell">
+    <PageHeader Title="Training History" />
 
 <!-- Sort & Filter Controls -->
-<div class="sort-controls mb-3">
+<div class="sort-controls hs-toolbar">
     <MudButtonGroup Color="MudBlazor.Color.Primary" Variant="Variant.Outlined" Size="MudBlazor.Size.Small">
         <MudButton OnClick="@(() => SortExercisesBy("date"))" Variant="@GetSortButtonVariant("date")">Date</MudButton>
         <MudButton OnClick="OpenFilterDialog" Variant="@(_isFilterActive ? Variant.Filled : Variant.Outlined)">
@@ -192,10 +196,7 @@ else
     </div>
 }
 
-<MudFab @onclick="GoToCreateExercise"
-        Color="MudBlazor.Color.Primary"
-        StartIcon="@Icons.Material.Filled.Add"
-        Class="fixed-create-button" />
+</div>
 
 @code {
     // ── State ──────────────────────────────────────────────────────────────────
@@ -224,7 +225,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Exercises";
+        TitleService.Title = "Training History";
 
         // Load muscles and exercise type options (both cached in AppStateService)
         _muscles = await AppState.GetMusclesAsync();
@@ -368,14 +369,14 @@ else
 
     // ── Navigation ─────────────────────────────────────────────────────────────
 
-    private void GoToCreateExercise() => NavigationManager.NavigateTo("/exercises/create");
+    private void GoToCreateExercise() => NavigationManager.NavigateTo("/training/today");
     private void GoToExerciseTypeDetails(int? id)
     {
-        if (id.HasValue) NavigationManager.NavigateTo($"/exercises/types/{id}/details");
+        if (id.HasValue) NavigationManager.NavigateTo($"/training/library/{id}");
     }
     private void GoToEditExercise(Guid? id)
     {
-        if (id.HasValue) NavigationManager.NavigateTo($"/exercises/edit/{id}");
+        if (id.HasValue) NavigationManager.NavigateTo($"/training/history/{id}/edit");
     }
 
     // ── Date/Volume Helpers ────────────────────────────────────────────────────

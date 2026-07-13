@@ -1,19 +1,16 @@
 ﻿@page "/exercises/types/fav"
 @inject TitleService TitleService
-@inject NavigationManager NavigationManager
 
-<PageTitle>Favourite Exercise Types</PageTitle>
+<PageTitle>Favourite Exercises</PageTitle>
 
-<ExerciseTypeGrid FavouritesOnly="true" ShowSearch="true" />
+<div class="hs-page-shell">
+    <PageHeader Title="Favourite Exercises" />
 
-<MudFab @onclick="GoToCreate" Color="MudBlazor.Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="fixed-create-button" Label="New Exercise Type" />
+    <ExerciseTypeGrid FavouritesOnly="true" ShowSearch="true" />
+</div>
 
 @code {
     protected override void OnInitialized()
         => TitleService.Title = "Favourite Exercises";
 
-    private void GoToCreate()
-    {
-        NavigationManager.NavigateTo("/exercises/types/create");
-    }
 }

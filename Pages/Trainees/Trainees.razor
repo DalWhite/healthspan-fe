@@ -5,7 +5,9 @@
 
 <PageTitle>Trainees</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="hs-page-shell">
+    <PageHeader Title="Trainees" />
+
     @if (_trainees == null)
     {
         <LoadingState Message="Loading trainees..." />
