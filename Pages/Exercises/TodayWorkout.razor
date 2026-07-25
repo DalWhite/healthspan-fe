@@ -1,0 +1,221 @@
+@page "/training/today"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject TitleService TitleService
+@using System.Net
+
+<PageTitle>Today's Workout</PageTitle>
+
+<PageShell Narrow="true" Class="hs-today-page">
+    <div class="hs-today-heading">
+        <div>
+            <MudText Typo="Typo.h5">Today</MudText>
+            <MudText Typo="Typo.caption" Class="hs-muted-copy">@DateLabel</MudText>
+        </div>
+
+        @if (_session is not null)
+        {
+            <MudButton Variant="Variant.Text"
+                       Color="MudBlazor.Color.Primary"
+                       OnClick="FinishWorkout">
+                Finish
+            </MudButton>
+        }
+    </div>
+
+    @if (_isLoading)
+    {
+        <LoadingState Message="Loading today's workout..." />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        <MudButton Variant="Variant.Outlined"
+                   Color="MudBlazor.Color.Primary"
+                   Class="mt-3"
+                   OnClick="LoadPageAsync">
+            Retry
+        </MudButton>
+    }
+    else if (_session is null)
+    {
+        <MudPaper Class="hs-surface hs-today-start" Elevation="0">
+            <MudIcon Icon="@Icons.Material.Filled.FitnessCenter"
+                     Color="MudBlazor.Color.Primary"
+                     Size="MudBlazor.Size.Large" />
+            <MudButton Variant="Variant.Filled"
+                       Color="MudBlazor.Color.Primary"
+                       FullWidth="true"
+                       Loading="@_isStarting"
+                       Disabled="@_isStarting"
+                       OnClick="StartWorkout">
+                Start workout
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <section class="hs-today-session" aria-label="Current workout">
+            <div class="hs-today-session-summary">
+                <span>@ExerciseSummary</span>
+            </div>
+
+            @if (_session.Exercises.Count == 0)
+            {
+                <div class="hs-today-empty-session">No exercises yet.</div>
+            }
+            else
+            {
+                <div class="hs-today-exercise-list">
+                    @foreach (var exercise in _session.Exercises)
+                    {
+                        <article class="hs-today-exercise-item">
+                            <span class="hs-today-exercise-name">@exercise.Name</span>
+                            <span class="hs-today-exercise-load">@FormatExercise(exercise)</span>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <MudPaper Class="hs-surface hs-today-add" Elevation="0">
+            <MudText Typo="Typo.h6" Class="hs-today-add-title">Add exercise</MudText>
+            <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
+                                  WorkoutId="@_session.Id"
+                                  ShowDatePicker="false"
+                                  ShowQuickPicks="true"
+                                  UseWorkoutSessionEndpoint="true"
+                                  SubmitLabel="Add exercise"
+                                  RecentExerciseTypeIds="@_session.RecentExerciseTypeIds"
+                                  OnSessionUpdated="HandleSessionUpdated" />
+        </MudPaper>
+    }
+</PageShell>
+
+@code {
+    private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
+    private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
+    private WorkoutSessionResource? _session;
+    private string? _error;
+    private bool _isLoading = true;
+    private bool _isStarting;
+
+    private string DateLabel
+        => _today.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMMM");
+
+    private string ExerciseSummary
+    {
+        get
+        {
+            var exerciseCount = _session?.Exercises.Count ?? 0;
+            var totalSets = _session?.Exercises.Sum(exercise => exercise.Series ?? 0) ?? 0;
+            return $"{exerciseCount} {(exerciseCount == 1 ? "exercise" : "exercises")} · {totalSets} sets";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        TitleService.Title = "Today";
+        await LoadPageAsync();
+    }
+
+    private async Task LoadPageAsync()
+    {
+        _isLoading = true;
+        _error = null;
+
+        try
+        {
+            var typesTask = Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+            var sessionTask = LoadSessionAsync();
+            await Task.WhenAll(typesTask, sessionTask);
+
+            _exerciseTypes = typesTask.Result ?? Array.Empty<GetExerciseTypeResource>();
+            _session = sessionTask.Result;
+        }
+        catch (HttpRequestException)
+        {
+            _error = "Today's workout could not be loaded.";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "Loading took too long. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task<WorkoutSessionResource?> LoadSessionAsync()
+    {
+        using var response = await Http.GetAsync($"/Workouts/today?date={_today:yyyy-MM-dd}");
+        if (response.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<WorkoutSessionResource>();
+    }
+
+    private async Task StartWorkout()
+    {
+        if (_isStarting)
+        {
+            return;
+        }
+
+        _isStarting = true;
+        _error = null;
+
+        try
+        {
+            using var response = await Http.PostAsJsonAsync(
+                "/Workouts/today",
+                new StartWorkoutSessionResource { Date = _today });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = "The workout could not be started.";
+                return;
+            }
+
+            _session = await response.Content.ReadFromJsonAsync<WorkoutSessionResource>();
+            if (_session is null)
+            {
+                _error = "The workout response was incomplete.";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The workout could not be started.";
+        }
+        finally
+        {
+            _isStarting = false;
+        }
+    }
+
+    private Task HandleSessionUpdated(WorkoutSessionResource session)
+    {
+        _session = session;
+        Snackbar.Add("Exercise added.", Severity.Success);
+        return Task.CompletedTask;
+    }
+
+    private void FinishWorkout()
+        => NavigationManager.NavigateTo("/training/history");
+
+    private static string FormatExercise(WorkoutSessionExerciseResource exercise)
+    {
+        var sets = exercise.Series ?? 0;
+        var repetitions = exercise.Repetitions ?? 0;
+        var load = exercise.Weight.GetValueOrDefault() > 0
+            ? $" · {exercise.Weight:0.#} kg"
+            : string.Empty;
+
+        return $"{sets} × {repetitions}{load}";
+    }
+}

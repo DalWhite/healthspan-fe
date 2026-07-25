@@ -118,6 +118,8 @@ SQL deliverables:
 
 - Current state and Phase 2 decisions: [exercise-catalog-reorganization-proposal.md](../../healthspan-api/Tools/sql/exercise-catalog-reorganization-proposal.md)
 - Phase 1 execution record: [exercise-catalog-phase1-apply.sql](../../healthspan-api/Tools/sql/exercise-catalog-phase1-apply.sql)
+- Phase 2 read-only preview: [exercise-catalog-phase2-preview.sql](../../healthspan-api/Tools/sql/exercise-catalog-phase2-preview.sql)
+- Phase 2 atomic apply: [exercise-catalog-phase2-apply.sql](../../healthspan-api/Tools/sql/exercise-catalog-phase2-apply.sql)
 
 The downloaded `exercises-template (1).csv` is a workout-history import template, not a catalog-maintenance format, so it should not be used for this reorganization.
 

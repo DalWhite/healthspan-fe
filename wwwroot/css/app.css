@@ -2103,6 +2103,146 @@ html {
     flex-direction: column;
   }
 }
+.hs-today-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 24px;
+}
+
+.hs-today-heading,
+.hs-today-session-summary,
+.hs-today-exercise-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hs-today-start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 28px 20px;
+}
+
+.hs-today-session,
+.hs-today-add {
+  padding: 16px;
+  border: 1px solid rgba(15, 95, 103, 0.1);
+  border-radius: var(--hs-radius-card);
+}
+
+.hs-today-session-summary {
+  min-height: 28px;
+  color: var(--mud-palette-text-secondary);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.hs-today-empty-session {
+  padding: 18px 0 4px;
+  color: var(--mud-palette-text-secondary);
+}
+
+.hs-today-exercise-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+}
+
+.hs-today-exercise-item {
+  min-height: 48px;
+  padding: 10px 0;
+  border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.hs-today-exercise-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hs-today-exercise-load {
+  flex-shrink: 0;
+  color: var(--mud-palette-text-secondary);
+  font-size: 0.86rem;
+}
+
+.hs-today-add-title {
+  margin: 0 8px 6px;
+}
+
+.hs-exercise-quick-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 8px;
+}
+
+.hs-exercise-quick-label {
+  color: var(--mud-palette-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hs-exercise-quick-list {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.hs-exercise-quick-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  max-width: 190px;
+  padding: 7px 11px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 95, 103, 0.16);
+  border-radius: 999px;
+  background: rgba(15, 95, 103, 0.06);
+  color: var(--mud-palette-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.hs-exercise-quick-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hs-exercise-quick-button:hover,
+.hs-exercise-quick-button:focus-visible {
+  border-color: var(--mud-palette-primary);
+  outline: none;
+}
+
+@media (max-width: 600px) {
+  .hs-today-session,
+  .hs-today-add {
+    padding: 14px 10px;
+  }
+
+  .hs-today-exercise-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
 /* Custom column style for reducing white space between columns */
 .compact-column {
   padding: 0.5rem; /* Less padding between columns */

@@ -13,10 +13,51 @@
     }
 
     <MudContainer>
-        <MudDatePicker Label="Date"
-                       @bind-Date="_workout.Date"
-                       Variant="Variant.Outlined"
-                       Class="ma-2" />
+        @if (ShowDatePicker)
+        {
+            <MudDatePicker Label="Date"
+                           @bind-Date="_workout.Date"
+                           Variant="Variant.Outlined"
+                           Class="ma-2" />
+        }
+
+        @if (ShowQuickPicks && FavouriteQuickPicks.Count > 0)
+        {
+            <div class="hs-exercise-quick-picks" aria-label="Favourite exercises">
+                <span class="hs-exercise-quick-label">Favourites</span>
+                <div class="hs-exercise-quick-list">
+                    @foreach (var exerciseType in FavouriteQuickPicks)
+                    {
+                        <button type="button"
+                                class="hs-exercise-quick-button"
+                                @onclick="@(() => SelectType(exerciseType))">
+                            <MudIcon Icon="@Icons.Material.Filled.Star"
+                                     Size="MudBlazor.Size.Small" />
+                            <span>@exerciseType.Name</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (ShowQuickPicks && RecentQuickPicks.Count > 0)
+        {
+            <div class="hs-exercise-quick-picks" aria-label="Recent exercises">
+                <span class="hs-exercise-quick-label">Recent</span>
+                <div class="hs-exercise-quick-list">
+                    @foreach (var exerciseType in RecentQuickPicks)
+                    {
+                        <button type="button"
+                                class="hs-exercise-quick-button"
+                                @onclick="@(() => SelectType(exerciseType))">
+                            <MudIcon Icon="@Icons.Material.Filled.History"
+                                     Size="MudBlazor.Size.Small" />
+                            <span>@exerciseType.Name</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
 
         <MudAutocomplete T="GetExerciseTypeResource"
                          Label="Exercise"
@@ -84,7 +125,7 @@
                Disabled="@_isSaving"
                Loading="@_isSaving"
                FullWidth="true">
-        Save exercise
+        @SubmitLabel
     </MudButton>
 </div>
 
@@ -95,7 +136,13 @@
     [Parameter] public string? TraineeId { get; set; }
     [Parameter] public int? InitialExerciseTypeId { get; set; }
     [Parameter] public DateTime? InitialDate { get; set; }
+    [Parameter] public bool ShowDatePicker { get; set; } = true;
+    [Parameter] public bool ShowQuickPicks { get; set; }
+    [Parameter] public bool UseWorkoutSessionEndpoint { get; set; }
+    [Parameter] public string SubmitLabel { get; set; } = "Save exercise";
+    [Parameter] public IReadOnlyCollection<int> RecentExerciseTypeIds { get; set; } = Array.Empty<int>();
     [Parameter] public EventCallback<AddExerciseResource> OnExerciseAdded { get; set; }
+    [Parameter] public EventCallback<WorkoutSessionResource> OnSessionUpdated { get; set; }
 
     private AddExerciseResource _exercise = new();
     private GetExerciseTypeResource? _selectedType;
@@ -105,6 +152,30 @@
     private DateTime? _appliedInitialDate;
     private string? _submissionError;
     private bool _isSaving;
+
+    private List<GetExerciseTypeResource> FavouriteQuickPicks
+        => (ExerciseTypes ?? Array.Empty<GetExerciseTypeResource>())
+            .Where(exerciseType => exerciseType.IsFavourite)
+            .Take(4)
+            .ToList();
+
+    private List<GetExerciseTypeResource> RecentQuickPicks
+    {
+        get
+        {
+            var exerciseTypes = ExerciseTypes ?? Array.Empty<GetExerciseTypeResource>();
+            var favourites = FavouriteQuickPicks
+                .Select(exerciseType => exerciseType.Id)
+                .ToHashSet();
+
+            return RecentExerciseTypeIds
+                .Select(id => exerciseTypes.FirstOrDefault(exerciseType => exerciseType.Id == id))
+                .Where(exerciseType => exerciseType is not null && !favourites.Contains(exerciseType.Id))
+                .Cast<GetExerciseTypeResource>()
+                .Take(4)
+                .ToList();
+        }
+    }
 
     protected override void OnInitialized() => _editContext = new EditContext(_exercise);
 
@@ -227,7 +298,10 @@
             _exercise.WorkoutId = workoutId;
             _exercise.TypeId = _selectedType.Id;
 
-            using var response = await Http.PostAsJsonAsync("/Exercises", _exercise);
+            var endpoint = UseWorkoutSessionEndpoint
+                ? $"/Workouts/{workoutId}/exercises"
+                : "/Exercises";
+            using var response = await Http.PostAsJsonAsync(endpoint, _exercise);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -235,8 +309,25 @@
                 return;
             }
 
+            WorkoutSessionResource? updatedSession = null;
+            if (UseWorkoutSessionEndpoint)
+            {
+                updatedSession = await response.Content.ReadFromJsonAsync<WorkoutSessionResource>();
+                if (updatedSession is null)
+                {
+                    _submissionError = "The workout response was incomplete. Please try again.";
+                    return;
+                }
+            }
+
             var addedExercise = CloneExercise(_exercise);
             ResetForm();
+
+            if (updatedSession is not null)
+            {
+                await OnSessionUpdated.InvokeAsync(updatedSession);
+            }
+
             await OnExerciseAdded.InvokeAsync(addedExercise);
         }
         catch (HttpRequestException)
@@ -306,6 +397,9 @@
         }
         SyncTypeToModel();
     }
+
+    private void SelectType(GetExerciseTypeResource exerciseType)
+        => OnTypeChanged(exerciseType);
 
     private static AddExerciseResource CloneExercise(AddExerciseResource source)
         => new()
