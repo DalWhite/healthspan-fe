@@ -90,20 +90,36 @@ Recommended routes:
 
 ## 4. Redesign the Exercise Library — P1, medium
 
-- Add filters for muscle group, equipment, movement type, and favourites.
-- Show active filters and a result count.
-- Make "Log this exercise" the primary card action.
-- Move maintenance actions into an overflow menu.
-- Display variations in a predictable expandable section.
-- Add graceful image placeholders and keyboard-accessible cards.
-- Replace comma-separated tag inputs with controlled tag pickers.
-- Restrict catalog editing to an appropriate role.
+- [x] Add compact filters for muscle group, equipment, movement, and favourites.
+- [x] Show active filters and a result count.
+- [x] Keep logging out of library cards; workout creation already provides the entry point.
+- [x] Move maintenance actions into an overflow menu.
+- [x] Group variations under their main exercise and allow long groups to expand.
+- [x] Add image fallbacks and keyboard-accessible cards.
+- [x] Replace comma-separated tag inputs with controlled tag pickers.
+- [ ] Restrict catalog editing once the catalog-manager role is defined.
 
 API support:
 
-- Add server-side search, filtering, and pagination to `GET /ExerciseTypes`.
-- Add a focused favourite endpoint instead of sending the complete exercise type.
-- Return controlled tag values or filter facets.
+- Keep the existing `GET /ExerciseTypes` response and API route. Client filtering is sufficient for the current catalog size.
+- [x] Add `PUT /ExerciseTypes/{id}/favourite` so a favorite change does not resend catalog metadata.
+- Add server pagination/facets only when catalog size or measured load time requires it.
+
+### 4A. Clean and enrich the existing exercise catalog without losing history
+
+- [x] Audit and classify the existing catalog.
+- [x] Merge and enrich four high-confidence duplicates in Phase 1.
+- [x] Preserve all `2,072` history rows and finish with zero integrity issues.
+- [ ] Re-audit and implement the reviewed hierarchy, naming, and muscle repairs in Phase 2.
+
+`MERGE` is only for true duplicates. Equipment, angle, stance, or unilateral versions normally remain separate records linked with `ParentExerciseTypeId`; this preserves their distinct statistics. A merge repoints `Exercises.TypeId` and unions favorites, templates, children, and muscle assignments before deleting the duplicate catalog row, so workout IDs and exercise-history IDs do not change.
+
+SQL deliverables:
+
+- Current state and Phase 2 decisions: [exercise-catalog-reorganization-proposal.md](../../healthspan-api/Tools/sql/exercise-catalog-reorganization-proposal.md)
+- Phase 1 execution record: [exercise-catalog-phase1-apply.sql](../../healthspan-api/Tools/sql/exercise-catalog-phase1-apply.sql)
+
+The downloaded `exercises-template (1).csv` is a workout-history import template, not a catalog-maintenance format, so it should not be used for this reorganization.
 
 ## 5. Introduce a session-first workout logging flow — P1, large
 

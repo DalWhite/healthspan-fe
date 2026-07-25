@@ -110,22 +110,43 @@
                 <MudCardContent>
                     <MudText Typo="Typo.h6" Class="mb-4 hs-text-primary">Tags</MudText>
 
-                    <MudTextField @bind-Value="_equipmentTags"
-                                  Label="Equipment Tags"
-                                  HelperText="Comma-separated. Example: bodyweight, mat, dumbbell"
-                                  Variant="Variant.Outlined"
-                                  Class="mb-3" />
+                    <MudSelect T="string"
+                               MultiSelection="true"
+                               SelectedValues="_selectedEquipmentTags"
+                               SelectedValuesChanged="OnEquipmentTagsChanged"
+                               Label="Equipment"
+                               Variant="Variant.Outlined"
+                               Class="mb-3">
+                        @foreach (var tag in EquipmentTagOptions)
+                        {
+                            <MudSelectItem T="string" Value="@tag">@tag</MudSelectItem>
+                        }
+                    </MudSelect>
 
-                    <MudTextField @bind-Value="_mechanicTags"
-                                  Label="Mechanic Tags"
-                                  HelperText="Comma-separated. Example: compound, isolation, rotational"
-                                  Variant="Variant.Outlined"
-                                  Class="mb-3" />
+                    <MudSelect T="string"
+                               MultiSelection="true"
+                               SelectedValues="_selectedMechanicTags"
+                               SelectedValuesChanged="OnMechanicTagsChanged"
+                               Label="Movement"
+                               Variant="Variant.Outlined"
+                               Class="mb-3">
+                        @foreach (var tag in MechanicTagOptions)
+                        {
+                            <MudSelectItem T="string" Value="@tag">@tag</MudSelectItem>
+                        }
+                    </MudSelect>
 
-                    <MudTextField @bind-Value="_typeTags"
-                                  Label="Type Tags"
-                                  HelperText="Comma-separated. Example: core, sit-up, variation"
-                                  Variant="Variant.Outlined" />
+                    <MudSelect T="string"
+                               MultiSelection="true"
+                               SelectedValues="_selectedTypeTags"
+                               SelectedValuesChanged="OnTypeTagsChanged"
+                               Label="Type"
+                               Variant="Variant.Outlined">
+                        @foreach (var tag in TypeTagOptions)
+                        {
+                            <MudSelectItem T="string" Value="@tag">@tag</MudSelectItem>
+                        }
+                    </MudSelect>
                 </MudCardContent>
             </MudCard>
         </MudItem>
@@ -165,9 +186,16 @@
     private List<Muscle> Muscles = new();
     private List<GetExerciseTypeResource> _exerciseTypes = new();
     private int _lastSyncedModelId = int.MinValue;
-    private string _equipmentTags = string.Empty;
-    private string _mechanicTags = string.Empty;
-    private string _typeTags = string.Empty;
+    private static readonly string[] EquipmentTagVocabulary =
+        ["bodyweight", "dumbbell", "barbell", "kettlebell", "machine", "cable", "bands", "bench", "mat"];
+    private static readonly string[] MechanicTagVocabulary =
+        ["compound", "isolation", "rotation", "carry", "hinge", "squat", "push", "pull"];
+    private static readonly string[] TypeTagVocabulary =
+        ["core", "press", "row", "sit-up", "variation", "mobility"];
+
+    private HashSet<string> _selectedEquipmentTags = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _selectedMechanicTags = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _selectedTypeTags = new(StringComparer.OrdinalIgnoreCase);
     private List<int> _selectedPrimaryMuscleIds = new();
     private List<int> _selectedSecondaryMuscleIds = new();
     private string? _assignmentError;
@@ -179,6 +207,10 @@
 
     private IEnumerable<Muscle> SecondaryMuscleOptions
         => Muscles.Where(muscle => muscle.Id is int id && !_selectedPrimaryMuscleIds.Contains(id));
+
+    private IEnumerable<string> EquipmentTagOptions => BuildTagOptions(EquipmentTagVocabulary, _selectedEquipmentTags);
+    private IEnumerable<string> MechanicTagOptions => BuildTagOptions(MechanicTagVocabulary, _selectedMechanicTags);
+    private IEnumerable<string> TypeTagOptions => BuildTagOptions(TypeTagVocabulary, _selectedTypeTags);
 
     protected override async Task OnInitializedAsync()
     {
@@ -207,9 +239,9 @@
 
     private void SyncTagEditorsFromModel()
     {
-        _equipmentTags = JoinTags("equipment");
-        _mechanicTags = JoinTags("mechanic");
-        _typeTags = JoinTags("type");
+        _selectedEquipmentTags = GetTags("equipment");
+        _selectedMechanicTags = GetTags("mechanic");
+        _selectedTypeTags = GetTags("type");
         _lastSyncedModelId = Model.Id;
     }
 
@@ -233,11 +265,33 @@
         SyncAssignmentsToModel();
     }
 
-    private string JoinTags(string category)
-        => string.Join(", ", (Model.Tags ?? [])
+    private HashSet<string> GetTags(string category)
+        => (Model.Tags ?? [])
             .Where(tag => string.Equals(tag.Category, category, StringComparison.OrdinalIgnoreCase))
             .Select(tag => tag.Name)
-            .Where(name => !string.IsNullOrWhiteSpace(name)));
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    private static IEnumerable<string> BuildTagOptions(IEnumerable<string> vocabulary, IEnumerable<string> selectedTags)
+        => vocabulary
+            .Concat(selectedTags.OrderBy(tag => tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    private void OnEquipmentTagsChanged(IEnumerable<string> values)
+        => _selectedEquipmentTags = NormalizeTags(values);
+
+    private void OnMechanicTagsChanged(IEnumerable<string> values)
+        => _selectedMechanicTags = NormalizeTags(values);
+
+    private void OnTypeTagsChanged(IEnumerable<string> values)
+        => _selectedTypeTags = NormalizeTags(values);
+
+    private static HashSet<string> NormalizeTags(IEnumerable<string> values)
+        => values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     private void OnPrimaryMusclesChanged(IEnumerable<int> selectedValues)
     {
@@ -303,18 +357,20 @@
 
     private List<ExerciseTag> BuildTags()
     {
-        var tags = new List<ExerciseTag>();
-        tags.AddRange(ParseTags("equipment", _equipmentTags));
-        tags.AddRange(ParseTags("mechanic", _mechanicTags));
-        tags.AddRange(ParseTags("type", _typeTags));
+        var managedCategories = new HashSet<string>(["equipment", "mechanic", "type"], StringComparer.OrdinalIgnoreCase);
+        var tags = (Model.Tags ?? [])
+            .Where(tag => !managedCategories.Contains(tag.Category))
+            .ToList();
+
+        tags.AddRange(BuildTags("equipment", _selectedEquipmentTags));
+        tags.AddRange(BuildTags("mechanic", _selectedMechanicTags));
+        tags.AddRange(BuildTags("type", _selectedTypeTags));
         return tags;
     }
 
-    private static IEnumerable<ExerciseTag> ParseTags(string category, string rawValue)
-        => rawValue
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+    private static IEnumerable<ExerciseTag> BuildTags(string category, IEnumerable<string> values)
+        => values
+            .OrderBy(value => value)
             .Select(value => new ExerciseTag
             {
                 Category = category,

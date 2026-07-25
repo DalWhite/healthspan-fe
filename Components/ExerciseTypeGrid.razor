@@ -7,14 +7,6 @@
 {
     <LoadingState Message="Loading exercises..." />
 }
-else if (!_visibleMainExercises.Any())
-{
-    <EmptyState Icon="@Icons.Material.Filled.FitnessCenter"
-                Title="No exercises found"
-                Subtitle="Try adjusting your search or add a new exercise type."
-                ActionLabel="Add Exercise Type"
-                OnAction="GoToCreateExerciseType" />
-}
 else
 {
     <div class="hs-et-shell">
@@ -27,12 +19,123 @@ else
                               Adornment="Adornment.Start"
                               AdornmentIcon="@Icons.Material.Filled.Search"
                               IconSize="MudBlazor.Size.Medium"
+                              Immediate="true"
                               Variant="Variant.Outlined"
                               Class="hs-et-search" />
+
+                <div class="hs-et-toolbar-row">
+                    <MudText Typo="Typo.body2" Class="hs-muted-copy hs-et-result-count">
+                        @FormatResultCount(_visibleMainExercises.Count)
+                    </MudText>
+
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Tune"
+                               OnClick="ToggleFilters"
+                               aria-expanded="@_showFilters.ToString().ToLowerInvariant()"
+                               aria-controls="exercise-library-filters"
+                               Class="hs-et-filter-toggle">
+                        <span>Filters</span>
+                        @if (ActiveFilterCount > 0)
+                        {
+                            <span>&nbsp;(@ActiveFilterCount)</span>
+                        }
+                    </MudButton>
+                </div>
+
+                @if (_showFilters)
+                {
+                    <div id="exercise-library-filters" class="hs-et-filters">
+                        <MudSelect T="string"
+                                   Value="_selectedMuscleGroup"
+                                   ValueChanged="OnMuscleGroupChanged"
+                                   Label="Muscle group"
+                                   Clearable="true"
+                                   Dense="true"
+                                   Variant="Variant.Outlined">
+                            @foreach (var group in _muscleGroups)
+                            {
+                                <MudSelectItem T="string" Value="@group">@group</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudSelect T="string"
+                                   Value="_selectedEquipment"
+                                   ValueChanged="OnEquipmentChanged"
+                                   Label="Equipment"
+                                   Clearable="true"
+                                   Dense="true"
+                                   Variant="Variant.Outlined">
+                            @foreach (var equipment in _equipmentOptions)
+                            {
+                                <MudSelectItem T="string" Value="@equipment">@equipment</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudSelect T="string"
+                                   Value="_selectedMovement"
+                                   ValueChanged="OnMovementChanged"
+                                   Label="Movement"
+                                   Clearable="true"
+                                   Dense="true"
+                                   Variant="Variant.Outlined">
+                            @foreach (var movement in _movementOptions)
+                            {
+                                <MudSelectItem T="string" Value="@movement">@movement</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        @if (!FavouritesOnly)
+                        {
+                            <MudSwitch T="bool"
+                                       Value="_favouritesOnlyFilter"
+                                       ValueChanged="OnFavouritesFilterChanged"
+                                       Color="Color.Primary"
+                                       Label="Favorites only"
+                                       Class="hs-et-favourite-filter" />
+                        }
+                    </div>
+                }
+
+                @if (HasActiveFilters)
+                {
+                    <div class="hs-et-active-filters" aria-label="Active exercise filters">
+                        @if (!string.IsNullOrWhiteSpace(_selectedMuscleGroup))
+                        {
+                            <MudChip Size="MudBlazor.Size.Small" OnClose="ClearMuscleGroup">@_selectedMuscleGroup</MudChip>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_selectedEquipment))
+                        {
+                            <MudChip Size="MudBlazor.Size.Small" OnClose="ClearEquipment">@_selectedEquipment</MudChip>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_selectedMovement))
+                        {
+                            <MudChip Size="MudBlazor.Size.Small" OnClose="ClearMovement">@_selectedMovement</MudChip>
+                        }
+                        @if (_favouritesOnlyFilter && !FavouritesOnly)
+                        {
+                            <MudChip Size="MudBlazor.Size.Small" OnClose="ClearFavouritesFilter">Favorites</MudChip>
+                        }
+
+                        <MudButton Variant="Variant.Text" Size="MudBlazor.Size.Small" OnClick="ClearFilters">
+                            Clear
+                        </MudButton>
+                    </div>
+                }
             </section>
         }
 
-        <MudGrid Spacing="2" Class="hs-et-grid">
+        @if (!_visibleMainExercises.Any())
+        {
+            <EmptyState Icon="@Icons.Material.Filled.FitnessCenter"
+                        Title="@EmptyStateTitle"
+                        Subtitle="@EmptyStateSubtitle"
+                        ActionLabel="@EmptyStateActionLabel"
+                        OnAction="HandleEmptyStateAction" />
+        }
+        else
+        {
+            <MudGrid Spacing="2" Class="hs-et-grid">
             @foreach (var exercise in _visibleMainExercises)
             {
                 var variations = GetVariationsFor(exercise).ToList();
@@ -40,12 +143,17 @@ else
                 var typeTags = GetTagNames(exercise, "type").ToList();
 
                 <MudItem xs="12" sm="6" lg="4">
-                    <MudCard Class="exercise-card hs-et-card" @onclick="() => OnCardClick(exercise)">
+                    <MudCard Class="exercise-card hs-et-card"
+                             role="link"
+                             tabindex="0"
+                             aria-label="@($"View {exercise.Name} stats")"
+                             @onclick="() => OnCardClick(exercise)"
+                             @onkeydown="args => OnCardKeyDown(args, exercise)">
                         <div class="hs-et-card-media">
-                            <MudCardMedia Image="@GetImageUrl(exercise)"
-                                          Alt="@exercise.Name"
-                                          Height="190"
-                                          Class="hs-et-card-photo" />
+                            <div class="hs-et-card-photo"
+                                 role="img"
+                                 aria-label="@exercise.Name"
+                                 style="@GetImageStyle(exercise)"></div>
 
                             <div class="hs-et-media-overlay">
                                 <div class="hs-et-media-top">
@@ -63,13 +171,16 @@ else
                             <div class="hs-et-card-header">
                                 <MudText Typo="Typo.h6" Class="hs-et-card-title">@exercise.Name</MudText>
 
-                                <span @onclick:stopPropagation="true">
-                                    <MudIconButton Icon="@(exercise.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)"
-                                                   Color="@(exercise.IsFavourite ? Color.Error : Color.Default)"
-                                                   Class="hs-favourite-btn"
-                                                   aria-label="@(exercise.IsFavourite ? "Remove from favorites" : "Add to favorites")"
-                                                   OnClick="@((e) => ToggleFavourite(e, exercise))" />
-                                </span>
+                                @if (TraineeId is null)
+                                {
+                                    <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
+                                        <MudIconButton Icon="@(exercise.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)"
+                                                       Color="@(exercise.IsFavourite ? Color.Error : Color.Default)"
+                                                       Class="hs-favourite-btn"
+                                                       aria-label="@(exercise.IsFavourite ? "Remove from favorites" : "Add to favorites")"
+                                                       OnClick="@((e) => ToggleFavourite(e, exercise))" />
+                                    </span>
+                                }
                             </div>
 
                             @if (equipmentTags.Count > 0)
@@ -94,7 +205,7 @@ else
                                     </MudText>
 
                                     <div class="hs-card-tags hs-et-variation-tags">
-                                        @foreach (var variation in variations.Take(4))
+                                        @foreach (var variation in GetVisibleVariations(exercise, variations))
                                         {
                                             <span @onclick="@(args => OnVariationClick(args, variation))"
                                                   @onclick:stopPropagation="true">
@@ -108,9 +219,14 @@ else
 
                                         @if (variations.Count > 4)
                                         {
-                                            <MudChip Size="MudBlazor.Size.Small" Variant="Variant.Text" Color="Color.Default">
-                                                +@(variations.Count - 4) more
-                                            </MudChip>
+                                            <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
+                                                <MudButton Variant="Variant.Text"
+                                                           Size="MudBlazor.Size.Small"
+                                                           OnClick="@(() => ToggleVariations(exercise.Id))"
+                                                           Class="hs-et-variation-toggle">
+                                                    @(_expandedVariationGroups.Contains(exercise.Id) ? "Show less" : $"+{variations.Count - 4} more")
+                                                </MudButton>
+                                            </span>
                                         }
                                     </div>
                                 </div>
@@ -118,7 +234,7 @@ else
                         </MudCardContent>
 
                         <MudCardActions Class="hs-et-card-actions">
-                            <span class="hs-et-action-slot" @onclick:stopPropagation="true">
+                            <span class="hs-et-action-slot" @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
                                 <MudIconButton Icon="@Icons.Material.Filled.TrendingUp"
                                                Color="MudBlazor.Color.Primary"
                                                Size="MudBlazor.Size.Small"
@@ -131,22 +247,25 @@ else
 
                             @if (TraineeId is null)
                             {
-                                <span class="hs-et-action-slot" @onclick:stopPropagation="true">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                                   Color="MudBlazor.Color.Secondary"
-                                                   Size="MudBlazor.Size.Small"
-                                                   Variant="Variant.Filled"
-                                                   OnClick="@(() => GoToEditExerciseType(exercise))"
-                                                   Title="Edit exercise type"
-                                                   aria-label="Edit exercise type"
-                                                   Class="hs-et-action-icon" />
+                                <span class="hs-et-action-slot" title="Exercise options" @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
+                                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                             Size="MudBlazor.Size.Small"
+                                             Color="Color.Default"
+                                             Variant="Variant.Text"
+                                             Class="hs-et-card-menu">
+                                        <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                     OnClick="@(() => GoToEditExerciseType(exercise))">
+                                            Edit exercise type
+                                        </MudMenuItem>
+                                    </MudMenu>
                                 </span>
                             }
                         </MudCardActions>
                     </MudCard>
                 </MudItem>
             }
-        </MudGrid>
+            </MudGrid>
+        }
     </div>
 }
 
@@ -158,12 +277,34 @@ else
 
     private GetExerciseTypeResource[] _all = Array.Empty<GetExerciseTypeResource>();
     private List<GetExerciseTypeResource> _visibleMainExercises = new();
+    private IReadOnlyDictionary<int, Muscle> _musclesById = new Dictionary<int, Muscle>();
+    private List<string> _muscleGroups = new();
+    private List<string> _equipmentOptions = new();
+    private List<string> _movementOptions = new();
+    private HashSet<int> _expandedVariationGroups = new();
     private bool _isLoading = true;
+    private bool _showFilters;
+    private bool _favouritesOnlyFilter;
     private string _search = string.Empty;
+    private string? _selectedMuscleGroup;
+    private string? _selectedEquipment;
+    private string? _selectedMovement;
+
+    private int ActiveFilterCount
+        => new[] { _selectedMuscleGroup, _selectedEquipment, _selectedMovement }.Count(value => !string.IsNullOrWhiteSpace(value))
+           + (_favouritesOnlyFilter && !FavouritesOnly ? 1 : 0);
+
+    private bool HasActiveFilters => ActiveFilterCount > 0;
+    private bool HasQueryOrFilters => HasActiveFilters || !string.IsNullOrWhiteSpace(_search);
+    private string EmptyStateTitle => HasQueryOrFilters ? "No matching exercises" : "No exercises yet";
+    private string EmptyStateSubtitle => HasQueryOrFilters ? "Change or clear the current filters." : "Create the first exercise type in the library.";
+    private string EmptyStateActionLabel => HasQueryOrFilters ? "Clear filters" : "Add exercise type";
 
     protected override async Task OnInitializedAsync()
     {
         await AppState.GetMusclesAsync();
+        _musclesById = AppState.GetMuscleLookup();
+        _muscleGroups = AppState.GetMuscleGroups();
 
         try
         {
@@ -177,6 +318,7 @@ else
             Snackbar.Add("Failed to load exercise types.", Severity.Error);
         }
 
+        BuildFilterOptions();
         ApplyFilter();
         _isLoading = false;
     }
@@ -187,12 +329,28 @@ else
         ApplyFilter();
     }
 
+    private void BuildFilterOptions()
+    {
+        _equipmentOptions = GetDistinctTagOptions("equipment");
+        _movementOptions = GetDistinctTagOptions("mechanic");
+    }
+
+    private List<string> GetDistinctTagOptions(string category)
+        => _all
+            .SelectMany(exercise => GetTagNames(exercise, category))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value)
+            .ToList();
+
     private void ApplyFilter()
     {
         var mainExercises = _all
             .Where(exercise => exercise.ParentExerciseTypeId is null)
-            .Where(exercise => !FavouritesOnly || exercise.IsFavourite || GetVariationsFor(exercise).Any(variation => variation.IsFavourite))
+            .Where(exercise => !(FavouritesOnly || _favouritesOnlyFilter) || ExerciseFamily(exercise).Any(item => item.IsFavourite))
             .Where(exercise => MatchesSearch(exercise, _search))
+            .Where(exercise => MatchesTagFilter(exercise, "equipment", _selectedEquipment))
+            .Where(exercise => MatchesTagFilter(exercise, "mechanic", _selectedMovement))
+            .Where(MatchesMuscleGroupFilter)
             .OrderBy(exercise => exercise.Name)
             .ToList();
 
@@ -203,6 +361,33 @@ else
         => _all
             .Where(exercise => exercise.ParentExerciseTypeId == mainExercise.Id)
             .OrderBy(exercise => exercise.Name);
+
+    private IEnumerable<GetExerciseTypeResource> ExerciseFamily(GetExerciseTypeResource mainExercise)
+        => new[] { mainExercise }.Concat(GetVariationsFor(mainExercise));
+
+    private IEnumerable<GetExerciseTypeResource> GetVisibleVariations(
+        GetExerciseTypeResource mainExercise,
+        IReadOnlyCollection<GetExerciseTypeResource> variations)
+        => _expandedVariationGroups.Contains(mainExercise.Id) ? variations : variations.Take(4);
+
+    private void ToggleVariations(int mainExerciseId)
+    {
+        if (!_expandedVariationGroups.Add(mainExerciseId))
+        {
+            _expandedVariationGroups.Remove(mainExerciseId);
+        }
+    }
+
+    private bool MatchesTagFilter(GetExerciseTypeResource mainExercise, string category, string? selectedValue)
+        => string.IsNullOrWhiteSpace(selectedValue)
+           || ExerciseFamily(mainExercise).Any(exercise => GetTagNames(exercise, category)
+               .Contains(selectedValue, StringComparer.OrdinalIgnoreCase));
+
+    private bool MatchesMuscleGroupFilter(GetExerciseTypeResource mainExercise)
+        => string.IsNullOrWhiteSpace(_selectedMuscleGroup)
+           || ExerciseFamily(mainExercise).Any(exercise => exercise.MuscleAssignments.Any(assignment =>
+               _musclesById.TryGetValue(assignment.MuscleId, out var muscle)
+               && string.Equals(muscle.MuscleGroup, _selectedMuscleGroup, StringComparison.OrdinalIgnoreCase)));
 
     private bool MatchesSearch(GetExerciseTypeResource mainExercise, string query)
     {
@@ -231,11 +416,25 @@ else
             ? exercise.ImageRoute
             : $"ExerciseImages/{exercise.Name}.jpg";
 
+    private string GetImageStyle(GetExerciseTypeResource exercise)
+        => $"background-image: url('{GetImageUrl(exercise).Replace((char)39, '_')}'), url('icon-512.png');";
+
     private string GetMuscleLine(GetExerciseTypeResource exercise)
         => AppState.FormatExerciseTypeMuscleLine(exercise);
 
     private static string FormatVariationSummary(int variationCount)
         => variationCount == 1 ? "1 variation ready to track" : $"{variationCount} variations ready to track";
+
+    private static string FormatResultCount(int count)
+        => count == 1 ? "1 exercise" : $"{count} exercises";
+
+    private async Task OnCardKeyDown(KeyboardEventArgs args, GetExerciseTypeResource exercise)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            await OnCardClick(exercise);
+        }
+    }
 
     private async Task OnCardClick(GetExerciseTypeResource exercise)
     {
@@ -269,27 +468,10 @@ else
     {
         try
         {
-            var payload = new UpdateExerciseTypeResource
-            {
-                Id = exercise.Id,
-                Name = exercise.Name,
-                Description = exercise.Description,
-                ImageRoute = exercise.ImageRoute,
-                MuscleAssignments = exercise.MuscleAssignments
-                    .Select(assignment => new ExerciseTypeMuscleAssignmentResource
-                    {
-                        MuscleId = assignment.MuscleId,
-                        Role = assignment.Role,
-                        SortOrder = assignment.SortOrder
-                    })
-                    .ToList(),
-                ParentExerciseTypeId = exercise.ParentExerciseTypeId,
-                WeightType = exercise.WeightType,
-                IsFavourite = !exercise.IsFavourite,
-                Tags = exercise.Tags
-            };
-
-            var response = await Http.PutAsJsonAsync("/ExerciseTypes", payload);
+            var isFavourite = !exercise.IsFavourite;
+            var response = await Http.PutAsJsonAsync(
+                $"/ExerciseTypes/{exercise.Id}/favourite",
+                new SetExerciseTypeFavouriteResource { IsFavourite = isFavourite });
 
             if (!response.IsSuccessStatusCode)
             {
@@ -297,7 +479,7 @@ else
                 return;
             }
 
-            exercise.IsFavourite = !exercise.IsFavourite;
+            exercise.IsFavourite = isFavourite;
             AppState.InvalidateExerciseTypes();
             ApplyFilter();
             StateHasChanged();
@@ -306,6 +488,58 @@ else
         {
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
         }
+    }
+
+    private void ToggleFilters() => _showFilters = !_showFilters;
+
+    private void OnMuscleGroupChanged(string? value)
+    {
+        _selectedMuscleGroup = value;
+        ApplyFilter();
+    }
+
+    private void OnEquipmentChanged(string? value)
+    {
+        _selectedEquipment = value;
+        ApplyFilter();
+    }
+
+    private void OnMovementChanged(string? value)
+    {
+        _selectedMovement = value;
+        ApplyFilter();
+    }
+
+    private void OnFavouritesFilterChanged(bool value)
+    {
+        _favouritesOnlyFilter = value;
+        ApplyFilter();
+    }
+
+    private void ClearMuscleGroup() => OnMuscleGroupChanged(null);
+    private void ClearEquipment() => OnEquipmentChanged(null);
+    private void ClearMovement() => OnMovementChanged(null);
+    private void ClearFavouritesFilter() => OnFavouritesFilterChanged(false);
+
+    private void ClearFilters()
+    {
+        _selectedMuscleGroup = null;
+        _selectedEquipment = null;
+        _selectedMovement = null;
+        _favouritesOnlyFilter = false;
+        ApplyFilter();
+    }
+
+    private void HandleEmptyStateAction()
+    {
+        if (HasQueryOrFilters)
+        {
+            _search = string.Empty;
+            ClearFilters();
+            return;
+        }
+
+        GoToCreateExerciseType();
     }
 
     private void GoToCreateExerciseType()
