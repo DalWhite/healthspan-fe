@@ -1,0 +1,66 @@
+using Bunit;
+using Bunit.TestDoubles;
+using Blazored.LocalStorage;
+using FluentAssertions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
+using MudBlazor.Services;
+using NSubstitute;
+using RichardSzalay.MockHttp;
+using Xunit;
+using healthspan_fe_wasm_pwa.Shared;
+
+namespace healthspan_fe.tests.Infrastructure;
+
+/// <summary>
+/// Base class for bUnit component tests.
+/// Registers common services (MudBlazor, MockHttp, TitleService, AppStateService etc.)
+/// so individual test classes can focus on the component under test.
+/// </summary>
+public abstract class BlazorTestBase : TestContext
+{
+    protected MockHttpMessageHandler MockHttp { get; }
+    protected TitleService TitleService { get; }
+    protected TestAuthorizationContext AuthContext { get; }
+
+    protected BlazorTestBase()
+    {
+        MockHttp = new MockHttpMessageHandler();
+        TitleService = new TitleService();
+
+        var httpClient = MockHttp.ToHttpClient();
+        httpClient.BaseAddress = new Uri("https://localhost:7278/");
+
+        MockHttp.When("/Users/roles")
+            .Respond("application/json", "[]");
+
+        Services.AddSingleton(httpClient);
+        Services.AddSingleton(TitleService);
+        Services.AddSingleton(new AppStateService(httpClient));
+        Services.AddSingleton(new ThemeState());
+        Services.AddSingleton(new HealthspanApiClient(httpClient));
+        Services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        var syncLocalStorage = Substitute.For<ISyncLocalStorageService>();
+        syncLocalStorage.ContainKey(Arg.Any<string>()).Returns(false);
+        Services.AddSingleton(syncLocalStorage);
+        Services.AddMudServices();
+
+        // Auth
+        AuthContext = this.AddTestAuthorization();
+        AuthContext.SetAuthorized("test@healthspan.dev");
+
+        // MudBlazor needs JSInterop stubs
+        JSInterop.SetupVoid("mudPopover.initialize", _ => true);
+        JSInterop.SetupVoid("mudScrollManager.lockScroll", _ => true);
+        JSInterop.SetupVoid("mudScrollManager.unlockScroll", _ => true);
+        JSInterop.SetupVoid("mudKeyInterceptor.connect", _ => true);
+        JSInterop.SetupVoid("mudKeyInterceptor.disconnect", _ => true);
+        JSInterop.SetupVoid("mudElementRef.saveFocus", _ => true);
+        JSInterop.SetupVoid("mudElementRef.restoreFocus", _ => true);
+        JSInterop.SetupVoid("mudScrollSpy.spying", _ => true);
+        JSInterop.SetupVoid("mudScrollSpy.unspy", _ => true);
+        JSInterop.SetupVoid("mudResizeListener.listenForResize", _ => true);
+        JSInterop.Mode = JSRuntimeMode.Loose;
+    }
+}

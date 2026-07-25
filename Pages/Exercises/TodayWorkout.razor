@@ -4,6 +4,7 @@
 @inject ISnackbar Snackbar
 @inject TitleService TitleService
 @using System.Net
+@using System.Text.Json
 
 <PageTitle>Today's Workout</PageTitle>
 
@@ -142,6 +143,10 @@
         {
             _error = "Loading took too long. Please try again.";
         }
+        catch (JsonException)
+        {
+            _error = "The workout response was incomplete. Please try again.";
+        }
         finally
         {
             _isLoading = false;
@@ -191,6 +196,14 @@
         catch (HttpRequestException)
         {
             _error = "The workout could not be started.";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "Starting took too long. Please try again.";
+        }
+        catch (JsonException)
+        {
+            _error = "The workout response was incomplete. Please try again.";
         }
         finally
         {

@@ -1,0 +1,121 @@
+using Bunit;
+using Bunit.TestDoubles;
+using FluentAssertions;
+using System.Net;
+using healthspan_fe.tests.Infrastructure;
+using healthspan_fe_wasm_pwa.Components;
+using healthspan_fe_wasm_pwa.Pages.ExerciseTypes;
+using Microsoft.Extensions.DependencyInjection;
+using RichardSzalay.MockHttp;
+using Xunit;
+
+namespace healthspan_fe.tests.Regression;
+
+public class ExerciseTypesPageTests : BlazorTestBase
+{
+    [Fact]
+    public void Renders_ExerciseTypes_Page()
+    {
+        ConfigureCatalogResponses();
+
+        var cut = RenderComponent<healthspan_fe_wasm_pwa.Pages.ExerciseTypes.ExerciseTypes>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Sit Up");
+            cut.Markup.Should().Contain("Romanian Sit Up");
+            cut.Markup.Should().Contain("bodyweight");
+            cut.FindAll(".exercise-card").Should().HaveCount(1);
+            cut.Find(".exercise-card").GetAttribute("role").Should().Be("link");
+            cut.Find(".exercise-card").GetAttribute("tabindex").Should().Be("0");
+            cut.Markup.Should().Contain("1 exercise");
+            cut.Markup.Should().Contain("Filters");
+            cut.FindAll("button[aria-label='View stats']").Should().HaveCount(1);
+            cut.FindAll("button[aria-label='Create exercise for today']").Should().BeEmpty();
+            cut.FindAll(".hs-et-card-menu").Should().HaveCount(1);
+        }, timeout: TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
+    public void Search_WithNoMatch_ShowsFilterAwareEmptyState()
+    {
+        ConfigureCatalogResponses();
+        var cut = RenderComponent<healthspan_fe_wasm_pwa.Pages.ExerciseTypes.ExerciseTypes>();
+
+        var search = cut.WaitForElement("input[placeholder='Search exercises, variations, or tags...']");
+        search.Input("not-in-this-catalog");
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("No matching exercises");
+            cut.Markup.Should().Contain("Clear filters");
+            cut.FindAll(".exercise-card").Should().BeEmpty();
+        });
+    }
+
+    [Fact]
+    public void Favourite_Button_UsesFocusedEndpoint()
+    {
+        ConfigureCatalogResponses();
+        var cut = RenderComponent<healthspan_fe_wasm_pwa.Pages.ExerciseTypes.ExerciseTypes>();
+        var favoriteButton = cut.WaitForElement("button[aria-label='Remove from favorites']");
+
+        MockHttp.Expect(HttpMethod.Put, "/ExerciseTypes/1/favourite")
+            .Respond(HttpStatusCode.NoContent);
+
+        favoriteButton.Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll("button[aria-label='Add to favorites']").Should().HaveCount(1);
+            MockHttp.VerifyNoOutstandingExpectation();
+        });
+    }
+
+    private void ConfigureCatalogResponses()
+    {
+        MockHttp.When("/ExerciseTypes")
+            .Respond("application/json", """
+                [
+                    {
+                      "id": 1,
+                      "name": "Sit Up",
+                      "description": "Base sit-up pattern",
+                      "muscleAssignments": [
+                        { "muscleId": 11, "role": "Primary", "sortOrder": 1 },
+                        { "muscleId": 14, "role": "Secondary", "sortOrder": 1 }
+                      ],
+                      "isFavourite": true,
+                      "parentExerciseTypeId": null,
+                      "tags": [
+                        { "name": "bodyweight", "category": "equipment" },
+                        { "name": "rotation", "category": "mechanic" },
+                        { "name": "core", "category": "type" }
+                      ]
+                    },
+                    {
+                      "id": 2,
+                      "name": "Romanian Sit Up",
+                      "description": "Variation with different emphasis",
+                      "muscleAssignments": [
+                        { "muscleId": 14, "role": "Primary", "sortOrder": 1 },
+                        { "muscleId": 11, "role": "Secondary", "sortOrder": 1 }
+                      ],
+                      "isFavourite": false,
+                      "parentExerciseTypeId": 1,
+                      "tags": [
+                        { "name": "bodyweight", "category": "equipment" },
+                        { "name": "variation", "category": "type" }
+                      ]
+                    }
+                ]
+            """);
+        MockHttp.When("/api/muscles")
+            .Respond("application/json", """
+                [
+                    { "id": 11, "slug": "abs", "name": "Abs", "side": "front", "muscleGroup": "Core", "sortOrder": 110 },
+                    { "id": 14, "slug": "hip-flexors", "name": "Hip flexors", "side": "front", "muscleGroup": "Legs", "sortOrder": 140 }
+                ]
+            """);
+    }
+}
