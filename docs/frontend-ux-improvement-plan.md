@@ -36,12 +36,14 @@ User-facing terminology should change as follows:
 
 ## Implementation status
 
-Updated 13 July 2026:
+Updated 25 July 2026:
 
 - Step 1 completed: baseline validation, authentication cleanup, return URLs, and reliable edit/delete behavior.
 - Step 2 completed: grouped task-based navigation, five-item mobile bottom navigation with a left-aligned Menu drawer launcher, and new Training route aliases. Existing frontend and API routes remain available.
 - Step 3 completed and verified: reusable page shell, compact semantic header, toolbar, surface, loading, empty, and error patterns; expanded design tokens; shared light/dark theme state across authenticated and login layouts; a chrome-free mobile top edge; responsive content widths; persistent route headings during loading; keyboard focus styles; 44px mobile touch targets; safe-area spacing; and removal of broad global MudBlazor overrides.
-- Steps 4–10 remain planned.
+- Step 4 completed: mobile-first Exercise Library filters and variation grouping, controlled tag editing, favorite updates, and the two-phase catalog cleanup with history preserved.
+- Step 5 completed: a mobile-first Today flow that starts or resumes one daily session, supports recent/favorite/search selection, saves exercises in place, and returns an updated session summary.
+- Steps 6–10 remain planned.
 
 ## 1. Stabilize the current baseline — P0, small
 
@@ -110,7 +112,7 @@ API support:
 - [x] Audit and classify the existing catalog.
 - [x] Merge and enrich four high-confidence duplicates in Phase 1.
 - [x] Preserve all `2,072` history rows and finish with zero integrity issues.
-- [ ] Re-audit and implement the reviewed hierarchy, naming, and muscle repairs in Phase 2.
+- [x] Re-audit and implement the reviewed hierarchy, naming, and muscle repairs in Phase 2.
 
 `MERGE` is only for true duplicates. Equipment, angle, stance, or unilateral versions normally remain separate records linked with `ParentExerciseTypeId`; this preserves their distinct statistics. A merge repoints `Exercises.TypeId` and unions favorites, templates, children, and muscle assignments before deleting the duplicate catalog row, so workout IDs and exercise-history IDs do not change.
 
@@ -118,8 +120,7 @@ SQL deliverables:
 
 - Current state and Phase 2 decisions: [exercise-catalog-reorganization-proposal.md](../../healthspan-api/Tools/sql/exercise-catalog-reorganization-proposal.md)
 - Phase 1 execution record: [exercise-catalog-phase1-apply.sql](../../healthspan-api/Tools/sql/exercise-catalog-phase1-apply.sql)
-- Phase 2 read-only preview: [exercise-catalog-phase2-preview.sql](../../healthspan-api/Tools/sql/exercise-catalog-phase2-preview.sql)
-- Phase 2 atomic apply: [exercise-catalog-phase2-apply.sql](../../healthspan-api/Tools/sql/exercise-catalog-phase2-apply.sql)
+- Phase 2 execution record: [exercise-catalog-phase2-apply.sql](../../healthspan-api/Tools/sql/exercise-catalog-phase2-apply.sql)
 
 The downloaded `exercises-template (1).csv` is a workout-history import template, not a catalog-maintenance format, so it should not be used for this reorganization.
 
@@ -127,22 +128,22 @@ The downloaded `exercises-template (1).csv` is a workout-history import template
 
 Create one primary workflow:
 
-1. Open Today.
-2. Resume today's session or start a new one.
-3. Select an exercise from recent, favourite, or search results.
-4. Enter sets, repetitions, and load.
-5. Save and remain in the workout.
-6. Add another exercise or finish the workout.
+1. [x] Open Today.
+2. [x] Resume today's session or start a new one.
+3. [x] Select an exercise from recent, favourite, or search results.
+4. [x] Enter sets, repetitions, and load.
+5. [x] Save and remain in the workout.
+6. [x] Add another exercise or finish the workout.
 
 The first release should retain the current aggregated sets/repetitions/load model. A per-set schema can be considered later.
 
 API support:
 
-- Add an atomic get-or-create workout operation for a user and date.
-- Add exercise records through `/Workouts/{workoutId}/exercises`.
-- Return the updated session summary after saving.
-- Avoid downloading all workouts before each save.
-- Prevent accidental duplicate workouts where appropriate.
+- [x] Add `GET /Workouts/today` and an atomic `POST /Workouts/today` get-or-create operation for a user and date.
+- [x] Add exercise records through `POST /Workouts/{workoutId}/exercises`.
+- [x] Return the updated session summary after saving.
+- [x] Avoid downloading all workouts before each save.
+- [x] Serialize same-user/date creation to prevent accidental duplicates in the current API instance.
 
 ## 6. Make Training History workout-based — P1, large
 
