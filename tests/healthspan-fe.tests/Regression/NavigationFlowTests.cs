@@ -3,6 +3,7 @@ using Bunit.TestDoubles;
 using FluentAssertions;
 using healthspan_fe.tests.Infrastructure;
 using healthspan_fe_wasm_pwa.Components;
+using healthspan_fe_wasm_pwa.Pages;
 using healthspan_fe_wasm_pwa.Pages.Exercises;
 using healthspan_fe_wasm_pwa.Pages.ExerciseTypes;
 using healthspan_fe_wasm_pwa.Shared;
@@ -92,7 +93,7 @@ public class NavigationFlowTests : BlazorTestBase
     }
 
     [Theory]
-    [InlineData(typeof(Exercises), "/exercises", "/training/history")]
+    [InlineData(typeof(Workouts), "/workouts", "/training/history")]
     [InlineData(typeof(ExerciseTypes), "/exercises/types", "/training/library")]
     public void Training_Pages_Preserve_Legacy_Routes_Alongside_New_Routes(
         Type componentType,

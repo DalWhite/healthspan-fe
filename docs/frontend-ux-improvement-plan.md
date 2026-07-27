@@ -36,14 +36,15 @@ User-facing terminology should change as follows:
 
 ## Implementation status
 
-Updated 25 July 2026:
+Updated 27 July 2026:
 
 - Step 1 completed: baseline validation, authentication cleanup, return URLs, and reliable edit/delete behavior.
 - Step 2 completed: grouped task-based navigation, five-item mobile bottom navigation with a left-aligned Menu drawer launcher, and new Training route aliases. Existing frontend and API routes remain available.
 - Step 3 completed and verified: reusable page shell, compact semantic header, toolbar, surface, loading, empty, and error patterns; expanded design tokens; shared light/dark theme state across authenticated and login layouts; a chrome-free mobile top edge; responsive content widths; persistent route headings during loading; keyboard focus styles; 44px mobile touch targets; safe-area spacing; and removal of broad global MudBlazor overrides.
 - Step 4 completed: mobile-first Exercise Library filters and variation grouping, controlled tag editing, favorite updates, and the two-phase catalog cleanup with history preserved.
 - Step 5 completed and hardened: a mobile-first Today flow that starts or resumes one daily session, supports recent/favorite/search selection, saves exercises in place, validates failure paths, and prevents duplicate daily sessions across API instances.
-- Steps 6–10 remain planned.
+- Step 6 completed and hardened: Training History is workout-based, with compatible paged summaries, date-range filtering, mobile session cards, on-demand exercise details, progression links, and compact edit/delete sheets backed by user-scoped APIs and structured errors.
+- Steps 7–10 remain planned.
 
 ## 1. Stabilize the current baseline — P0, small
 
@@ -151,18 +152,18 @@ API support:
 
 ## 6. Make Training History workout-based — P1, large
 
-- Show workout cards grouped by session rather than grouping paged exercise records in the browser.
-- Include exercise count, total volume, and leading muscles in the summary.
-- Add expandable exercise details.
-- Add workout-level edit and delete actions.
-- Link directly to exercise progression.
+- [x] Show workout cards grouped by session rather than grouping paged exercise records in the browser.
+- [x] Include exercise count, total volume, and leading muscles in the summary.
+- [x] Add expandable exercise details.
+- [x] Add workout-level edit and delete actions.
+- [x] Link directly to exercise progression.
 
 API support:
 
-- `GET /Workouts?from=&to=&page=&pageSize=` should return workout summaries.
-- `GET /Workouts/{id}` should return the workout and its exercises.
-- Pagination should operate on workouts, not exercise records.
-- Add consistent update/delete behavior and structured errors.
+- [x] `GET /Workouts?from=&to=&page=&pageSize=` returns workout summaries without breaking unpaged legacy consumers.
+- [x] `GET /Workouts/{id}` returns the user-scoped workout and its exercises.
+- [x] Pagination operates on workouts, not exercise records.
+- [x] Add consistent user-scoped update/delete behavior and structured errors.
 
 ## 7. Simplify exercise details and editing — P2, medium
 
