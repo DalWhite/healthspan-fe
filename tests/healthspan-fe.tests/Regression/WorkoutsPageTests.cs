@@ -42,6 +42,7 @@ public class WorkoutsPageTests : BlazorTestBase
 
         var cut = RenderComponent<Workouts>();
 
-        cut.Markup.Should().Contain("No workouts yet");
+        cut.WaitForAssertion(() =>
+            cut.Markup.Should().Contain("No workouts yet"));
     }
 }

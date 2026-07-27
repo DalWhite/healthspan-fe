@@ -148,4 +148,24 @@ public class TodayWorkoutTests : BlazorTestBase
             cut.Markup.Should().Contain("Starting took too long");
         });
     }
+
+    [Fact]
+    public void LoadWorkout_Malformed_Response_Shows_One_Error()
+    {
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "{not-json}");
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll(".mud-alert").Should().ContainSingle();
+            cut.Markup.Should().Contain("workout response was incomplete");
+            cut.Markup.Should().Contain("Retry");
+        });
+    }
 }

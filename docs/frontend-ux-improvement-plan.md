@@ -42,7 +42,7 @@ Updated 25 July 2026:
 - Step 2 completed: grouped task-based navigation, five-item mobile bottom navigation with a left-aligned Menu drawer launcher, and new Training route aliases. Existing frontend and API routes remain available.
 - Step 3 completed and verified: reusable page shell, compact semantic header, toolbar, surface, loading, empty, and error patterns; expanded design tokens; shared light/dark theme state across authenticated and login layouts; a chrome-free mobile top edge; responsive content widths; persistent route headings during loading; keyboard focus styles; 44px mobile touch targets; safe-area spacing; and removal of broad global MudBlazor overrides.
 - Step 4 completed: mobile-first Exercise Library filters and variation grouping, controlled tag editing, favorite updates, and the two-phase catalog cleanup with history preserved.
-- Step 5 completed: a mobile-first Today flow that starts or resumes one daily session, supports recent/favorite/search selection, saves exercises in place, and returns an updated session summary.
+- Step 5 completed and hardened: a mobile-first Today flow that starts or resumes one daily session, supports recent/favorite/search selection, saves exercises in place, validates failure paths, and prevents duplicate daily sessions across API instances.
 - Steps 6–10 remain planned.
 
 ## 1. Stabilize the current baseline — P0, small
@@ -143,7 +143,11 @@ API support:
 - [x] Add exercise records through `POST /Workouts/{workoutId}/exercises`.
 - [x] Return the updated session summary after saving.
 - [x] Avoid downloading all workouts before each save.
-- [x] Serialize same-user/date creation to prevent accidental duplicates in the current API instance.
+- [x] Enforce a database-unique daily-session key while leaving legacy workouts compatible.
+- [x] Reject missing dates and explicitly scope nested exercise writes to the current user.
+- [x] Build the success response without a fallible database read after persistence.
+- [x] Handle timeout and malformed-response states without leaving the Today page.
+- [x] Keep API and frontend regression projects inside their repositories and run them before deployment.
 
 ## 6. Make Training History workout-based — P1, large
 
