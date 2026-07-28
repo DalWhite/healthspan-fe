@@ -204,6 +204,14 @@ public class WorkoutsPageTests : BlazorTestBase
         cut.FindAll(".hs-workout-action")
             .Single(button => button.TextContent.Trim() == "Delete")
             .Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find("[role='dialog']").TextContent
+                .Should().Contain("Delete workout?");
+            cut.Find(".hs-workout-sheet-button.is-danger")
+                .Should().NotBeNull();
+        });
         cut.Find(".hs-workout-sheet-button.is-danger").Click();
 
         cut.WaitForAssertion(() =>
