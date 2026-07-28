@@ -101,6 +101,8 @@
     [Parameter] public string ExerciseId { get; set; } = string.Empty;
     [SupplyParameterFromQuery(Name = "returnUrl")]
     public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "traineeId")]
+    public string? TraineeId { get; set; }
 
     public GetExerciseResource? Exercise { get; set; }
 
@@ -137,8 +139,10 @@
             var typesTask = Http.GetFromJsonAsync<GetExerciseTypeResource[]>(
                 "/ExerciseTypes");
             var exerciseTask = Http.GetFromJsonAsync<GetExerciseResource>(
-                $"/exercises/{ExerciseId}");
-            var profileWeightTask = LoadProfileWeightAsync();
+                $"/exercises/{ExerciseId}{BuildUserQuery()}");
+            var profileWeightTask = string.IsNullOrWhiteSpace(TraineeId)
+                ? LoadProfileWeightAsync()
+                : Task.FromResult<decimal?>(null);
             await Task.WhenAll(typesTask, exerciseTask, profileWeightTask);
 
             _exerciseTypes = await typesTask ?? [];
@@ -178,7 +182,7 @@
                 {
                     _exerciseMetrics =
                         await Http.GetFromJsonAsync<GetExerciseMetrics>(
-                            $"/exercises/{ExerciseId}/metrics");
+                            $"/exercises/{ExerciseId}/metrics{BuildUserQuery()}");
                 }
                 catch
                 {
@@ -218,7 +222,7 @@
             }
 
             var response = await Http.PutAsJsonAsync(
-                "/exercises",
+                $"/exercises{BuildUserQuery()}",
                 new UpdateExerciseResource
                 {
                     Id = exerciseId,
@@ -274,13 +278,23 @@
             return null;
         }
 
-        using var response = await Http.PostAsJsonAsync(
-            "/workouts/today",
-            new StartWorkoutSessionResource
-            {
-                Date = DateOnly.FromDateTime(_workoutDate.Value),
-                Type = "Training"
-            });
+        using var response = string.IsNullOrWhiteSpace(TraineeId)
+            ? await Http.PostAsJsonAsync(
+                "/workouts/today",
+                new StartWorkoutSessionResource
+                {
+                    Date = DateOnly.FromDateTime(
+                        _workoutDate.Value),
+                    Type = "Training"
+                })
+            : await Http.PostAsJsonAsync(
+                "/workouts",
+                new WorkoutPostResource
+                {
+                    Date = _workoutDate.Value,
+                    Type = "Training",
+                    UserId = TraineeId
+                });
         if (!response.IsSuccessStatusCode)
         {
             _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
@@ -290,7 +304,7 @@
         }
 
         var workout = await response.Content
-            .ReadFromJsonAsync<WorkoutSessionResource>();
+            .ReadFromJsonAsync<GetWorkoutResource>();
         if (workout is null || workout.Id == Guid.Empty)
         {
             _actionError = "The workout response was empty.";
@@ -335,7 +349,7 @@
         try
         {
             using var response = await Http.DeleteAsync(
-                $"/exercises/{ExerciseId}");
+                $"/exercises/{ExerciseId}{BuildUserQuery()}");
             if (!response.IsSuccessStatusCode)
             {
                 _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
@@ -359,6 +373,11 @@
     private void GoBack()
         => NavigationManager.NavigateTo(
             GetSafeReturnUrl(ReturnUrl, "/training/history"));
+
+    private string BuildUserQuery()
+        => string.IsNullOrWhiteSpace(TraineeId)
+            ? string.Empty
+            : $"?userId={Uri.EscapeDataString(TraineeId)}";
 
     private static string GetSafeReturnUrl(
         string? returnUrl,

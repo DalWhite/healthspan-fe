@@ -51,6 +51,39 @@ public class HealthspanApiClient
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task DeleteBloodTestAsync(
+        Guid bloodTestId,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync(
+            $"{HealthRoutes.BloodTests}/{bloodTestId}",
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<BloodTestDocumentContent?> GetBloodTestDocumentAsync(
+        Guid bloodTestId,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync(
+            $"{HealthRoutes.BloodTests}/{bloodTestId}/document",
+            cancellationToken);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return new BloodTestDocumentContent
+        {
+            Content = await response.Content.ReadAsByteArrayAsync(
+                cancellationToken),
+            ContentType = response.Content.Headers.ContentType?.MediaType
+                          ?? "application/octet-stream"
+        };
+    }
+
     public async Task<IReadOnlyList<LatestMarkerSnapshotResource>> GetLatestMarkersAsync(CancellationToken cancellationToken = default)
           => await _httpClient.GetFromJsonAsync<List<LatestMarkerSnapshotResource>>(HealthRoutes.BiomarkerSnapshot, cancellationToken)
               ?? new List<LatestMarkerSnapshotResource>();
@@ -83,6 +116,28 @@ public class HealthspanApiClient
     public async Task CreateGalpinAssessmentAsync(AddGalpinAssessmentResource request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(HealthRoutes.GalpinAssessments, request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task UpdateGalpinAssessmentAsync(
+        Guid assessmentId,
+        AddGalpinAssessmentResource request,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsJsonAsync(
+            $"{HealthRoutes.GalpinAssessments}/{assessmentId}",
+            request,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteGalpinAssessmentAsync(
+        Guid assessmentId,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync(
+            $"{HealthRoutes.GalpinAssessments}/{assessmentId}",
+            cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 

@@ -11,6 +11,18 @@ window.downloadFileFromStream = async (fileName, contentStreamReference) => {
     URL.revokeObjectURL(url);
 };
 
+window.healthspanDocuments = {
+    createObjectUrl: (content, contentType) => {
+        const blob = new Blob([content], {
+            type: contentType || 'application/octet-stream'
+        });
+        return URL.createObjectURL(blob);
+    },
+    revokeObjectUrl: (url) => {
+        if (url) URL.revokeObjectURL(url);
+    }
+};
+
 // Scroll to an element by ID and briefly highlight it
 window.scrollToElement = function (elementId) {
     const el = document.getElementById(elementId);

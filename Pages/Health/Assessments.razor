@@ -37,11 +37,17 @@ else
                 <MudPaper Class="hs-health-panel">
                     <div class="hs-detail-heading">
                         <div>
-                            <MudText Typo="Typo.h6">Current assessment</MudText>
+                            <MudText Typo="Typo.h6">@(_editingAssessmentId.HasValue ? "Edit assessment" : "New assessment")</MudText>
                         </div>
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_isSubmitting" OnClick="SubmitAsync">
-                            @(_isSubmitting ? "Submitting..." : "Save assessment")
-                        </MudButton>
+                        <MudStack Row="true" Class="hs-list-card-actions">
+                            @if (_editingAssessmentId.HasValue)
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isSubmitting" OnClick="CancelEditing">Cancel</MudButton>
+                            }
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_isSubmitting" OnClick="SubmitAsync">
+                                @(_isSubmitting ? "Saving..." : _editingAssessmentId.HasValue ? "Save changes" : "Save assessment")
+                            </MudButton>
+                        </MudStack>
                     </div>
 
                     <MudDatePicker Label="Assessed on" @bind-Date="_draftAssessedOn" />
@@ -130,8 +136,42 @@ else
                                      <div class="hs-list-card-title">@item.AssessedOnUtc.ToString("dd MMM yyyy")</div>
                                      <div class="hs-muted-copy">Average score @AverageScore(item).ToString("0.0")</div>
                                  </div>
-                                 <MudChip Color="Color.Secondary" Variant="Variant.Outlined">@(item.Scores?.Count ?? 0) scores</MudChip>
+                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                     <MudChip Color="Color.Secondary" Variant="Variant.Outlined">@(item.Scores?.Count ?? 0) scores</MudChip>
+                                     <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                    Size="Size.Small"
+                                                    Color="Color.Primary"
+                                                    OnClick="() => BeginEditing(item)"
+                                                    aria-label="Edit assessment" />
+                                     <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                    Size="Size.Small"
+                                                    Color="Color.Error"
+                                                    OnClick="() => _deleteAssessmentId = item.Id"
+                                                    aria-label="Delete assessment" />
+                                 </MudStack>
                              </div>
+                             @if (_deleteAssessmentId == item.Id)
+                             {
+                                 <div class="hs-delete-confirmation"
+                                      role="alertdialog"
+                                      aria-label="Delete assessment confirmation">
+                                     <MudText Typo="Typo.body2">Delete this assessment?</MudText>
+                                     <MudStack Row="true" Class="hs-list-card-actions">
+                                         <MudButton Variant="Variant.Text"
+                                                    Color="Color.Default"
+                                                    Disabled="_isDeleting"
+                                                    OnClick="() => _deleteAssessmentId = null">
+                                             Cancel
+                                         </MudButton>
+                                         <MudButton Variant="Variant.Filled"
+                                                    Color="Color.Error"
+                                                    Disabled="_isDeleting"
+                                                    OnClick="() => DeleteAssessmentAsync(item.Id)">
+                                             @(_isDeleting ? "Deleting..." : "Delete")
+                                         </MudButton>
+                                     </MudStack>
+                                 </div>
+                             }
                          }
                      }
                  </MudPaper>
@@ -150,7 +190,10 @@ else
      private TrendSeriesResource? _selectedTrend;
      private bool _isLoading = true;
      private bool _isSubmitting;
+     private bool _isDeleting;
      private bool _isTrendLoading;
+     private Guid? _editingAssessmentId;
+     private Guid? _deleteAssessmentId;
      private string? _errorMessage;
      private string? _operationMessage;
      private Severity _operationSeverity = Severity.Info;
@@ -176,18 +219,9 @@ else
                  .OrderByDescending(item => item.AssessedOnUtc)
                  .FirstOrDefault();
 
-             _draft = new AddGalpinAssessmentResource
-             {
-                 AssessedOnUtc = DateTime.UtcNow,
-                 Notes = _latest?.Notes,
-                 Scores = _catalog.Select(item => new GalpinAssessmentScoreResource
-                 {
-                     Adaptation = item.Adaptation,
-                     Score = _latest?.Scores?.FirstOrDefault(x => x.Adaptation == item.Adaptation)?.Score,
-                     EvidenceNotes = _latest?.Scores?.FirstOrDefault(x => x.Adaptation == item.Adaptation)?.EvidenceNotes
-                 }).ToList()
-             };
-             _draftAssessedOn = _draft.AssessedOnUtc;
+             _editingAssessmentId = null;
+             _deleteAssessmentId = null;
+             SetDraftFrom(_latest, DateTime.UtcNow);
 
              if (_catalog.Count > 0)
              {
@@ -217,9 +251,21 @@ else
                  .Where(x => x.Score.HasValue)
                  .ToList();
 
-             await ApiClient.CreateGalpinAssessmentAsync(_draft);
+             if (_editingAssessmentId.HasValue)
+             {
+                 await ApiClient.UpdateGalpinAssessmentAsync(
+                     _editingAssessmentId.Value,
+                     _draft);
+             }
+             else
+             {
+                 await ApiClient.CreateGalpinAssessmentAsync(_draft);
+             }
+
              _operationSeverity = Severity.Success;
-             _operationMessage = "Assessment saved.";
+             _operationMessage = _editingAssessmentId.HasValue
+                 ? "Assessment updated."
+                 : "Assessment saved.";
              await LoadAsync();
          }
          catch
@@ -268,6 +314,68 @@ else
 
      private GalpinAssessmentScoreResource GetDraftScore(GalpinAdaptationType adaptation)
          => _draft.Scores!.First(x => x.Adaptation == adaptation);
+
+     private void BeginEditing(
+         GetGalpinAssessmentResource assessment)
+     {
+         _editingAssessmentId = assessment.Id;
+         _deleteAssessmentId = null;
+         SetDraftFrom(assessment, assessment.AssessedOnUtc);
+     }
+
+     private void CancelEditing()
+     {
+         _editingAssessmentId = null;
+         SetDraftFrom(_latest, DateTime.UtcNow);
+     }
+
+     private void SetDraftFrom(
+         GetGalpinAssessmentResource? source,
+         DateTime assessedOn)
+     {
+         _draft = new AddGalpinAssessmentResource
+         {
+             AssessedOnUtc = assessedOn,
+             Notes = source?.Notes,
+             Scores = _catalog.Select(item =>
+             {
+                 var existing = source?.Scores?.FirstOrDefault(
+                     score => score.Adaptation == item.Adaptation);
+                 return new GalpinAssessmentScoreResource
+                 {
+                     Adaptation = item.Adaptation,
+                     Score = existing?.Score,
+                     EvidenceNotes = existing?.EvidenceNotes
+                 };
+             }).ToList()
+         };
+         _draftAssessedOn = assessedOn;
+     }
+
+     private async Task DeleteAssessmentAsync(Guid assessmentId)
+     {
+         _isDeleting = true;
+         _operationMessage = null;
+
+         try
+         {
+             await ApiClient.DeleteGalpinAssessmentAsync(
+                 assessmentId);
+             _operationSeverity = Severity.Success;
+             _operationMessage = "Assessment deleted.";
+             await LoadAsync();
+         }
+         catch
+         {
+             _operationSeverity = Severity.Error;
+             _operationMessage =
+                 "Assessment could not be deleted.";
+         }
+         finally
+         {
+             _isDeleting = false;
+         }
+     }
 
      private static double AverageScore(GetGalpinAssessmentResource assessment)
          => assessment.Scores == null || assessment.Scores.Count == 0

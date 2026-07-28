@@ -1,109 +1,303 @@
-﻿@page "/trainees/{TraineeId}/exercises"
+@page "/trainees/{TraineeId}/exercises"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject TitleService TitleService
 
-<PageTitle>Exercises</PageTitle>
+<PageTitle>Trainee Training</PageTitle>
 
-<div class="hs-page-shell">
-<PageHeader Title="Trainee Training History" />
-
-@if (_exercises == null)
-{
-    <LoadingState Message="Loading exercises..." />
-}
-else
-{
-    <div class="table-responsive">
-        <MudTable Items="@_exercises"
-                  Hover="true"
-                  SortLabel="Sort By"
-                  Elevation="0"
-                  Breakpoint="Breakpoint.None"
-                  Dense="true"
-                  Filter="@((GetExerciseResource x) => FilterExercise(x))"
-                  GroupBy="@_groupDefinition"
-                  T="GetExerciseResource"
-                  OnRowClick="@GoToEditExercise">
-            <ColGroup>
-                <col style="width: 5%;" />
-                <col />
-                <col style="width: 5%;" />
-                <col style="width: 5%;" />
-                <col style="width: 5%;" />
-                <col style="width: 5%;" />
-                <col style="width: 5%;" />
-                <col style="width: 5%;" />
-            </ColGroup>
-            <ToolBarContent>
-                <MudTextField @bind-Value="_search" Placeholder="Search"
-                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                              IconSize="MudBlazor.Size.Medium" Class="mt-0" />
-            </ToolBarContent>
-            <HeaderContent>
-                <MudTh><MudTableSortLabel InitialDirection="SortDirection.Descending" SortBy="@((GetExerciseResource x) => x.Workout?.Date ?? DateTime.MinValue)">Date</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Type?.Name ?? "")">Type</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Series ?? 0)">Series</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Repetitions ?? 0)">Reps</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Weight ?? 0)">Weight</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.MaxRepetition ?? 0)">1RM</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Volume ?? 0)">Volume</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="@((GetExerciseResource x) => x.Intensity ?? 0)">Intensity</MudTableSortLabel></MudTh>
-            </HeaderContent>
-            <GroupHeaderTemplate>
-                <MudTh Class="hs-table-cell-custom-group" colspan="8">
-                    @{
-                        if (DateTime.TryParse(context.Key?.ToString(), out var groupDate))
-                        {
-                            var daysAgo = (DateTime.Now - groupDate).Days;
-                            <text>@($"{context.GroupName}: {context.Key}, ({daysAgo} days ago)")</text>
-                        }
-                        else { <text>Unknown Date</text> }
-                    }
-                </MudTh>
-            </GroupHeaderTemplate>
-            <RowTemplate>
-                <MudTd DataLabel="Date"></MudTd>
-                <MudTd DataLabel="Type">@context.Type?.Name</MudTd>
-                <MudTd DataLabel="Series">@context.Series</MudTd>
-                <MudTd DataLabel="Reps">@context.Repetitions</MudTd>
-                <MudTd DataLabel="Weight">@context.Weight kg</MudTd>
-                <MudTd DataLabel="1RM">@context.MaxRepetition kg</MudTd>
-                <MudTd DataLabel="Volume">@context.Volume kg</MudTd>
-                <MudTd DataLabel="Intensity">@context.Intensity %</MudTd>
-            </RowTemplate>
-        </MudTable>
+<PageShell>
+    <div class="hs-compact-page-heading">
+        <MudText Typo="Typo.h5">Trainee training</MudText>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="GoToCreate">
+            Log exercise
+        </MudButton>
     </div>
 
-    <MudFab @onclick="GoToCreate" Color="MudBlazor.Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-            Class="fixed-create-button" />
-}
-</div>
+    @if (_isLoading)
+    {
+        <LoadingState Message="Loading workouts..." />
+    }
+    else if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <ErrorState Title="Couldn't load trainee workouts"
+                    Message="@_errorMessage"
+                    ActionLabel="Retry"
+                    OnAction="RetryAsync" />
+    }
+    else if (_workouts.Count == 0)
+    {
+        <EmptyState Icon="@Icons.Material.Filled.CalendarToday"
+                    Title="No workouts yet"
+                    Subtitle="Log the trainee's first exercise when ready."
+                    ActionLabel="Log exercise"
+                    OnAction="GoToCreate" />
+    }
+    else
+    {
+        <div class="hs-workout-history-summary" aria-live="polite">
+            @FormatLoadedCount()
+        </div>
+
+        <div class="hs-workout-history-list">
+            @foreach (var workout in _workouts)
+            {
+                var isExpanded = _expandedWorkoutId == workout.Id;
+                var detailsId = $"trainee-workout-{workout.Id:N}";
+
+                <article class="hs-workout-session-card hs-surface @(isExpanded ? "is-expanded" : null)">
+                    <button type="button"
+                            class="hs-workout-session-toggle"
+                            aria-expanded="@isExpanded.ToString().ToLowerInvariant()"
+                            aria-controls="@detailsId"
+                            @onclick="() => ToggleWorkoutAsync(workout)">
+                        <span class="hs-workout-date-block">
+                            <span class="hs-workout-date">@FormatWorkoutDate(workout.Date)</span>
+                            <span class="hs-workout-type">@(workout.Type ?? "Workout")</span>
+                        </span>
+
+                        <span class="hs-workout-summary-block">
+                            <span class="hs-workout-metrics">
+                                <span>@FormatExerciseCount(workout.ExerciseCount)</span>
+                                @if (workout.TotalVolume > 0)
+                                {
+                                    <span aria-hidden="true">•</span>
+                                    <span>@($"{workout.TotalVolume:N0} kg")</span>
+                                }
+                            </span>
+                            @if (workout.LeadingMuscles.Count > 0)
+                            {
+                                <span class="hs-workout-muscles">
+                                    @foreach (var muscle in workout.LeadingMuscles.Take(3))
+                                    {
+                                        <span class="hs-workout-muscle-chip">@muscle</span>
+                                    }
+                                </span>
+                            }
+                        </span>
+
+                        <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                 Class="hs-workout-expand-icon" />
+                    </button>
+
+                    @if (isExpanded)
+                    {
+                        <div id="@detailsId" class="hs-workout-detail">
+                            @if (_detailsLoading.Contains(workout.Id))
+                            {
+                                <LoadingState Message="Loading workout..." Size="Size.Small" />
+                            }
+                            else if (_detailErrors.TryGetValue(workout.Id, out var detailError))
+                            {
+                                <div class="hs-workout-detail-error" role="alert">
+                                    <span>@detailError</span>
+                                    <MudButton Variant="Variant.Text"
+                                               Size="Size.Small"
+                                               OnClick="() => LoadWorkoutDetailsAsync(workout.Id)">
+                                        Retry
+                                    </MudButton>
+                                </div>
+                            }
+                            else if (_details.TryGetValue(workout.Id, out var detail))
+                            {
+                                <div class="hs-workout-exercise-list">
+                                    @foreach (var exercise in detail.Exercises)
+                                    {
+                                        <div class="hs-workout-exercise-row">
+                                            <div class="hs-workout-exercise-copy">
+                                                <span class="hs-workout-exercise-name">@(exercise.Name ?? "Exercise")</span>
+                                                <span class="hs-workout-exercise-prescription">@FormatExercisePrescription(exercise)</span>
+                                                @if (exercise.Tags.Count > 0)
+                                                {
+                                                    <span class="hs-training-tag-inline">@string.Join(" · ", exercise.Tags)</span>
+                                                }
+                                            </div>
+                                            <a class="hs-workout-edit-link"
+                                               href="@BuildExerciseEditRoute(exercise.Id)"
+                                               aria-label="@($"Edit {exercise.Name ?? "exercise"}")">
+                                                <MudIcon Icon="@Icons.Material.Filled.Edit" />
+                                            </a>
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="hs-workout-detail-actions">
+                                    <a class="hs-workout-action hs-workout-add-exercise"
+                                       href="@BuildAddExerciseRoute(detail)">
+                                        Add exercise
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    }
+                </article>
+            }
+        </div>
+
+        @if (HasMoreWorkouts)
+        {
+            <div class="hs-workout-load-more">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           Disabled="_isLoadingMore"
+                           OnClick="LoadMoreAsync">
+                    @(_isLoadingMore ? "Loading..." : "Load more")
+                </MudButton>
+            </div>
+        }
+    }
+</PageShell>
 
 @code {
-    [Parameter] public string TraineeId { get; set; } = "";
+    private const int PageSize = 20;
 
-    private GetExerciseResource[]? _exercises;
-    private string _search = "";
+    [Parameter] public string TraineeId { get; set; } = string.Empty;
 
-    private readonly TableGroupDefinition<GetExerciseResource> _groupDefinition = new()
-    {
-        GroupName = "Date",
-        Indentation = true,
-        Expandable = false,
-        Selector = e => e.Workout?.Date?.ToString("d") ?? "No Date"
-    };
+    private readonly List<GetWorkoutResource> _workouts = [];
+    private readonly Dictionary<Guid, GetWorkoutResource> _details = [];
+    private readonly Dictionary<Guid, string> _detailErrors = [];
+    private readonly HashSet<Guid> _detailsLoading = [];
+    private Guid? _expandedWorkoutId;
+    private string? _errorMessage;
+    private bool _isLoading = true;
+    private bool _isLoadingMore;
+    private int _currentPage;
+    private int _totalCount;
+
+    private bool HasMoreWorkouts => _workouts.Count < _totalCount;
+    private string ReturnRoute => $"/trainees/{TraineeId}/exercises";
 
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Trainee Training History";
-        _exercises = await Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?userId={TraineeId}");
+        TitleService.Title = "Trainee Training";
+        await LoadHistoryAsync(append: false);
     }
 
-    private bool FilterExercise(GetExerciseResource item) => AppStateService.MatchesSearch(item, _search);
+    private async Task LoadHistoryAsync(bool append)
+    {
+        var requestedPage = append ? _currentPage + 1 : 1;
+        _isLoading = !append;
+        _isLoadingMore = append;
+        _errorMessage = null;
 
-    private void GoToCreate() => NavigationManager.NavigateTo($"/exercises/create/{TraineeId}");
+        try
+        {
+            using var response = await Http.GetAsync(
+                $"/workouts?traineeId={Uri.EscapeDataString(TraineeId)}&page={requestedPage}&pageSize={PageSize}");
+            response.EnsureSuccessStatusCode();
+            var items = await response.Content
+                .ReadFromJsonAsync<List<GetWorkoutResource>>() ?? [];
 
-    private void GoToEditExercise(TableRowClickEventArgs<GetExerciseResource> args)
-        => NavigationManager.NavigateTo($"/exercises/edit/{args.Item.Id}");
+            if (!append)
+            {
+                _workouts.Clear();
+            }
+
+            _workouts.AddRange(items.Where(item =>
+                _workouts.All(existing => existing.Id != item.Id)));
+            _currentPage = requestedPage;
+            _totalCount = ReadTotalCount(response, _workouts.Count);
+        }
+        catch
+        {
+            _errorMessage = "Check access and connection, then try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+            _isLoadingMore = false;
+        }
+    }
+
+    private async Task ToggleWorkoutAsync(GetWorkoutResource workout)
+    {
+        if (_expandedWorkoutId == workout.Id)
+        {
+            _expandedWorkoutId = null;
+            return;
+        }
+
+        _expandedWorkoutId = workout.Id;
+        if (!_details.ContainsKey(workout.Id))
+        {
+            await LoadWorkoutDetailsAsync(workout.Id);
+        }
+    }
+
+    private async Task LoadWorkoutDetailsAsync(Guid workoutId)
+    {
+        _detailsLoading.Add(workoutId);
+        _detailErrors.Remove(workoutId);
+
+        try
+        {
+            var detail = await Http.GetFromJsonAsync<GetWorkoutResource>(
+                $"/workouts/{workoutId}?traineeId={Uri.EscapeDataString(TraineeId)}");
+            _details[workoutId] = detail
+                ?? throw new InvalidOperationException();
+        }
+        catch
+        {
+            _detailErrors[workoutId] = "Couldn't load this workout.";
+        }
+        finally
+        {
+            _detailsLoading.Remove(workoutId);
+        }
+    }
+
+    private Task RetryAsync() => LoadHistoryAsync(append: false);
+    private Task LoadMoreAsync() => LoadHistoryAsync(append: true);
+
+    private void GoToCreate()
+        => NavigationManager.NavigateTo(
+            $"/exercises/create/{Uri.EscapeDataString(TraineeId)}?returnUrl={Uri.EscapeDataString(ReturnRoute)}");
+
+    private string BuildAddExerciseRoute(GetWorkoutResource workout)
+        => $"/exercises/create/{Uri.EscapeDataString(TraineeId)}?workoutId={workout.Id}&date={workout.Date:yyyy-MM-dd}&returnUrl={Uri.EscapeDataString(ReturnRoute)}";
+
+    private string BuildExerciseEditRoute(Guid exerciseId)
+        => $"/training/history/{exerciseId}/edit?traineeId={Uri.EscapeDataString(TraineeId)}&returnUrl={Uri.EscapeDataString(ReturnRoute)}";
+
+    private string FormatLoadedCount()
+        => _workouts.Count == _totalCount
+            ? FormatWorkoutCount(_totalCount)
+            : $"{_workouts.Count} of {_totalCount} workouts";
+
+    private static int ReadTotalCount(
+        HttpResponseMessage response,
+        int fallback)
+        => response.Headers.TryGetValues(
+               "X-Total-Count",
+               out var values)
+           && int.TryParse(values.FirstOrDefault(), out var count)
+            ? count
+            : fallback;
+
+    private static string FormatWorkoutDate(DateTime? date)
+        => date?.Date switch
+        {
+            null => "Date unavailable",
+            var value when value == DateTime.Today => "Today",
+            var value when value == DateTime.Today.AddDays(-1) => "Yesterday",
+            var value => value.Value.ToString("ddd, d MMM yyyy")
+        };
+
+    private static string FormatWorkoutCount(int count)
+        => count == 1 ? "1 workout" : $"{count} workouts";
+
+    private static string FormatExerciseCount(int count)
+        => count == 1 ? "1 exercise" : $"{count} exercises";
+
+    private static string FormatExercisePrescription(
+        WorkoutHistoryExerciseResource exercise)
+    {
+        var prescription =
+            $"{exercise.Series ?? 0} × {exercise.Repetitions ?? 0}";
+        return exercise.Weight is > 0
+            ? $"{prescription} · {exercise.Weight:N1} kg"
+            : prescription;
+    }
 }

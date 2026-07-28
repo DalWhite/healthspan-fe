@@ -11,6 +11,68 @@
 <PageShell>
     <PageHeader Title="Training History" />
 
+    <div class="hs-history-filter-toggle">
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Tune"
+                   OnClick="() => _showFilters = !_showFilters">
+            Filters@(HasActiveFilters ? $" ({ActiveFilterCount})" : "")
+        </MudButton>
+    </div>
+
+    @if (_showFilters)
+    {
+        <MudPaper Class="hs-history-filter-panel">
+            <MudTextField @bind-Value="_search"
+                          Label="Workout or exercise"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" />
+            <MudDatePicker @bind-Date="_fromDate"
+                           Label="From"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Clearable="true" />
+            <MudDatePicker @bind-Date="_toDate"
+                           Label="To"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Clearable="true" />
+            <MudTextField @bind-Value="_tag"
+                          Label="Training tag"
+                          Placeholder="Bilbo"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense" />
+            <div class="hs-history-filter-actions">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           Disabled="@(!HasFilterInput)"
+                           OnClick="ClearFiltersAsync">
+                    Clear
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="ApplyFiltersAsync">
+                    Apply
+                </MudButton>
+            </div>
+            @if (_knownTags.Count > 0)
+            {
+                <div class="hs-history-tag-filters" aria-label="Available training tags">
+                    @foreach (var knownTag in _knownTags)
+                    {
+                        <button type="button"
+                                class="hs-history-tag-filter @(string.Equals(_tag, knownTag, StringComparison.OrdinalIgnoreCase) ? "is-selected" : null)"
+                                @onclick="() => SelectTagAsync(knownTag)">
+                            @knownTag
+                        </button>
+                    }
+                </div>
+            }
+        </MudPaper>
+    }
+
     @if (!string.IsNullOrWhiteSpace(_statusMessage))
     {
         <div class="hs-workout-status" role="status">@_statusMessage</div>
@@ -29,11 +91,22 @@
     }
     else if (_workouts is null || _workouts.Count == 0)
     {
-        <EmptyState Icon="@Icons.Material.Filled.CalendarToday"
-                    Title="No workouts yet"
-                    Subtitle="Start today's workout when you're ready."
-                    ActionLabel="Start workout"
-                    OnAction="GoToToday" />
+        @if (HasActiveFilters)
+        {
+            <EmptyState Icon="@Icons.Material.Filled.FilterAltOff"
+                        Title="No matching workouts"
+                        Subtitle="Try another filter."
+                        ActionLabel="Clear filters"
+                        OnAction="ClearFiltersAsync" />
+        }
+        else
+        {
+            <EmptyState Icon="@Icons.Material.Filled.CalendarToday"
+                        Title="No workouts yet"
+                        Subtitle="Start today's workout when you're ready."
+                        ActionLabel="Start workout"
+                        OnAction="GoToToday" />
+        }
     }
     else
     {
@@ -308,8 +381,36 @@
     private bool _isLoading = true;
     private bool _isLoadingMore;
     private bool _isSaving;
+    private bool _showFilters;
+    private string _search = string.Empty;
+    private string _tag = string.Empty;
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+    private string _appliedSearch = string.Empty;
+    private string _appliedTag = string.Empty;
+    private DateTime? _appliedFromDate;
+    private DateTime? _appliedToDate;
+    private readonly SortedSet<string> _knownTags =
+        new(StringComparer.OrdinalIgnoreCase);
     private int _currentPage;
     private int _totalCount;
+
+    private bool HasActiveFilters
+        => !string.IsNullOrWhiteSpace(_appliedSearch)
+           || !string.IsNullOrWhiteSpace(_appliedTag)
+           || _appliedFromDate.HasValue
+           || _appliedToDate.HasValue;
+    private bool HasFilterInput
+        => HasActiveFilters
+           || !string.IsNullOrWhiteSpace(_search)
+           || !string.IsNullOrWhiteSpace(_tag)
+           || _fromDate.HasValue
+           || _toDate.HasValue;
+    private int ActiveFilterCount
+        => (string.IsNullOrWhiteSpace(_appliedSearch) ? 0 : 1)
+           + (string.IsNullOrWhiteSpace(_appliedTag) ? 0 : 1)
+           + (_appliedFromDate.HasValue ? 1 : 0)
+           + (_appliedToDate.HasValue ? 1 : 0);
 
     private bool HasMoreWorkouts
         => _workouts is not null && _workouts.Count < _totalCount;
@@ -338,7 +439,7 @@
         try
         {
             using var response = await Http.GetAsync(
-                $"workouts?page={requestedPage}&pageSize={PageSize}");
+                BuildHistoryUrl(requestedPage));
             response.EnsureSuccessStatusCode();
 
             var page = await response.Content.ReadFromJsonAsync<List<GetWorkoutResource>>() ?? [];
@@ -357,6 +458,13 @@
 
             _currentPage = requestedPage;
             _totalCount = Math.Max(totalCount, _workouts.Count);
+            foreach (var knownTag in page
+                         .SelectMany(workout => workout.Tags)
+                         .Where(value =>
+                             !string.IsNullOrWhiteSpace(value)))
+            {
+                _knownTags.Add(knownTag);
+            }
         }
         catch (Exception)
         {
@@ -425,6 +533,92 @@
 
     private Task LoadMoreAsync()
         => LoadHistoryAsync(append: true);
+
+    private Task ApplyFiltersAsync()
+    {
+        if (_fromDate.HasValue
+            && _toDate.HasValue
+            && _fromDate.Value.Date > _toDate.Value.Date)
+        {
+            _errorMessage =
+                "The start date cannot be after the end date.";
+            return Task.CompletedTask;
+        }
+
+        _appliedSearch = _search.Trim();
+        _appliedTag = _tag.Trim();
+        _appliedFromDate = _fromDate?.Date;
+        _appliedToDate = _toDate?.Date;
+        ResetLoadedDetails();
+        return LoadHistoryAsync(append: false);
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _search = string.Empty;
+        _tag = string.Empty;
+        _fromDate = null;
+        _toDate = null;
+        _appliedSearch = string.Empty;
+        _appliedTag = string.Empty;
+        _appliedFromDate = null;
+        _appliedToDate = null;
+        ResetLoadedDetails();
+        await LoadHistoryAsync(append: false);
+    }
+
+    private async Task SelectTagAsync(string tag)
+    {
+        _tag = string.Equals(
+            _tag,
+            tag,
+            StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : tag;
+        _appliedTag = _tag;
+        ResetLoadedDetails();
+        await LoadHistoryAsync(append: false);
+    }
+
+    private string BuildHistoryUrl(int page)
+    {
+        var query = new List<string>
+        {
+            $"page={page}",
+            $"pageSize={PageSize}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(_appliedSearch))
+        {
+            query.Add(
+                $"search={Uri.EscapeDataString(_appliedSearch)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_appliedTag))
+        {
+            query.Add($"tag={Uri.EscapeDataString(_appliedTag)}");
+        }
+
+        if (_appliedFromDate.HasValue)
+        {
+            query.Add($"from={_appliedFromDate.Value:yyyy-MM-dd}");
+        }
+
+        if (_appliedToDate.HasValue)
+        {
+            query.Add($"to={_appliedToDate.Value:yyyy-MM-dd}");
+        }
+
+        return $"workouts?{string.Join("&", query)}";
+    }
+
+    private void ResetLoadedDetails()
+    {
+        _expandedWorkoutId = null;
+        _details.Clear();
+        _detailErrors.Clear();
+        _detailsLoading.Clear();
+    }
 
     private void OpenEdit(GetWorkoutResource workout)
     {

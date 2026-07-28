@@ -2,8 +2,10 @@
 @inject HealthspanApiClient ApiClient
 @inject TitleService TitleService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
-<PageTitle>Review Blood Test</PageTitle>
+<PageTitle>@PageHeading</PageTitle>
 
 @if (_isLoading)
 {
@@ -26,7 +28,7 @@ else
     <div class="hs-health-shell">
         <div class="hs-page-hero hs-health-page-heading">
             <div>
-                <MudText Typo="Typo.h5">Review blood test</MudText>
+                <MudText Typo="Typo.h5">@PageHeading</MudText>
             </div>
             <MudChipSet>
                 <MudChip Color="Color.Default" Variant="Variant.Outlined">@_markerRows.Count rows</MudChip>
@@ -53,8 +55,8 @@ else
                         </div>
                         <MudStack Row="true" Class="hs-list-card-actions">
                             <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="BackToList">Back</MudButton>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isSubmitting || !_bloodTest.RequiresReview)" OnClick="SubmitAsync">
-                                @(_isSubmitting ? "Submitting..." : "Submit reviewed markers")
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isSubmitting || !CanEdit)" OnClick="SubmitAsync">
+                                @(_isSubmitting ? "Saving..." : SubmitLabel)
                             </MudButton>
                         </MudStack>
                     </div>
@@ -117,16 +119,54 @@ else
                         <MudText Typo="Typo.body2"><strong>Status:</strong> @HealthDisplayHelpers.GetProcessingStatusLabel(_bloodTest.ProcessingStatus)</MudText>
                     </div>
 
+                    @if (!string.IsNullOrWhiteSpace(_bloodTest.SourceFileName))
+                    {
+                        <MudStack Row="true" Class="mt-3 hs-list-card-actions">
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       Disabled="@_isLoadingDocument"
+                                       OnClick="LoadDocumentAsync">
+                                @(_isLoadingDocument ? "Loading..." : _documentUrl is null ? "View report" : "Reload report")
+                            </MudButton>
+                            @if (_documentContent is not null)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Download"
+                                               Color="Color.Default"
+                                               OnClick="DownloadDocumentAsync"
+                                               aria-label="Download original report" />
+                            }
+                        </MudStack>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_documentError))
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3 hs-soft-alert">@_documentError</MudAlert>
+                    }
+
+                    @if (_documentUrl is not null)
+                    {
+                        <div class="hs-report-preview mt-3">
+                            @if (IsImageDocument)
+                            {
+                                <img src="@_documentUrl" alt="Original blood test report" />
+                            }
+                            else if (IsPdfDocument)
+                            {
+                                <iframe src="@_documentUrl" title="Original blood test report"></iframe>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2">Preview is not available for this file type. Use download instead.</MudText>
+                            }
+                        </div>
+                    }
+
                     @if (!string.IsNullOrWhiteSpace(_bloodTest.ProcessingNotes))
                     {
                         <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3 hs-soft-alert">@_bloodTest.ProcessingNotes</MudAlert>
                     }
 
-                    @if (!_bloodTest.RequiresReview)
-                    {
-                        <MudAlert Severity="Severity.Success" Dense="true" Class="mt-3 hs-soft-alert">Already finalized.</MudAlert>
-                    }
-                    else
+                    @if (CanEdit)
                     {
                         <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3 hs-soft-alert">Blank rows are ignored.</MudAlert>
                     }
@@ -147,6 +187,35 @@ else
     private string? _errorMessage;
     private string? _operationMessage;
     private Severity _operationSeverity = Severity.Info;
+    private bool _isLoadingDocument;
+    private BloodTestDocumentContent? _documentContent;
+    private string? _documentUrl;
+    private string? _documentError;
+    private bool IsPdfDocument
+        => string.Equals(
+            _documentContent?.ContentType,
+            "application/pdf",
+            StringComparison.OrdinalIgnoreCase);
+    private bool IsImageDocument
+        => _documentContent?.ContentType.StartsWith(
+            "image/",
+            StringComparison.OrdinalIgnoreCase) == true;
+    private bool CanEdit
+        => _bloodTest?.ProcessingStatus
+            != BloodTestProcessingStatus.Processing;
+    private string PageHeading
+        => _bloodTest?.ProcessingStatus switch
+        {
+            BloodTestProcessingStatus.ExtractionFailed =>
+                "Add blood test results",
+            BloodTestProcessingStatus.Processed =>
+                "Edit blood test",
+            _ => "Review blood test"
+        };
+    private string SubmitLabel
+        => _bloodTest?.RequiresReview == true
+            ? "Save reviewed markers"
+            : "Save changes";
 
     private List<BloodTestMarkerResource> _markerRows => _reviewDraft.Markers ??= new List<BloodTestMarkerResource>();
 
@@ -191,7 +260,7 @@ else
 
     private async Task SubmitAsync()
     {
-        if (_bloodTest == null || !_bloodTest.RequiresReview)
+        if (_bloodTest == null || !CanEdit)
         {
             return;
         }
@@ -230,6 +299,79 @@ else
 
     private void BackToList()
         => NavigationManager.NavigateTo($"/health/blood-tests?selectedId={BloodTestId}");
+
+    private async Task LoadDocumentAsync()
+    {
+        _isLoadingDocument = true;
+        _documentError = null;
+
+        try
+        {
+            await RevokeDocumentUrlAsync();
+            _documentContent =
+                await ApiClient.GetBloodTestDocumentAsync(BloodTestId);
+
+            if (_documentContent is null)
+            {
+                _documentError = "The original report is no longer available.";
+                return;
+            }
+
+            _documentUrl = await JS.InvokeAsync<string>(
+                "healthspanDocuments.createObjectUrl",
+                _documentContent.Content,
+                _documentContent.ContentType);
+        }
+        catch
+        {
+            _documentError = "The original report could not be loaded.";
+        }
+        finally
+        {
+            _isLoadingDocument = false;
+        }
+    }
+
+    private async Task DownloadDocumentAsync()
+    {
+        if (_documentContent is null || _bloodTest is null)
+        {
+            return;
+        }
+
+        await using var stream =
+            new MemoryStream(_documentContent.Content);
+        using var streamReference =
+            new DotNetStreamReference(stream);
+        await JS.InvokeVoidAsync(
+            "downloadFileFromStream",
+            _bloodTest.SourceFileName ?? "blood-test-report",
+            streamReference);
+    }
+
+    private async Task RevokeDocumentUrlAsync()
+    {
+        if (_documentUrl is null)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync(
+            "healthspanDocuments.revokeObjectUrl",
+            _documentUrl);
+        _documentUrl = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await RevokeDocumentUrlAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
 
     private static BloodTestMarkerResource CloneMarker(BloodTestMarkerResource marker)
         => new()

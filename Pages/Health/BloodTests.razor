@@ -2,6 +2,7 @@
 @inject HealthspanApiClient ApiClient
 @inject TitleService TitleService
 @inject NavigationManager NavigationManager
+@implements IAsyncDisposable
 
 <PageTitle>Blood Tests</PageTitle>
 
@@ -177,6 +178,10 @@ else
                                         {
                                             <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" OnClick="() => OpenReview(item.Id)">Review</MudButton>
                                         }
+                                        else
+                                        {
+                                            <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" OnClick="() => OpenReview(item.Id)">Add results</MudButton>
+                                        }
                                     </div>
                                 }
                             </div>
@@ -210,8 +215,55 @@ else
                                 {
                                     <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" OnClick="() => OpenReview(_selectedDetail.Id)">Review</MudButton>
                                 }
+                                else if (_selectedDetail.ProcessingStatus == BloodTestProcessingStatus.ExtractionFailed)
+                                {
+                                    <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" OnClick="() => OpenReview(_selectedDetail.Id)">Add results</MudButton>
+                                }
+                                else if (_selectedDetail.ProcessingStatus == BloodTestProcessingStatus.Processed)
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" OnClick="() => OpenReview(_selectedDetail.Id)">Edit</MudButton>
+                                }
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               Disabled="@_isDeleting"
+                                               OnClick="OpenDeleteConfirmation"
+                                               aria-label="Delete blood test" />
                             </div>
                         </div>
+
+                        @if (_deleteConfirmationOpen)
+                        {
+                            <section class="hs-delete-confirmation"
+                                     role="alertdialog"
+                                     aria-labelledby="delete-blood-test-title">
+                                <div>
+                                    <MudText Typo="Typo.h6"
+                                             id="delete-blood-test-title">
+                                        Delete this blood test?
+                                    </MudText>
+                                    <MudText Typo="Typo.body2"
+                                             Class="hs-muted-copy">
+                                        The test and all its markers will be permanently removed.
+                                    </MudText>
+                                </div>
+                                <div class="hs-delete-confirmation-actions">
+                                    <MudButton Variant="Variant.Text"
+                                               Color="Color.Default"
+                                               Disabled="@_isDeleting"
+                                               OnClick="CloseDeleteConfirmation">
+                                        Cancel
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled"
+                                               Color="Color.Error"
+                                               Disabled="@_isDeleting"
+                                               Loading="@_isDeleting"
+                                               OnClick="DeleteSelectedBloodTestAsync">
+                                        Delete
+                                    </MudButton>
+                                </div>
+                            </section>
+                        }
 
                         @if (_selectedDetail.RequiresReview)
                         {
@@ -270,9 +322,13 @@ else
     private bool _isDetailLoading;
     private bool _isUploading;
     private bool _isCreatingManual;
+    private bool _isDeleting;
+    private bool _deleteConfirmationOpen;
     private bool _showUploadPanel;
     private bool _showManualEntry;
     private bool _hasLoaded;
+    private CancellationTokenSource? _pollCancellation;
+    private Task? _pollTask;
     private string? _errorMessage;
     private string? _operationMessage;
     private Severity _operationSeverity = Severity.Info;
@@ -328,9 +384,15 @@ else
         }
     }
 
-    private async Task LoadAsync(Guid? preferredSelectionId = null)
+    private async Task LoadAsync(
+        Guid? preferredSelectionId = null,
+        bool showLoading = true)
     {
-        _isLoading = true;
+        if (showLoading)
+        {
+            _isLoading = true;
+        }
+
         _errorMessage = null;
 
         try
@@ -351,13 +413,17 @@ else
 
             if (selection.HasValue)
             {
-                await SelectBloodTestAsync(selection.Value);
+                await SelectBloodTestAsync(
+                    selection.Value,
+                    showLoading);
             }
             else
             {
                 _selectedDetail = null;
                 _selectedBloodTestId = null;
             }
+
+            EnsureProcessingPoll();
         }
         catch
         {
@@ -365,14 +431,23 @@ else
         }
         finally
         {
-            _isLoading = false;
+            if (showLoading)
+            {
+                _isLoading = false;
+            }
         }
     }
 
-    private async Task SelectBloodTestAsync(Guid id)
+    private async Task SelectBloodTestAsync(
+        Guid id,
+        bool showLoading = true)
     {
+        _deleteConfirmationOpen = false;
         _selectedBloodTestId = id;
-        _isDetailLoading = true;
+        if (showLoading)
+        {
+            _isDetailLoading = true;
+        }
         _errorMessage = null;
 
         try
@@ -386,7 +461,10 @@ else
         }
         finally
         {
-            _isDetailLoading = false;
+            if (showLoading)
+            {
+                _isDetailLoading = false;
+            }
         }
     }
 
@@ -424,7 +502,7 @@ else
             _showUploadPanel = false;
 
             _operationSeverity = Severity.Success;
-            _operationMessage = "Upload accepted — processing in the background. Refresh to check progress.";
+            _operationMessage = "Upload accepted — processing in the background. Status updates automatically.";
             await LoadAsync();
         }
         catch
@@ -499,6 +577,58 @@ else
     private void OpenReview(Guid id)
         => NavigationManager.NavigateTo($"/health/blood-tests/{id}/review");
 
+    private void OpenDeleteConfirmation()
+    {
+        _operationMessage = null;
+        _deleteConfirmationOpen = true;
+    }
+
+    private void CloseDeleteConfirmation()
+    {
+        if (!_isDeleting)
+        {
+            _deleteConfirmationOpen = false;
+        }
+    }
+
+    private async Task DeleteSelectedBloodTestAsync()
+    {
+        if (_selectedDetail is null || _isDeleting)
+        {
+            return;
+        }
+
+        _isDeleting = true;
+        _operationMessage = null;
+
+        try
+        {
+            await ApiClient.DeleteBloodTestAsync(
+                _selectedDetail.Id);
+
+            _selectedDetail = null;
+            _selectedBloodTestId = null;
+            SelectedId = null;
+            _deleteConfirmationOpen = false;
+            _operationSeverity = Severity.Success;
+            _operationMessage = "Blood test deleted.";
+            NavigationManager.NavigateTo(
+                "/health/blood-tests",
+                replace: true);
+            await LoadAsync();
+        }
+        catch
+        {
+            _operationSeverity = Severity.Error;
+            _operationMessage =
+                "Blood test could not be deleted.";
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+    }
+
     private void RemoveManualMarker(BloodTestMarkerResource marker)
     {
         _manualMarkers.Remove(marker);
@@ -541,5 +671,60 @@ else
     private async Task OnCardKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e, Guid id)
     {
         if (e.Key == "Enter") await InspectBloodTestAsync(id);
+    }
+
+    private void EnsureProcessingPoll()
+    {
+        if (!ProcessingTests.Any()
+            || _pollTask is { IsCompleted: false })
+        {
+            return;
+        }
+
+        _pollCancellation?.Dispose();
+        _pollCancellation = new CancellationTokenSource();
+        _pollTask = PollProcessingTestsAsync(
+            _pollCancellation.Token);
+    }
+
+    private async Task PollProcessingTestsAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(
+                TimeSpan.FromSeconds(5));
+
+            while (await timer.WaitForNextTickAsync(
+                       cancellationToken))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadAsync(
+                        _selectedBloodTestId,
+                        showLoading: false);
+                    StateHasChanged();
+                });
+
+                if (!ProcessingTests.Any())
+                {
+                    break;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_pollCancellation is null)
+        {
+            return;
+        }
+
+        await _pollCancellation.CancelAsync();
+        _pollCancellation.Dispose();
     }
 }

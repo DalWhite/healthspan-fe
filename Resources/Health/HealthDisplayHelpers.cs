@@ -88,15 +88,15 @@ public static class HealthDisplayHelpers
 
     public static string ResolveAdaptationLabel(GalpinAdaptationType adaptation) => adaptation switch
     {
+        GalpinAdaptationType.Skill => "Skill",
         GalpinAdaptationType.Strength => "Strength",
         GalpinAdaptationType.Power => "Power",
         GalpinAdaptationType.Speed => "Speed",
         GalpinAdaptationType.Hypertrophy => "Hypertrophy",
         GalpinAdaptationType.MuscularEndurance => "Muscular Endurance",
         GalpinAdaptationType.AnaerobicCapacity => "Anaerobic Capacity",
-        GalpinAdaptationType.MaxAerobicOutput => "Max Aerobic Output",
+        GalpinAdaptationType.MaximalAerobicPower => "Maximal Aerobic Power",
         GalpinAdaptationType.LongDurationEndurance => "Long Duration Endurance",
-        GalpinAdaptationType.MobilityStability => "Mobility & Stability",
         _ => adaptation.ToString()
     };
 }

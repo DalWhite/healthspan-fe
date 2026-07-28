@@ -302,7 +302,9 @@
             _exercise.TypeId = _selectedType.Id;
 
             var endpoint = UseWorkoutSessionEndpoint
-                ? $"/Workouts/{workoutId}/exercises"
+                ? string.IsNullOrWhiteSpace(TraineeId)
+                    ? $"/Workouts/{workoutId}/exercises"
+                    : $"/Workouts/{workoutId}/exercises?traineeId={Uri.EscapeDataString(TraineeId)}"
                 : string.IsNullOrWhiteSpace(TraineeId)
                     ? "/Exercises"
                     : $"/Exercises?userId={Uri.EscapeDataString(TraineeId)}";

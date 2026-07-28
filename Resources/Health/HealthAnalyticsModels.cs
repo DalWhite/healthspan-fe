@@ -22,6 +22,12 @@ public enum BloodTestProcessingStatus
     Processing = 3
 }
 
+public sealed class BloodTestDocumentContent
+{
+    public byte[] Content { get; set; } = Array.Empty<byte>();
+    public string ContentType { get; set; } = "application/octet-stream";
+}
+
 public enum MarkerStatus
 {
     Unknown = 0,
@@ -33,15 +39,15 @@ public enum MarkerStatus
 
 public enum GalpinAdaptationType
 {
-    Strength = 0,
-    Power = 1,
-    Speed = 2,
-    Hypertrophy = 3,
-    MuscularEndurance = 4,
-    AnaerobicCapacity = 5,
-    MaxAerobicOutput = 6,
-    LongDurationEndurance = 7,
-    MobilityStability = 8
+    Skill = 0,
+    Speed = 1,
+    Power = 2,
+    Strength = 3,
+    Hypertrophy = 4,
+    MuscularEndurance = 5,
+    AnaerobicCapacity = 6,
+    MaximalAerobicPower = 7,
+    LongDurationEndurance = 8
 }
 
 public class GetBloodTestResource

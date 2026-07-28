@@ -44,9 +44,15 @@
     <!-- Data Section -->
     <MudCard Class="mb-4 hs-surface">
         <MudCardContent>
-            <MudText Typo="Typo.h6" Class="mb-3">Data Import / Export</MudText>
+            <MudText Typo="Typo.h6" Class="mb-3">Your data</MudText>
 
             <div class="d-flex flex-wrap gap-3 align-center">
+                <MudButton OnClick="ExportData" Color="MudBlazor.Color.Primary" Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.FileDownload"
+                           Disabled="_isExporting">
+                    @(_isExporting ? "Exporting..." : "Export my data")
+                </MudButton>
+
                 <MudButton OnClick="DownloadTemplate" Color="MudBlazor.Color.Primary" Variant="Variant.Outlined"
                            StartIcon="@Icons.Material.Filled.Download">
                     Download Template
@@ -73,13 +79,13 @@
         </MudCardContent>
     </MudCard>
 
-    <MudText Typo="Typo.caption" Color="MudBlazor.Color.Dark" Style="opacity: 0.4;">v0.0.1</MudText>
 </MudContainer>
 
 @code {
     private IBrowserFile? _selectedFile;
     private string _displayName = "Signed-in user";
     private string? _email;
+    private bool _isExporting;
 
     protected override async Task OnInitializedAsync()
     {
@@ -123,6 +129,33 @@
         }
     }
 
+    private async Task ExportData()
+    {
+        _isExporting = true;
+
+        try
+        {
+            var bytes = await Http.GetByteArrayAsync(
+                "/data/export");
+            using var stream = new DotNetStreamReference(
+                new MemoryStream(bytes));
+            await JS.InvokeVoidAsync(
+                "downloadFileFromStream",
+                $"healthspan-export-{DateTime.Today:yyyyMMdd}.json",
+                stream);
+        }
+        catch
+        {
+            Snackbar.Add(
+                "Your data could not be exported.",
+                Severity.Error);
+        }
+        finally
+        {
+            _isExporting = false;
+        }
+    }
+
     private void OnFileSelected(IBrowserFile file)
         => _selectedFile = file;
 
@@ -139,7 +172,7 @@
             using var content = new MultipartFormDataContent();
             var fileContent = new StreamContent(_selectedFile.OpenReadStream());
             fileContent.Headers.ContentType = new MediaTypeHeaderValue(_selectedFile.ContentType);
-            content.Add(fileContent, "\"files\"", "exercises.csv");
+            content.Add(fileContent, "file", "exercises.csv");
 
             var response = await Http.PostAsync("/data/import", content);
 

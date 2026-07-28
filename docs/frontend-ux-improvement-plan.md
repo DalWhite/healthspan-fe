@@ -224,6 +224,33 @@ than a role check added implicitly.
 Broader automated, responsive, accessibility, and visual-regression testing is intentionally
 deferred until the mobile UX and main workflows are stable.
 
+## Post-completion workflow gap audit
+
+Reviewed 28 July 2026:
+
+- [x] Allow users to permanently delete their own blood tests and marker results, with confirmation
+  and best-effort uploaded-document cleanup.
+- [x] Allow finalized/manual blood tests to be corrected and failed OCR uploads to receive manually
+  entered results.
+- [x] Show the original uploaded PDF or image beside the OCR review so users can verify markers
+  without leaving Healthspan.
+- [x] Add edit and delete actions for Galpin assessments.
+- [x] Add a complete JSON user-data export without authentication secrets, raw OCR payloads, or
+  document-storage internals.
+- [x] Refresh processing blood tests automatically while OCR is
+  running.
+- [x] Modernize the trainer-only trainee history from the legacy desktop table to workout sessions
+  with mobile loading, empty, and error states.
+- [x] Add optional search/date/tag filters to workout history when the current paged list becomes
+  difficult to navigate.
+- [x] Keep routines hidden until templates can store ordered prescriptions (sets, reps, load) and
+  safely populate Today. The current name/frequency-only model is not a complete user workflow.
+
+Audit implementation note: original reports are streamed through an owner-only authenticated
+endpoint and previewed with a temporary browser URL. Coaching actions resolve the trainee through
+the assigned-trainer access policy. The Galpin frontend enum was also aligned with the API enum;
+the previous values mislabeled several adaptation scores.
+
 ## Definition of success
 
 - Users no longer need to understand the difference between an exercise record and an exercise type.
