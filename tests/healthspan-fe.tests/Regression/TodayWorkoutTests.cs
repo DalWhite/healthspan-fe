@@ -94,6 +94,10 @@ public class TodayWorkoutTests : BlazorTestBase
             cut.Markup.Should().Contain("1 exercise · 3 sets");
             cut.Markup.Should().Contain("3 × 8 · 80 kg");
             cut.Markup.Should().Contain("Favourites");
+            cut.Find("a[aria-label='Edit Bench Press entry']")
+                .GetAttribute("href")
+                .Should().Be(
+                    $"/training/history/{exerciseId}/edit?returnUrl=%2Ftraining%2Ftoday");
         });
     }
 

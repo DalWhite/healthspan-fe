@@ -526,6 +526,13 @@ html {
   font-size: 0.75rem;
 }
 
+.hs-workout-exercise-actions {
+  display: flex;
+  gap: var(--hs-space-1);
+  flex: 0 0 auto;
+}
+
+.hs-workout-edit-link,
 .hs-workout-progression-link {
   width: var(--hs-touch-target);
   height: var(--hs-touch-target);
@@ -535,6 +542,14 @@ html {
   border-radius: 50%;
   color: var(--mud-palette-primary);
   text-decoration: none;
+}
+
+.hs-workout-edit-link {
+  color: var(--mud-palette-secondary);
+}
+
+.hs-workout-edit-link:hover {
+  background: color-mix(in srgb, var(--mud-palette-secondary) 10%, transparent);
 }
 
 .hs-workout-progression-link:hover {
@@ -2938,6 +2953,19 @@ a.hs-exercise-history-row:hover {
   border-top: 1px solid var(--mud-palette-lines-default);
 }
 
+.hs-today-exercise-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hs-today-exercise-edit-link {
+  margin-right: -8px;
+}
+
 .hs-today-exercise-name {
   min-width: 0;
   overflow: hidden;
@@ -3017,6 +3045,10 @@ a.hs-exercise-history-row:hover {
   }
 
   .hs-today-exercise-item {
+    align-items: center;
+  }
+
+  .hs-today-exercise-copy {
     align-items: flex-start;
     flex-direction: column;
     gap: 4px;

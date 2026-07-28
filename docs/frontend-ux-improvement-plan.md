@@ -43,7 +43,7 @@ Updated 28 July 2026:
 - Step 3 completed and verified: reusable page shell, compact semantic header, toolbar, surface, loading, empty, and error patterns; expanded design tokens; shared light/dark theme state across authenticated and login layouts; a chrome-free mobile top edge; responsive content widths; persistent route headings during loading; keyboard focus styles; 44px mobile touch targets; safe-area spacing; and removal of broad global MudBlazor overrides.
 - Step 4 completed: mobile-first Exercise Library filters and variation grouping, controlled tag editing, favorite updates, and the two-phase catalog cleanup with history preserved.
 - Step 5 completed and hardened: a mobile-first Today flow that starts or resumes one daily session, supports recent/favorite/search selection, saves exercises in place, validates failure paths, and prevents duplicate daily sessions across API instances.
-- Step 6 completed and hardened: Training History is workout-based, with compatible paged summaries, date-range filtering, mobile session cards, on-demand exercise details, progression links, and compact edit/delete sheets backed by user-scoped APIs and structured errors.
+- Step 6 completed and hardened: Training History is workout-based, with compatible paged summaries, date-range filtering, mobile session cards, on-demand exercise details, progression links, and compact edit/delete sheets backed by user-scoped APIs and structured errors. New writes now reuse the workout holding the first logged exercise per user/day; the one-time legacy duplicate merge remains pending.
 - Step 7 completed and hardened: exercise details now use compact mobile Overview, History, Trends, and Variations sections; no-load exercises avoid misleading weight metrics; edit/delete actions are user-scoped and return structured errors; library/history context is preserved on return; and individual logged exercises support custom training tags such as `Bilbo` for filtered history and performance analysis.
 - Steps 8–10 remain planned.
 
@@ -146,6 +146,8 @@ API support:
 - [x] Return the updated session summary after saving.
 - [x] Avoid downloading all workouts before each save.
 - [x] Enforce a database-unique daily-session key while leaving legacy workouts compatible.
+- [x] Reuse the workout holding the first logged exercise of the user/day from legacy creation and CSV import paths.
+- [ ] Consolidate existing duplicate workout shells with the guarded daily-workout merge after taking a fresh backup.
 - [x] Reject missing dates and explicitly scope nested exercise writes to the current user.
 - [x] Build the success response without a fallible database read after persistence.
 - [x] Handle timeout and malformed-response states without leaving the Today page.
@@ -174,6 +176,7 @@ API support:
 - [x] Avoid misleading kilogram and 1RM displays for no-weight exercises.
 - [x] Confirm deletion and explain API conflicts.
 - [x] Preserve the originating route and filters when navigating back.
+- [x] Keep logged-entry editing separate from exercise progression in Today and History.
 - [x] Tag individual logged exercises and filter their history, KPIs, and trends by training method.
 
 ## 8. Reorganize Profile and Health screens — P2, large

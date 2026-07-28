@@ -136,15 +136,24 @@
                                                     }
                                                 </div>
 
-                                                @if (exercise.TypeId > 0)
-                                                {
-                                                    <a class="hs-workout-progression-link"
-                                                       href="@BuildProgressionRoute(exercise.TypeId)"
-                                                       aria-label="@($"View {exercise.Name ?? "exercise"} progression")">
-                                                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp"
+                                                <div class="hs-workout-exercise-actions">
+                                                    <a class="hs-workout-edit-link"
+                                                       href="@BuildExerciseEditRoute(exercise.Id)"
+                                                       aria-label="@($"Edit {exercise.Name ?? "exercise"} entry")">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Edit"
                                                                  aria-hidden="true" />
                                                     </a>
-                                                }
+
+                                                    @if (exercise.TypeId > 0)
+                                                    {
+                                                        <a class="hs-workout-progression-link"
+                                                           href="@BuildProgressionRoute(exercise.TypeId)"
+                                                           aria-label="@($"View {exercise.Name ?? "exercise"} progression")">
+                                                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp"
+                                                                 aria-hidden="true" />
+                                                        </a>
+                                                    }
+                                                </div>
                                             </div>
                                         }
                                     </div>
@@ -597,6 +606,9 @@
 
     private static string BuildProgressionRoute(int exerciseTypeId)
         => $"/training/library/{exerciseTypeId}?returnUrl={Uri.EscapeDataString("/training/history")}";
+
+    private static string BuildExerciseEditRoute(Guid exerciseId)
+        => $"/training/history/{exerciseId}/edit?returnUrl={Uri.EscapeDataString("/training/history")}";
 
     private string FormatLoadedCount()
     {

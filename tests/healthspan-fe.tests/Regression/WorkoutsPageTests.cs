@@ -66,6 +66,10 @@ public class WorkoutsPageTests : BlazorTestBase
             cut.Markup.Should().Contain("Bench Press");
             cut.Markup.Should().Contain("4 sets × 8 reps");
             cut.Markup.Should().Contain("80.0 kg");
+            cut.Find("a.hs-workout-edit-link")
+                .GetAttribute("href")
+                .Should().StartWith(
+                    "/training/history/10000000-0000-0000-0000-000000000001/edit?returnUrl=");
             cut.Find("a.hs-workout-progression-link")
                 .GetAttribute("href")
                 .Should().StartWith("/training/library/1?returnUrl=");

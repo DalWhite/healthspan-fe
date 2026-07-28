@@ -72,16 +72,24 @@
                     @foreach (var exercise in _session.Exercises)
                     {
                         <article class="hs-today-exercise-item">
-                            <span class="hs-today-exercise-name">
-                                @exercise.Name
-                                @if (exercise.Tags.Count > 0)
-                                {
-                                    <span class="hs-training-tag-inline">
-                                        @string.Join(" · ", exercise.Tags)
-                                    </span>
-                                }
-                            </span>
-                            <span class="hs-today-exercise-load">@FormatExercise(exercise)</span>
+                            <div class="hs-today-exercise-copy">
+                                <span class="hs-today-exercise-name">
+                                    @exercise.Name
+                                    @if (exercise.Tags.Count > 0)
+                                    {
+                                        <span class="hs-training-tag-inline">
+                                            @string.Join(" · ", exercise.Tags)
+                                        </span>
+                                    }
+                                </span>
+                                <span class="hs-today-exercise-load">@FormatExercise(exercise)</span>
+                            </div>
+                            <a class="hs-workout-edit-link hs-today-exercise-edit-link"
+                               href="@BuildEditRoute(exercise.Id)"
+                               aria-label="@($"Edit {exercise.Name ?? "exercise"} entry")">
+                                <MudIcon Icon="@Icons.Material.Filled.Edit"
+                                         aria-hidden="true" />
+                            </a>
                         </article>
                     }
                 </div>
@@ -228,6 +236,9 @@
 
     private void FinishWorkout()
         => NavigationManager.NavigateTo("/training/history");
+
+    private static string BuildEditRoute(Guid exerciseId)
+        => $"/training/history/{exerciseId}/edit?returnUrl={Uri.EscapeDataString("/training/today")}";
 
     private static string FormatExercise(WorkoutSessionExerciseResource exercise)
     {
