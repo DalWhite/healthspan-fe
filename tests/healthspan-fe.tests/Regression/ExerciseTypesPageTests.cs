@@ -84,17 +84,19 @@ public class ExerciseTypesPageTests : BlazorTestBase
             healthspan_fe_wasm_pwa.Pages.ExerciseTypes.ExerciseTypes>();
         var search = cut.WaitForElement(
             "input[placeholder='Search exercises, variations, or tags...']");
+        var appState = Services.GetRequiredService<AppStateService>();
         search.Input("Romanian");
 
-        var appState = Services.GetRequiredService<AppStateService>();
-        appState.ExerciseLibraryView.Search.Should().Be("Romanian");
-
         cut.WaitForAssertion(() =>
-            cut.FindAll(".exercise-card").Should().ContainSingle());
+        {
+            appState.ExerciseLibraryView.Search.Should().Be("Romanian");
+            cut.FindAll(".exercise-card").Should().ContainSingle();
+        });
         cut.Find(".exercise-card").Click();
 
-        navigationManager.Uri.Should().Contain(
-            "/training/library/1?returnUrl=%2Ftraining%2Flibrary");
+        cut.WaitForAssertion(() =>
+            navigationManager.Uri.Should().Contain(
+                "/training/library/1?returnUrl=%2Ftraining%2Flibrary"));
 
         cut.Dispose();
         navigationManager.NavigateTo("https://localhost/training/library");
