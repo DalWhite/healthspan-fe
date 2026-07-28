@@ -39,7 +39,7 @@
 </MudDialog>
 
 @code {
-    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = default!;
 
     [Parameter] public List<ExerciseTypeFilterOption> ExerciseTypes { get; set; } = new();
     [Parameter] public List<string> MuscleGroups { get; set; } = new List<string>();

@@ -100,8 +100,9 @@
     {
         NavigationManager.NavigateTo("/exercises/types");
     }
-    private async Task HandleExerciseAdded(AddExerciseResource exercise)
+    private Task HandleExerciseAdded(AddExerciseResource exercise)
     {
         exercisesAdded.Add(exercise);
+        return Task.CompletedTask;
     }
 }

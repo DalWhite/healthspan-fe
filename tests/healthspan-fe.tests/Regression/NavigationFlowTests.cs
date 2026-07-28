@@ -93,9 +93,13 @@ public class NavigationFlowTests : BlazorTestBase
             items[0].GetAttribute("aria-controls").Should().Be("app-navigation-drawer");
         });
 
-        var initialExpandedState = cut.Find(".hs-mobile-nav-menu").GetAttribute("aria-expanded");
+        var initialExpandedState = cut.Find(".hs-mobile-nav-menu")
+            .GetAttribute("aria-expanded");
+        initialExpandedState.Should().BeOneOf("true", "false");
         cut.Find(".hs-mobile-nav-menu").Click();
-        cut.Find(".hs-mobile-nav-menu").GetAttribute("aria-expanded").Should().NotBe(initialExpandedState);
+        cut.Find(".hs-mobile-nav-menu")
+            .GetAttribute("aria-expanded").Should().Be(
+                initialExpandedState == "true" ? "false" : "true");
     }
 
     [Theory]

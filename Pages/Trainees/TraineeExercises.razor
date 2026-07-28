@@ -24,8 +24,7 @@ else
                   Filter="@((GetExerciseResource x) => FilterExercise(x))"
                   GroupBy="@_groupDefinition"
                   T="GetExerciseResource"
-                  OnRowClick="@GoToEditExercise"
-                  SelectedItem="@_selected">
+                  OnRowClick="@GoToEditExercise">
             <ColGroup>
                 <col style="width: 5%;" />
                 <col />
@@ -85,7 +84,6 @@ else
     [Parameter] public string TraineeId { get; set; } = "";
 
     private GetExerciseResource[]? _exercises;
-    private GetExerciseResource? _selected;
     private string _search = "";
 
     private readonly TableGroupDefinition<GetExerciseResource> _groupDefinition = new()

@@ -60,7 +60,7 @@
                 class="hs-mobile-nav-link hs-mobile-nav-menu"
                 aria-label="@(_drawerOpen ? "Close navigation menu" : "Open navigation menu")"
                 aria-controls="app-navigation-drawer"
-                aria-expanded="@_drawerOpen"
+                aria-expanded="@_drawerOpen.ToString().ToLowerInvariant()"
                 @onclick="ToggleDrawer">
             <MudIcon Icon="@Icons.Material.Filled.Menu" Size="MudBlazor.Size.Small" />
             <span>Menu</span>
