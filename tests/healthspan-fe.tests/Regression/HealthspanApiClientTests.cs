@@ -70,6 +70,45 @@ public class HealthspanApiClientTests
     }
 
     [Fact]
+    public async Task GetHealthProfileAsync_Returns_Profile()
+    {
+        _mockHttp.When("/HealthProfile")
+            .Respond("application/json", """
+                {
+                  "dateOfBirth": "1989-06-15",
+                  "biologicalSex": 1
+                }
+                """);
+
+        var result = await _client.GetHealthProfileAsync();
+
+        result.DateOfBirth.Should().Be(new DateOnly(1989, 6, 15));
+        result.BiologicalSex.Should().Be(HealthBiologicalSex.Female);
+    }
+
+    [Fact]
+    public async Task UpdateHealthProfileAsync_Puts_And_Returns_Profile()
+    {
+        _mockHttp.When(HttpMethod.Put, "/HealthProfile")
+            .Respond("application/json", """
+                {
+                  "dateOfBirth": "1989-06-15",
+                  "biologicalSex": 2
+                }
+                """);
+
+        var result = await _client.UpdateHealthProfileAsync(
+            new UpdateHealthProfileResource
+            {
+                DateOfBirth = new DateOnly(1989, 6, 15),
+                BiologicalSex = HealthBiologicalSex.Male
+            });
+
+        result.DateOfBirth.Should().Be(new DateOnly(1989, 6, 15));
+        result.BiologicalSex.Should().Be(HealthBiologicalSex.Male);
+    }
+
+    [Fact]
     public async Task GetGalpinCatalogAsync_Returns_Catalog_Items()
     {
         _mockHttp.When("/GalpinAssessments/catalog")

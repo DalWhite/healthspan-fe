@@ -1,0 +1,102 @@
+<div class="hs-profile-session-card">
+    <div class="hs-profile-session-head">
+        <div>
+            <div class="hs-list-card-title">@Session.Label</div>
+            <div class="hs-muted-copy">@FormatSessionDate(Session.Date)</div>
+        </div>
+        <div class="hs-profile-session-summary">
+            <span>@FormatLoad(Session.TotalLoad)</span>
+            <span>@FormatCount(Session.ExerciseCount, "exercise", "exercises")</span>
+        </div>
+    </div>
+
+    <div class="hs-profile-focus-strip hs-profile-focus-strip-tight">
+        @foreach (var focus in Session.FocusGroups)
+        {
+            <MudChip Color="Color.Primary"
+                     Variant="Variant.Outlined"
+                     Size="Size.Small">@focus</MudChip>
+        }
+    </div>
+
+    <div class="hs-profile-exercise-stack">
+        @foreach (var exercise in Session.Exercises)
+        {
+            <div class="hs-profile-exercise-card">
+                <div class="hs-profile-exercise-head">
+                    <div>
+                        <div class="hs-profile-exercise-name">@exercise.Name</div>
+                        <div class="hs-muted-copy">@FormatExerciseMuscleLine(exercise)</div>
+                    </div>
+                    <div class="hs-profile-exercise-load">@FormatLoad(exercise.Load)</div>
+                </div>
+                <div class="hs-profile-exercise-meta">
+                    <span>@exercise.Prescription</span>
+                    @if (exercise.MaxRepetition.HasValue)
+                    {
+                        <span>1RM @exercise.MaxRepetition.Value.ToString("0.#") kg</span>
+                    }
+                </div>
+                @if (exercise.Tags.Count > 0)
+                {
+                    <div class="hs-profile-tag-row">
+                        @foreach (var tag in exercise.Tags)
+                        {
+                            <span class="hs-profile-inline-tag">@tag</span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public WeeklyWorkoutSessionResource Session { get; set; } = new();
+
+    private static string FormatCount(
+        int count,
+        string singular,
+        string plural)
+        => $"{count} {(count == 1 ? singular : plural)}";
+
+    private static string FormatSessionDate(DateTime value)
+        => value == default
+            ? "No date"
+            : value.ToString("ddd dd MMM yyyy");
+
+    private static string FormatLoad(double load)
+        => load <= 0
+            ? "0 kg"
+            : load >= 100
+                ? $"{Math.Round(load):0} kg"
+                : $"{load:0.#} kg";
+
+    private static string FormatExerciseMuscleLine(
+        WeeklyWorkoutExerciseResource exercise)
+    {
+        var primary = exercise.PrimaryMuscles
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var secondary = exercise.SecondaryMuscles
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (primary.Count > 0 && secondary.Count > 0)
+        {
+            return $"{string.Join(", ", primary)} · {string.Join(", ", secondary)}";
+        }
+
+        if (primary.Count > 0)
+        {
+            return string.Join(", ", primary);
+        }
+
+        return secondary.Count > 0
+            ? string.Join(", ", secondary)
+            : "Muscle target not mapped";
+    }
+}

@@ -89,6 +89,29 @@ public class HealthspanApiClient
     public Task<GetHealthDashboardSummaryResource?> GetDashboardSummaryAsync(CancellationToken cancellationToken = default)
         => _httpClient.GetFromJsonAsync<GetHealthDashboardSummaryResource>(HealthRoutes.DashboardSummary, cancellationToken);
 
+    public async Task<HealthProfileResource> GetHealthProfileAsync(
+        CancellationToken cancellationToken = default)
+        => await _httpClient.GetFromJsonAsync<HealthProfileResource>(
+               HealthRoutes.HealthProfile,
+               cancellationToken)
+           ?? new HealthProfileResource();
+
+    public async Task<HealthProfileResource> UpdateHealthProfileAsync(
+        UpdateHealthProfileResource request,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PutAsJsonAsync(
+            HealthRoutes.HealthProfile,
+            request,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content
+                   .ReadFromJsonAsync<HealthProfileResource>(
+                       cancellationToken: cancellationToken)
+               ?? new HealthProfileResource();
+    }
+
     private static string BuildPath(string basePath, IReadOnlyDictionary<string, string?> query)
     {
         var items = query

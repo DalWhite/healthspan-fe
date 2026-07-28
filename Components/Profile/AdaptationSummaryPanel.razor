@@ -1,0 +1,42 @@
+<MudPaper Class="hs-health-panel hs-profile-panel-rich">
+    <div class="hs-detail-heading">
+        <div>
+            <MudText Typo="Typo.h6">Physical adaptations</MudText>
+            <MudText Typo="Typo.body2" Class="hs-muted-copy">
+                Compare the nine Galpin adaptations over time.
+            </MudText>
+        </div>
+    </div>
+
+    @if (Series.Count == 0)
+    {
+        <EmptyState Icon="@Icons.Material.Filled.Radar"
+                    Title="No adaptation assessments yet"
+                    Subtitle="Complete assessments over time to compare last year, two months ago, and now." />
+    }
+    else
+    {
+        @if (MissingSnapshots.Count > 0)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                @string.Join(" ", MissingSnapshots)
+            </MudAlert>
+        }
+
+        <AdaptationRadarChart Axes="Axes" Series="Series" />
+    }
+</MudPaper>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<AdaptationRadarAxis> Axes { get; set; }
+        = Array.Empty<AdaptationRadarAxis>();
+
+    [Parameter]
+    public IReadOnlyList<AdaptationRadarSeries> Series { get; set; }
+        = Array.Empty<AdaptationRadarSeries>();
+
+    [Parameter]
+    public IReadOnlyList<string> MissingSnapshots { get; set; }
+        = Array.Empty<string>();
+}

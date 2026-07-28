@@ -18,6 +18,10 @@
         <MudNavLink Href="health/assessments" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.FactCheck">
             Assessments
         </MudNavLink>
+
+        <MudNavLink Href="health/profile" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Badge">
+            Health Profile
+        </MudNavLink>
     </MudNavGroup>
 
     <MudNavGroup Title="Training" Icon="@Icons.Material.Filled.FitnessCenter" Expanded="true">
@@ -32,6 +36,10 @@
         <MudNavLink Href="training/library" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MenuBook">
             Exercise Library
         </MudNavLink>
+
+        <MudNavLink Href="training/insights" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Insights">
+            Insights
+        </MudNavLink>
     </MudNavGroup>
 
     @if (_isTrainer)
@@ -44,12 +52,8 @@
     }
 
     <MudNavGroup Title="Account" Icon="@Icons.Material.Filled.AccountCircle">
-        <MudNavLink Href="profile" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">
-            Profile
-        </MudNavLink>
-
         <MudNavLink Href="settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">
-            Settings
+            Account &amp; Settings
         </MudNavLink>
     </MudNavGroup>
 </MudNavMenu>

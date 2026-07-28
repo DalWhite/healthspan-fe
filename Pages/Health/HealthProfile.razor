@@ -1,0 +1,144 @@
+@page "/health/profile"
+@inject HealthspanApiClient ApiClient
+@inject TitleService TitleService
+@inject ISnackbar Snackbar
+
+<PageTitle>Health profile</PageTitle>
+
+@if (_isLoading)
+{
+    <PageShell>
+        <PageHeader Title="Health profile" />
+        <LoadingState Message="Loading health profile..." />
+    </PageShell>
+}
+else
+{
+    <div class="hs-health-shell hs-health-profile-shell">
+        <MudPaper Class="hs-health-panel hs-health-profile-card">
+            <div class="hs-detail-heading">
+                <div>
+                    <MudText Typo="Typo.h5">Health profile</MudText>
+                    <MudText Typo="Typo.body2" Class="hs-muted-copy">
+                        Used to choose age- and sex-aware biomarker ranges.
+                    </MudText>
+                </div>
+                @if (_isComplete)
+                {
+                    <MudChip Color="Color.Success" Variant="Variant.Outlined">Complete</MudChip>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">
+                    @_errorMessage
+                </MudAlert>
+            }
+
+            <div class="hs-health-profile-form mt-4">
+                <MudDatePicker Label="Date of birth"
+                               Date="_dateOfBirth"
+                               DateChanged="OnDateOfBirthChanged"
+                               MaxDate="DateTime.Today"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense" />
+
+                <MudSelect T="HealthBiologicalSex"
+                           Label="Biological sex"
+                           @bind-Value="_biologicalSex"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense">
+                    <MudSelectItem Value="HealthBiologicalSex.Unknown">Prefer not to specify</MudSelectItem>
+                    <MudSelectItem Value="HealthBiologicalSex.Female">Female</MudSelectItem>
+                    <MudSelectItem Value="HealthBiologicalSex.Male">Male</MudSelectItem>
+                </MudSelect>
+
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    This personalizes reference ranges. It never changes your original lab result.
+                </MudAlert>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="_isSaving"
+                           OnClick="SaveAsync"
+                           Class="hs-mobile-full-action">
+                    @(_isSaving ? "Saving..." : "Save health profile")
+                </MudButton>
+            </div>
+        </MudPaper>
+    </div>
+}
+
+@code {
+    private DateTime? _dateOfBirth;
+    private HealthBiologicalSex _biologicalSex;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _errorMessage;
+
+    private bool _isComplete
+        => _dateOfBirth.HasValue
+           && _biologicalSex != HealthBiologicalSex.Unknown;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TitleService.Title = "Health profile";
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var profile = await ApiClient.GetHealthProfileAsync();
+            _dateOfBirth = profile.DateOfBirth?.ToDateTime(
+                TimeOnly.MinValue);
+            _biologicalSex = profile.BiologicalSex;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage =
+                $"Health profile could not be loaded: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OnDateOfBirthChanged(DateTime? value)
+        => _dateOfBirth = value?.Date;
+
+    private async Task SaveAsync()
+    {
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var saved = await ApiClient.UpdateHealthProfileAsync(
+                new UpdateHealthProfileResource
+                {
+                    DateOfBirth = _dateOfBirth.HasValue
+                        ? DateOnly.FromDateTime(_dateOfBirth.Value)
+                        : null,
+                    BiologicalSex = _biologicalSex
+                });
+
+            _dateOfBirth = saved.DateOfBirth?.ToDateTime(
+                TimeOnly.MinValue);
+            _biologicalSex = saved.BiologicalSex;
+            Snackbar.Add("Health profile saved.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage =
+                $"Health profile could not be saved: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

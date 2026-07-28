@@ -1,6 +1,7 @@
 @page "/settings"
 @using Healthspan.Authentication
 @using System.Net.Http.Headers
+@using System.Security.Claims
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @inject IAccountManagement Acct
@@ -19,6 +20,11 @@
     <MudCard Class="mb-4 hs-surface">
         <MudCardContent>
             <MudText Typo="Typo.h6" Class="mb-3">Account</MudText>
+            <MudText Typo="Typo.subtitle1">@_displayName</MudText>
+            @if (!string.IsNullOrWhiteSpace(_email))
+            {
+                <MudText Typo="Typo.body2" Class="hs-muted-copy mb-3">@_email</MudText>
+            }
             <MudButton OnClick="Logout" Color="MudBlazor.Color.Error" Variant="Variant.Outlined"
                        StartIcon="@Icons.Material.Filled.Logout">
                 Logout
@@ -72,6 +78,23 @@
 
 @code {
     private IBrowserFile? _selectedFile;
+    private string _displayName = "Signed-in user";
+    private string? _email;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        _email = user.FindFirst(ClaimTypes.Email)?.Value
+            ?? user.FindFirst("email")?.Value
+            ?? user.Identity?.Name;
+        _displayName = user.FindFirst(ClaimTypes.GivenName)?.Value
+            ?? user.FindFirst(ClaimTypes.Name)?.Value
+            ?? user.FindFirst("name")?.Value
+            ?? _email
+            ?? "Signed-in user";
+    }
 
     private async Task Logout()
     {

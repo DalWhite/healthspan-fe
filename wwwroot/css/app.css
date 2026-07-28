@@ -1813,6 +1813,20 @@ a.hs-exercise-history-row:hover {
   border-radius: 20px;
 }
 
+.hs-health-profile-shell {
+  align-items: center;
+}
+
+.hs-health-profile-card {
+  width: min(100%, 640px);
+}
+
+.hs-health-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .hs-subpanel {
   padding: 14px;
   border: 1px solid var(--mud-palette-lines-default);
@@ -2866,6 +2880,10 @@ a.hs-exercise-history-row:hover {
   }
 
   .hs-filter-stack > * {
+    width: 100%;
+  }
+
+  .hs-mobile-full-action {
     width: 100%;
   }
 

@@ -61,9 +61,15 @@ public class NavigationFlowTests : BlazorTestBase
             cut.Markup.Should().Contain("Today");
             cut.Markup.Should().Contain("Training History");
             cut.Markup.Should().Contain("Exercise Library");
+            cut.Markup.Should().Contain("Health Profile");
+            cut.Markup.Should().Contain("Insights");
+            cut.Markup.Should().Contain("Account &amp; Settings");
             cut.FindAll("a").Should().Contain(link => link.GetAttribute("href") == "training/today");
             cut.FindAll("a").Should().Contain(link => link.GetAttribute("href") == "training/history");
             cut.FindAll("a").Should().Contain(link => link.GetAttribute("href") == "training/library");
+            cut.FindAll("a").Should().Contain(link => link.GetAttribute("href") == "training/insights");
+            cut.FindAll("a").Should().Contain(link => link.GetAttribute("href") == "health/profile");
+            cut.FindAll("a").Should().NotContain(link => link.GetAttribute("href") == "profile");
         });
     }
 
@@ -124,5 +130,25 @@ public class NavigationFlowTests : BlazorTestBase
 
         legacyRoutes.Should().Contain("/exercises/create/{TraineeId?}");
         todayRoutes.Should().Contain("/training/today");
+    }
+
+    [Fact]
+    public void Profile_Routes_Separate_Training_Insights_From_Health_Settings()
+    {
+        var trainingRoutes = typeof(
+                healthspan_fe_wasm_pwa.Pages.Health.Profile)
+            .GetCustomAttributes(typeof(RouteAttribute), inherit: false)
+            .Cast<RouteAttribute>()
+            .Select(attribute => attribute.Template);
+        var healthRoutes = typeof(
+                healthspan_fe_wasm_pwa.Pages.Health.HealthProfile)
+            .GetCustomAttributes(typeof(RouteAttribute), inherit: false)
+            .Cast<RouteAttribute>()
+            .Select(attribute => attribute.Template);
+
+        trainingRoutes.Should().Contain("/profile");
+        trainingRoutes.Should().Contain("/training/insights");
+        trainingRoutes.Should().NotContain("/health/profile");
+        healthRoutes.Should().Contain("/health/profile");
     }
 }

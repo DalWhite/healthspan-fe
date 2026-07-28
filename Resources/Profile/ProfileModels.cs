@@ -8,6 +8,11 @@ public sealed class MuscleLoadRegionResource
     public double RelativeLoad { get; set; }
 }
 
+public sealed class WeeklyTrainingSummaryResource
+{
+    public List<WeeklyBodyLoadSnapshot> Weeks { get; set; } = new();
+}
+
 public sealed class WeeklyBodyLoadSnapshot
 {
     public DateTime WeekStart { get; set; }

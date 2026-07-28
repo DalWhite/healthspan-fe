@@ -11,6 +11,7 @@ public static class HealthRoutes
     public const string GalpinLatest = "/GalpinAssessments/latest";
     public const string GalpinTrendPrefix = "/GalpinAssessments/trends";
     public const string DashboardSummary = "/Dashboard/summary";
+    public const string HealthProfile = "/HealthProfile";
 }
 
 public enum BloodTestProcessingStatus

@@ -191,6 +191,16 @@ Split the current profile experience into:
 
 Add a weekly-training-summary API endpoint rather than downloading all exercise history and calculating the profile in the browser. Reuse the Health page patterns across Training without moving Training to the Health typed client.
 
+Implementation status:
+
+- [x] Add a bounded, authenticated `GET /Workouts/weekly-summary?weeks=12` endpoint.
+- [x] Keep summary queries explicitly user-scoped and cover cross-user isolation.
+- [x] Move weekly load, session, muscle-region, prescription, and tag aggregation to the API.
+- [x] Remove the full exercise-history and muscle-catalog downloads from Profile.
+- [x] Split account details, health settings, and training insights into clearer mobile destinations.
+- [x] Add user-scoped health-profile settings for age- and sex-aware reference ranges.
+- [x] Extract the weekly summary, session card, body map, and adaptation views into focused reusable components.
+
 ## 9. Harden and normalize API contracts — P0/P1, medium
 
 - Establish one source of truth for each request and response contract.

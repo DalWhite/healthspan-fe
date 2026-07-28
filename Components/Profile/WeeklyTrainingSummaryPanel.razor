@@ -1,0 +1,111 @@
+<MudPaper Class="hs-health-panel hs-sticky-panel hs-profile-decision-panel">
+    <MudText Typo="Typo.h6">Carry this into next week</MudText>
+
+    @if (SelectedWeek == null)
+    {
+        <EmptyState Icon="@Icons.Material.Filled.Insights"
+                    Title="No weekly summary yet"
+                    Subtitle="Weekly metrics appear here once workout data is available." />
+    }
+    else
+    {
+        <div class="hs-profile-summary-grid mt-3">
+            <div class="hs-profile-summary-card hs-profile-summary-card-accent">
+                <div class="hs-profile-summary-label">Total load</div>
+                <div class="hs-profile-summary-value">@FormatLoad(SelectedWeek.TotalLoad)</div>
+            </div>
+            <div class="hs-profile-summary-card">
+                <div class="hs-profile-summary-label">Exercises</div>
+                <div class="hs-profile-summary-value">@SelectedWeek.ExerciseCount</div>
+            </div>
+            <div class="hs-profile-summary-card">
+                <div class="hs-profile-summary-label">Sessions</div>
+                <div class="hs-profile-summary-value">@SelectedWeek.WorkoutCount</div>
+            </div>
+            <div class="hs-profile-summary-card">
+                <div class="hs-profile-summary-label">Active muscles</div>
+                <div class="hs-profile-summary-value">@SelectedWeek.Regions.Count(region => region.Load > 0)</div>
+            </div>
+        </div>
+
+        <div class="hs-profile-insight-banner mt-4">
+            <div class="hs-profile-insight-title">Decision note</div>
+            <div class="hs-profile-insight-copy">@PlanningNarrative</div>
+        </div>
+
+        <div class="hs-profile-section mt-4">
+            <MudText Typo="Typo.subtitle2">Anchor exercises</MudText>
+            @foreach (var exercise in CarryForwardExercises)
+            {
+                <div class="hs-profile-anchor-card">
+                    <div>
+                        <div class="hs-list-card-title">@exercise.Name</div>
+                        <div class="hs-muted-copy">@exercise.SessionLabel - @FormatShortDate(exercise.SessionDate)</div>
+                    </div>
+                    <div class="hs-profile-anchor-meta">
+                        <span>@exercise.Prescription</span>
+                        <span>@FormatLoad(exercise.Load)</span>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="hs-profile-section mt-4">
+            <MudText Typo="Typo.subtitle2">Top-loaded muscles</MudText>
+            @foreach (var region in TopRegions)
+            {
+                <div class="hs-profile-muscle-row">
+                    <div>
+                        <div class="hs-list-card-title">@region.Label</div>
+                        <div class="hs-muted-copy">@region.Group</div>
+                    </div>
+                    <div class="hs-profile-muscle-bar-shell">
+                        <div class="hs-profile-muscle-bar"
+                             style="width:@($"{Math.Max(12d, region.RelativeLoad * 100d):0.#}%"); background:@GetRegionBarColor(region.RelativeLoad)"></div>
+                        <span class="hs-profile-muscle-value">@FormatLoad(region.Load)</span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</MudPaper>
+
+@code {
+    [Parameter]
+    public WeeklyBodyLoadSnapshot? SelectedWeek { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<WeeklyWorkoutExerciseResource> CarryForwardExercises { get; set; }
+        = Array.Empty<WeeklyWorkoutExerciseResource>();
+
+    [Parameter]
+    public IReadOnlyList<MuscleLoadRegionResource> TopRegions { get; set; }
+        = Array.Empty<MuscleLoadRegionResource>();
+
+    [Parameter]
+    public string PlanningNarrative { get; set; } = string.Empty;
+
+    private static string FormatShortDate(DateTime value)
+        => value == default ? "No date" : value.ToString("dd MMM");
+
+    private static string FormatLoad(double load)
+        => load <= 0
+            ? "0 kg"
+            : load >= 100
+                ? $"{Math.Round(load):0} kg"
+                : $"{load:0.#} kg";
+
+    private static string GetRegionBarColor(double relativeLoad)
+    {
+        var clamped = Math.Clamp(relativeLoad, 0d, 1d);
+        var start = (R: 205d, G: 220d, B: 223d);
+        var end = (R: 174d, G: 29d, B: 13d);
+        var red = (int)Math.Round(
+            start.R + ((end.R - start.R) * clamped));
+        var green = (int)Math.Round(
+            start.G + ((end.G - start.G) * clamped));
+        var blue = (int)Math.Round(
+            start.B + ((end.B - start.B) * clamped));
+        return $"rgb({red}, {green}, {blue})";
+    }
+}

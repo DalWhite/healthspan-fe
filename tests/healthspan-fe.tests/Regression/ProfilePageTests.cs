@@ -12,90 +12,69 @@ public class ProfilePageTests : BlazorTestBase
     [Fact]
     public void Renders_Profile_With_Muscle_Load_And_Radar_Snapshots()
     {
-        MockHttp.When("/Exercises?sortBy=date&descending=true")
+        MockHttp.When("/Workouts/weekly-summary?weeks=12")
             .Respond("application/json", """
-                [
-                  {
-                    "id": "a8a0d49f-53c0-4d36-8d28-4d2983d28f11",
-                    "series": 4,
-                    "repetitions": 8,
-                    "weight": 80,
-                    "maxRepetition": 96.5,
-                    "volume": 2560,
-                    "type": {
-                      "id": 101,
-                      "name": "Bench Press",
-                      "muscleAssignments": [
-                        { "muscleId": 1, "role": "Primary", "sortOrder": 1 },
-                        { "muscleId": 2, "role": "Secondary", "sortOrder": 1 },
-                        { "muscleId": 9, "role": "Secondary", "sortOrder": 2 }
+                {
+                  "weeks": [
+                    {
+                      "weekStart": "2026-04-06T00:00:00",
+                      "totalLoad": 5440,
+                      "workoutCount": 1,
+                      "exerciseCount": 2,
+                      "regions": [
+                        {
+                          "key": "chest",
+                          "label": "Chest",
+                          "side": "front",
+                          "group": "Chest",
+                          "load": 1792,
+                          "relativeLoad": 1
+                        },
+                        {
+                          "key": "upper-back",
+                          "label": "Upper back",
+                          "side": "back",
+                          "group": "Back",
+                          "load": 2016,
+                          "relativeLoad": 0.9
+                        }
                       ],
-                      "tags": [
-                        { "name": "Barbell", "category": "equipment" },
-                        { "name": "Compound", "category": "type" }
+                      "sessions": [
+                        {
+                          "key": "2e7c1835-2ac3-4b0d-9875-2ab39ce3c001",
+                          "date": "2026-04-07T00:00:00",
+                          "label": "Upper strength",
+                          "totalLoad": 5440,
+                          "exerciseCount": 2,
+                          "focusGroups": [ "Chest", "Back" ],
+                          "exercises": [
+                            {
+                              "name": "Bench Press",
+                              "prescription": "4 x 8 @ 80 kg",
+                              "sessionLabel": "Upper strength",
+                              "sessionDate": "2026-04-07T00:00:00",
+                              "primaryMuscles": [ "Chest" ],
+                              "secondaryMuscles": [ "Front delts", "Triceps" ],
+                              "load": 2560,
+                              "maxRepetition": 96.5,
+                              "tags": [ "Barbell", "Compound" ]
+                            },
+                            {
+                              "name": "Deadlift",
+                              "prescription": "4 x 6 @ 120 kg",
+                              "sessionLabel": "Upper strength",
+                              "sessionDate": "2026-04-07T00:00:00",
+                              "primaryMuscles": [ "Upper back" ],
+                              "secondaryMuscles": [ "Hamstrings", "Glutes" ],
+                              "load": 2880,
+                              "tags": []
+                            }
+                          ]
+                        }
                       ]
-                    },
-                    "workout": {
-                      "id": "2e7c1835-2ac3-4b0d-9875-2ab39ce3c001",
-                      "type": "Upper strength",
-                      "date": "2026-04-07T00:00:00"
                     }
-                  },
-                  {
-                    "id": "04f1ef38-66dd-4585-a4aa-8af6b51cbb47",
-                    "series": 4,
-                    "repetitions": 6,
-                    "weight": 120,
-                    "volume": 2880,
-                    "type": {
-                      "id": 102,
-                      "name": "Deadlift",
-                      "muscleAssignments": [
-                        { "muscleId": 6, "role": "Primary", "sortOrder": 1 },
-                        { "muscleId": 17, "role": "Secondary", "sortOrder": 1 },
-                        { "muscleId": 15, "role": "Secondary", "sortOrder": 2 }
-                      ]
-                    },
-                    "workout": {
-                      "id": "2e7c1835-2ac3-4b0d-9875-2ab39ce3c001",
-                      "type": "Upper strength",
-                      "date": "2026-04-07T00:00:00"
-                    }
-                  },
-                  {
-                    "id": "8f5671d2-c5d4-4029-a46f-53a6048f3981",
-                    "series": 3,
-                    "repetitions": 12,
-                    "weight": 50,
-                    "volume": 1800,
-                    "type": {
-                      "id": 103,
-                      "name": "Pull Up",
-                      "muscleAssignments": [
-                        { "muscleId": 5, "role": "Primary", "sortOrder": 1 },
-                        { "muscleId": 8, "role": "Secondary", "sortOrder": 1 }
-                      ]
-                    },
-                    "workout": {
-                      "id": "cc084af1-8d67-49db-a48d-1fb0ee40da81",
-                      "date": "2026-03-30T00:00:00"
-                    }
-                  }
-                ]
-            """);
-
-        MockHttp.When("/api/muscles")
-            .Respond("application/json", """
-                [
-                  { "id": 1, "slug": "chest", "name": "Chest", "side": "front", "muscleGroup": "Chest", "sortOrder": 10 },
-                  { "id": 2, "slug": "front-delts", "name": "Front delts", "side": "front", "muscleGroup": "Shoulders", "sortOrder": 20 },
-                  { "id": 5, "slug": "lats", "name": "Lats", "side": "back", "muscleGroup": "Back", "sortOrder": 50 },
-                  { "id": 6, "slug": "upper-back", "name": "Upper back", "side": "back", "muscleGroup": "Back", "sortOrder": 60 },
-                  { "id": 8, "slug": "biceps", "name": "Biceps", "side": "front", "muscleGroup": "Arms", "sortOrder": 80 },
-                  { "id": 9, "slug": "triceps", "name": "Triceps", "side": "back", "muscleGroup": "Arms", "sortOrder": 90 },
-                  { "id": 15, "slug": "glutes", "name": "Glutes", "side": "back", "muscleGroup": "Glutes", "sortOrder": 150 },
-                  { "id": 17, "slug": "hamstrings", "name": "Hamstrings", "side": "back", "muscleGroup": "Legs", "sortOrder": 170 }
-                ]
+                  ]
+                }
             """);
 
         MockHttp.When("/GalpinAssessments/catalog")
@@ -187,10 +166,8 @@ public class ProfilePageTests : BlazorTestBase
     [Fact]
     public void Renders_Empty_Profile_States_When_No_Data_Is_Returned()
     {
-        MockHttp.When("/Exercises?sortBy=date&descending=true")
-            .Respond("application/json", "[]");
-        MockHttp.When("/api/muscles")
-            .Respond("application/json", "[]");
+        MockHttp.When("/Workouts/weekly-summary?weeks=12")
+            .Respond("application/json", """{ "weeks": [] }""");
         MockHttp.When("/GalpinAssessments/catalog")
             .Respond("application/json", "[]");
         MockHttp.When("/GalpinAssessments")
