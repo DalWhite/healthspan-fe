@@ -36,7 +36,7 @@ User-facing terminology should change as follows:
 
 ## Implementation status
 
-Updated 27 July 2026:
+Updated 28 July 2026:
 
 - Step 1 completed: baseline validation, authentication cleanup, return URLs, and reliable edit/delete behavior.
 - Step 2 completed: grouped task-based navigation, five-item mobile bottom navigation with a left-aligned Menu drawer launcher, and new Training route aliases. Existing frontend and API routes remain available.
@@ -44,7 +44,8 @@ Updated 27 July 2026:
 - Step 4 completed: mobile-first Exercise Library filters and variation grouping, controlled tag editing, favorite updates, and the two-phase catalog cleanup with history preserved.
 - Step 5 completed and hardened: a mobile-first Today flow that starts or resumes one daily session, supports recent/favorite/search selection, saves exercises in place, validates failure paths, and prevents duplicate daily sessions across API instances.
 - Step 6 completed and hardened: Training History is workout-based, with compatible paged summaries, date-range filtering, mobile session cards, on-demand exercise details, progression links, and compact edit/delete sheets backed by user-scoped APIs and structured errors.
-- Steps 7–10 remain planned.
+- Step 7 completed and hardened: exercise details now use compact mobile Overview, History, Trends, and Variations sections; no-load exercises avoid misleading weight metrics; edit/delete actions are user-scoped and return structured errors; library/history context is preserved on return; and individual logged exercises support custom training tags such as `Bilbo` for filtered history and performance analysis.
+- Steps 8–10 remain planned.
 
 ## 1. Stabilize the current baseline — P0, small
 
@@ -167,12 +168,13 @@ API support:
 
 ## 7. Simplify exercise details and editing — P2, medium
 
-- Organize exercise details into Overview, History, Trends, and Variations.
-- Replace runtime JavaScript `eval` with a static helper.
-- Add empty and error states for missing history.
-- Avoid misleading kilogram and 1RM displays for no-weight exercises.
-- Confirm deletion and explain API conflicts.
-- Preserve the originating route and filters when navigating back.
+- [x] Organize exercise details into Overview, History, Trends, and Variations.
+- [x] Replace runtime JavaScript `eval` with a static helper.
+- [x] Add empty and error states for missing history.
+- [x] Avoid misleading kilogram and 1RM displays for no-weight exercises.
+- [x] Confirm deletion and explain API conflicts.
+- [x] Preserve the originating route and filters when navigating back.
+- [x] Tag individual logged exercises and filter their history, KPIs, and trends by training method.
 
 ## 8. Reorganize Profile and Health screens — P2, large
 

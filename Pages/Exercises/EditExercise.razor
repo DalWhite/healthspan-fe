@@ -1,168 +1,346 @@
 @page "/exercises/edit/{ExerciseId}"
-@inject HttpClient Http
 @page "/training/history/{ExerciseId}/edit"
+@inject HttpClient Http
 @inject NavigationManager NavigationManager
-@inject ISnackbar Snackbar
 @inject TitleService TitleService
 
+<PageTitle>@_title</PageTitle>
 
-<PageTitle>Edit Exercise</PageTitle>
+<PageShell Narrow="true">
+    <PageHeader Title="@_title" />
 
-<div class="hs-page-shell hs-page-shell-narrow">
-    <PageHeader Title="Edit Exercise" />
-
-    @if (Exercise == null)
+    @if (_isLoading)
     {
         <LoadingState Message="Loading exercise..." />
     }
-    else
+    else if (!string.IsNullOrWhiteSpace(_loadError))
     {
-        <MudPaper Class="hs-surface hs-form-surface">
-        <ExerciseForm Exercise="_editModel"
-                      @bind-Date="_workoutDate"
-                      ExerciseTypes="exerciseTypes"
-                      OnSubmit="UpdateExercise" />
-
-        <ExerciseMetrics Metrics="ExerciseMetrics"></ExerciseMetrics>
-
-        <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
-                   Color="MudBlazor.Color.Primary"
-                   Variant="Variant.Outlined"
-                   Class="ml-0 mt-4 rounded-button"
-                   OnClick="GoBack">
-            Back
-        </MudButton>
-        <MudButton Color="MudBlazor.Color.Warning"
-                   Variant="Variant.Outlined"
-                   Class="ml-0 mt-4 rounded-button"
-                   OnClick="Delete">Delete</MudButton>
-        </MudPaper>
+        <ErrorState Title="Couldn't load this exercise"
+                    Message="@_loadError"
+                    ActionLabel="Back"
+                    OnAction="GoBack" />
     }
-</div>
+    else if (Exercise is not null)
+    {
+        <div class="hs-surface hs-form-surface">
+            <ExerciseForm Exercise="_editModel"
+                          @bind-Date="_workoutDate"
+                          ExerciseTypes="_exerciseTypes"
+                          OnSubmit="UpdateExerciseAsync" />
+
+            @if (_exerciseMetrics is not null)
+            {
+                <ExerciseMetrics Metrics="_exerciseMetrics"
+                                 WeightType="_editModel.WeightType" />
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_actionError))
+            {
+                <p class="hs-exercise-edit-error" role="alert">@_actionError</p>
+            }
+
+            <div class="hs-exercise-edit-actions">
+                <button type="button"
+                        class="hs-exercise-edit-button"
+                        disabled="@_isSaving"
+                        @onclick="GoBack">
+                    Back
+                </button>
+                <button type="button"
+                        class="hs-exercise-edit-button is-danger"
+                        disabled="@_isSaving"
+                        @onclick="OpenDeleteConfirmation">
+                    Delete
+                </button>
+            </div>
+
+            @if (_deleteConfirmationOpen)
+            {
+                <section class="hs-exercise-delete-confirmation"
+                         role="alertdialog"
+                         aria-labelledby="delete-exercise-title">
+                    <h2 id="delete-exercise-title">Delete this entry?</h2>
+                    <p>
+                        This removes only this logged exercise.
+                        The workout and exercise type stay available.
+                    </p>
+
+                    <div class="hs-exercise-edit-actions">
+                        <button type="button"
+                                class="hs-exercise-edit-button"
+                                disabled="@_isSaving"
+                                @onclick="CloseDeleteConfirmation">
+                            Cancel
+                        </button>
+                        <button type="button"
+                                class="hs-exercise-edit-button is-danger-filled"
+                                disabled="@_isSaving"
+                                @onclick="DeleteExerciseAsync">
+                            @(_isSaving ? "Deleting..." : "Delete entry")
+                        </button>
+                    </div>
+                </section>
+            }
+        </div>
+    }
+</PageShell>
+
 @code {
-    [Parameter]
-    public string ExerciseId { get; set; } = string.Empty;
+    [Parameter] public string ExerciseId { get; set; } = string.Empty;
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
     public GetExerciseResource? Exercise { get; set; }
+
     private AddExerciseResource _editModel = new();
-    private DateTime? _workoutDate = DateTime.Now;
-    private GetExerciseMetrics ExerciseMetrics { get; set; } = new();
-    private GetExerciseTypeResource[] exerciseTypes = Array.Empty<GetExerciseTypeResource>();
+    private DateTime? _workoutDate = DateTime.Today;
+    private DateTime? _originalWorkoutDate;
+    private GetExerciseMetrics? _exerciseMetrics;
+    private GetExerciseTypeResource[] _exerciseTypes = [];
+    private string _title = "Edit exercise";
+    private string? _loadError;
+    private string? _actionError;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _deleteConfirmationOpen;
 
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Edit Exercise";
-        exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes")
-            ?? Array.Empty<GetExerciseTypeResource>();
-        await LoadExercise();
-        await LoadMetrics();
-    }
-    private async Task LoadMetrics()
-    {
-        ExerciseMetrics = await Http.GetFromJsonAsync<GetExerciseMetrics?>($"/exercises/{ExerciseId}/metrics");
+        TitleService.Title = _title;
+        await LoadAsync();
     }
 
-    private async Task LoadExercise()
+    private async Task LoadAsync()
     {
-        Exercise = await Http.GetFromJsonAsync<GetExerciseResource?>($"/exercises/{ExerciseId}");
-        if (Exercise != null)
+        _isLoading = true;
+        _loadError = null;
+
+        try
         {
+            var typesTask = Http.GetFromJsonAsync<GetExerciseTypeResource[]>(
+                "/ExerciseTypes");
+            var exerciseTask = Http.GetFromJsonAsync<GetExerciseResource>(
+                $"/exercises/{ExerciseId}");
+            await Task.WhenAll(typesTask, exerciseTask);
+
+            _exerciseTypes = await typesTask ?? [];
+            Exercise = await exerciseTask
+                ?? throw new InvalidOperationException("The exercise response was empty.");
+            _title = Exercise.Type?.Name is { Length: > 0 } name
+                ? $"Edit {name}"
+                : "Edit exercise";
+            TitleService.Title = _title;
+
+            var weightType = Exercise.Type?.WeightType
+                ?? Exercise.WeightType
+                ?? ExerciseWeightType.Standard;
             _editModel = new AddExerciseResource
             {
                 WorkoutId = Exercise.Workout?.Id,
                 TypeId = Exercise.Type?.Id,
-                Series = Exercise.Series ?? 0,
+                Series = Exercise.Series ?? 1,
                 Repetitions = Exercise.Repetitions ?? 0,
                 Weight = Exercise.Weight ?? 0,
-                BodyWeight = Exercise.BodyWeight,
-                AddedWeight = Exercise.AddedWeight,
-                WeightType = Exercise.Type?.WeightType ?? ExerciseWeightType.Standard
+                WeightType = weightType,
+                BodyWeight = weightType == ExerciseWeightType.BodyWeight
+                    ? Exercise.BodyWeight ?? Exercise.Weight
+                    : null,
+                AddedWeight = weightType == ExerciseWeightType.BodyWeight
+                    ? Exercise.AddedWeight ?? 0
+                    : null,
+                Tags = ExerciseTagText.Normalize(Exercise.Tags)
             };
-            _workoutDate = Exercise.Workout?.Date ?? DateTime.Now;
+            _workoutDate = Exercise.Workout?.Date?.Date ?? DateTime.Today;
+            _originalWorkoutDate = _workoutDate;
+
+            if (weightType != ExerciseWeightType.None)
+            {
+                try
+                {
+                    _exerciseMetrics =
+                        await Http.GetFromJsonAsync<GetExerciseMetrics>(
+                            $"/exercises/{ExerciseId}/metrics");
+                }
+                catch
+                {
+                    _exerciseMetrics = null;
+                }
+            }
+        }
+        catch
+        {
+            Exercise = null;
+            _loadError = "Check your connection and try again.";
+        }
+        finally
+        {
+            _isLoading = false;
         }
     }
 
-    private async Task UpdateExercise()
+    private async Task UpdateExerciseAsync()
     {
+        if (Exercise is null
+            || !Guid.TryParse(ExerciseId, out var exerciseId))
+        {
+            _actionError = "This exercise is unavailable.";
+            return;
+        }
+
+        _isSaving = true;
+        _actionError = null;
+
         try
         {
-            _editModel.WorkoutId = await ResolveWorkoutIdAsync(_workoutDate);
-            if (_editModel.WorkoutId == Guid.Empty)
+            var workoutId = await ResolveWorkoutIdAsync();
+            if (!workoutId.HasValue)
             {
-                Snackbar.Add("Failed to resolve the workout for this exercise.", Severity.Error);
                 return;
             }
 
-            var response = await Http.PutAsJsonAsync("/exercises", new UpdateExerciseResource
-            {
-                Id = Guid.Parse(ExerciseId),
-                Series = _editModel.Series,
-                Repetitions = _editModel.Repetitions,
-                Weight = _editModel.Weight,
-                BodyWeight = _editModel.BodyWeight,
-                AddedWeight = _editModel.AddedWeight,
-                WeightType = _editModel.WeightType,
-                Type = exerciseTypes.FirstOrDefault(type => type.Id == _editModel.TypeId),
-                Workout = new GetWorkoutResource
+            var response = await Http.PutAsJsonAsync(
+                "/exercises",
+                new UpdateExerciseResource
                 {
-                    Id = _editModel.WorkoutId ?? Guid.Empty,
-                    Date = _workoutDate
-                }
-            });
+                    Id = exerciseId,
+                    Series = _editModel.Series,
+                    Repetitions = _editModel.Repetitions,
+                    Weight = _editModel.Weight,
+                    BodyWeight = _editModel.BodyWeight,
+                    AddedWeight = _editModel.AddedWeight,
+                    WeightType = _editModel.WeightType,
+                    Tags = ExerciseTagText.Normalize(_editModel.Tags),
+                    Type = _exerciseTypes.FirstOrDefault(
+                        type => type.Id == _editModel.TypeId),
+                    Workout = new GetWorkoutResource
+                    {
+                        Id = workoutId.Value,
+                        Date = _workoutDate
+                    }
+                });
 
-            if (response.IsSuccessStatusCode)
-            {
-                Snackbar.Add("Exercise updated successfully.", Severity.Success);
-                GoBack();
-            }
-            else
-            {
-                Snackbar.Add($"Failed to update exercise ({(int)response.StatusCode}).", Severity.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
-        }
-    }
-
-    private async Task<Guid> ResolveWorkoutIdAsync(DateTime? date)
-    {
-        var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>("/workouts");
-        var existing = workouts?.FirstOrDefault(w => w.Date.HasValue && date.HasValue && w.Date.Value.Date == date.Value.Date);
-        if (existing != null) return existing.Id;
-
-        var newWorkout = new WorkoutPostResource { Type = "default", Date = date ?? DateTime.Now };
-        var resp = await Http.PostAsJsonAsync("/Workouts", newWorkout);
-        if (!resp.IsSuccessStatusCode)
-        {
-            return Guid.Empty;
-        }
-
-        var created = await resp.Content.ReadFromJsonAsync<GetWorkoutResource>();
-        return created?.Id ?? Guid.Empty;
-    }
-
-    private async Task Delete()
-    {
-        try
-        {
-            var response = await Http.DeleteAsync($"/exercises/{ExerciseId}");
             if (!response.IsSuccessStatusCode)
             {
-                Snackbar.Add($"Failed to delete exercise ({(int)response.StatusCode}).", Severity.Error);
+                _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
+                    response,
+                    "Couldn't update this exercise.");
                 return;
             }
 
-            Snackbar.Add("Exercise deleted.", Severity.Warning);
             GoBack();
         }
-        catch (Exception ex)
+        catch
         {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            _actionError = "Couldn't update this exercise.";
+        }
+        finally
+        {
+            _isSaving = false;
         }
     }
-    private void GoBack()
+
+    private async Task<Guid?> ResolveWorkoutIdAsync()
     {
-        NavigationManager.NavigateTo("/training/history", forceLoad: false);
+        if (Exercise?.Workout?.Id is Guid currentWorkoutId
+            && _workoutDate.HasValue
+            && _originalWorkoutDate.HasValue
+            && _workoutDate.Value.Date == _originalWorkoutDate.Value.Date)
+        {
+            return currentWorkoutId;
+        }
+
+        if (!_workoutDate.HasValue)
+        {
+            _actionError = "Choose a workout date.";
+            return null;
+        }
+
+        using var response = await Http.PostAsJsonAsync(
+            "/workouts/today",
+            new StartWorkoutSessionResource
+            {
+                Date = DateOnly.FromDateTime(_workoutDate.Value),
+                Type = "Training"
+            });
+        if (!response.IsSuccessStatusCode)
+        {
+            _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
+                response,
+                "Couldn't prepare the workout for that date.");
+            return null;
+        }
+
+        var workout = await response.Content
+            .ReadFromJsonAsync<WorkoutSessionResource>();
+        if (workout is null || workout.Id == Guid.Empty)
+        {
+            _actionError = "The workout response was empty.";
+            return null;
+        }
+
+        return workout.Id;
+    }
+
+    private void OpenDeleteConfirmation()
+    {
+        _actionError = null;
+        _deleteConfirmationOpen = true;
+    }
+
+    private void CloseDeleteConfirmation()
+    {
+        if (!_isSaving)
+        {
+            _deleteConfirmationOpen = false;
+        }
+    }
+
+    private async Task DeleteExerciseAsync()
+    {
+        _isSaving = true;
+        _actionError = null;
+
+        try
+        {
+            using var response = await Http.DeleteAsync(
+                $"/exercises/{ExerciseId}");
+            if (!response.IsSuccessStatusCode)
+            {
+                _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
+                    response,
+                    "Couldn't delete this exercise.");
+                return;
+            }
+
+            GoBack();
+        }
+        catch
+        {
+            _actionError = "Couldn't delete this exercise.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void GoBack()
+        => NavigationManager.NavigateTo(
+            GetSafeReturnUrl(ReturnUrl, "/training/history"));
+
+    private static string GetSafeReturnUrl(
+        string? returnUrl,
+        string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(returnUrl)
+            || !returnUrl.StartsWith('/')
+            || returnUrl.StartsWith("//", StringComparison.Ordinal)
+            || returnUrl.Contains('\\')
+            || returnUrl.Any(char.IsControl))
+        {
+            return fallback;
+        }
+
+        return returnUrl;
     }
 }

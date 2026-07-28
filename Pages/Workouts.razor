@@ -122,6 +122,12 @@
                                                     <span class="hs-workout-exercise-prescription">
                                                         @FormatExercisePrescription(exercise)
                                                     </span>
+                                                    @if (exercise.Tags.Count > 0)
+                                                    {
+                                                        <span class="hs-training-tag-inline">
+                                                            @string.Join(" · ", exercise.Tags)
+                                                        </span>
+                                                    }
                                                     @if (exercise.Muscles.Count > 0)
                                                     {
                                                         <span class="hs-workout-exercise-muscles">
@@ -133,7 +139,7 @@
                                                 @if (exercise.TypeId > 0)
                                                 {
                                                     <a class="hs-workout-progression-link"
-                                                       href="@($"/training/library/{exercise.TypeId}")"
+                                                       href="@BuildProgressionRoute(exercise.TypeId)"
                                                        aria-label="@($"View {exercise.Name ?? "exercise"} progression")">
                                                         <MudIcon Icon="@Icons.Material.Filled.TrendingUp"
                                                                  aria-hidden="true" />
@@ -588,6 +594,9 @@
 
     private void GoToToday()
         => NavigationManager.NavigateTo("/training/today");
+
+    private static string BuildProgressionRoute(int exerciseTypeId)
+        => $"/training/library/{exerciseTypeId}?returnUrl={Uri.EscapeDataString("/training/history")}";
 
     private string FormatLoadedCount()
     {

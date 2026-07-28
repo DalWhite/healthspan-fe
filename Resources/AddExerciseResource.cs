@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-public record AddExerciseResource
+public record AddExerciseResource : IValidatableObject
 {
     public Guid? WorkoutId { get; set; }
     public int? TypeId { get; set; }
@@ -22,4 +22,9 @@ public record AddExerciseResource
 
     [Range(0, 10000, ErrorMessage = "Added weight must be between 0 and 10,000")]
     public decimal? AddedWeight { get; set; }
+
+    public List<string> Tags { get; set; } = [];
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        => ExerciseTagText.Validate(Tags);
 }

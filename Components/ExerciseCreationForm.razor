@@ -114,6 +114,8 @@
                              InputType="InputType.Number"
                              HelperText="Weight used in the exercise." />
         }
+
+        <ExerciseTagEditor @bind-Tags="_exercise.Tags" />
     </MudContainer>
 </EditForm>
 
@@ -305,7 +307,10 @@
 
             if (!response.IsSuccessStatusCode)
             {
-                _submissionError = "The exercise could not be saved. Please try again.";
+                _submissionError =
+                    await HttpProblemDetailsReader.ReadMessageAsync(
+                        response,
+                        "The exercise could not be saved. Please try again.");
                 return;
             }
 
@@ -411,7 +416,8 @@
             Weight = source.Weight,
             WeightType = source.WeightType,
             BodyWeight = source.BodyWeight,
-            AddedWeight = source.AddedWeight
+            AddedWeight = source.AddedWeight,
+            Tags = ExerciseTagText.Normalize(source.Tags)
         };
 
     private async Task OnSaveClick()

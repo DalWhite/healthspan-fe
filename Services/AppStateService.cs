@@ -34,6 +34,7 @@ public class AppStateService
     private List<GetExerciseTypeResource>? _exerciseTypes;
     private List<Muscle>? _muscles;
     private string[]? _userRoles;
+    public ExerciseLibraryViewState ExerciseLibraryView { get; } = new();
 
     public AppStateService(HttpClient http)
     {
@@ -176,4 +177,14 @@ public class AppStateService
             MuscleGroup = muscle.MuscleGroup,
             SortOrder = muscle.SortOrder
         };
+}
+
+public sealed class ExerciseLibraryViewState
+{
+    public string Search { get; set; } = string.Empty;
+    public string? MuscleGroup { get; set; }
+    public string? Equipment { get; set; }
+    public string? Movement { get; set; }
+    public bool FavouritesOnly { get; set; }
+    public bool FiltersExpanded { get; set; }
 }

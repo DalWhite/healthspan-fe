@@ -72,6 +72,42 @@ public class ExerciseTypesPageTests : BlazorTestBase
         });
     }
 
+    [Fact]
+    public void Library_Preserves_Search_State_And_Passes_ReturnRoute()
+    {
+        ConfigureCatalogResponses();
+        var navigationManager =
+            Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo("https://localhost/training/library");
+
+        var cut = RenderComponent<
+            healthspan_fe_wasm_pwa.Pages.ExerciseTypes.ExerciseTypes>();
+        var search = cut.WaitForElement(
+            "input[placeholder='Search exercises, variations, or tags...']");
+        search.Input("Romanian");
+
+        var appState = Services.GetRequiredService<AppStateService>();
+        appState.ExerciseLibraryView.Search.Should().Be("Romanian");
+
+        cut.WaitForAssertion(() =>
+            cut.FindAll(".exercise-card").Should().ContainSingle());
+        cut.Find(".exercise-card").Click();
+
+        navigationManager.Uri.Should().Contain(
+            "/training/library/1?returnUrl=%2Ftraining%2Flibrary");
+
+        cut.Dispose();
+        navigationManager.NavigateTo("https://localhost/training/library");
+        var restored = RenderComponent<
+            healthspan_fe_wasm_pwa.Pages.ExerciseTypes.ExerciseTypes>();
+
+        restored.WaitForAssertion(() =>
+            restored.Find(
+                    "input[placeholder='Search exercises, variations, or tags...']")
+                .GetAttribute("value")
+                .Should().Be("Romanian"));
+    }
+
     private void ConfigureCatalogResponses()
     {
         MockHttp.When("/ExerciseTypes")

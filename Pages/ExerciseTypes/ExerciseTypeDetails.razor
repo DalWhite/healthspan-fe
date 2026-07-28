@@ -1,325 +1,742 @@
 @page "/exercises/types/{ExerciseTypeId:int}/details/{TraineeId?}"
-@inject HttpClient Http
 @page "/training/library/{ExerciseTypeId:int}"
 @using ApexCharts
-@inject TitleService TitleService
+@inject AppStateService AppState
+@inject HttpClient Http
 @inject IJSRuntime JSRuntime
-@rendermode RenderMode.InteractiveWebAssembly
-@implements IAsyncDisposable
+@inject NavigationManager NavigationManager
+@inject TitleService TitleService
 
-<style>
-    /* Desktop: table visible, mobile list hidden */
-    .hs-history-list { display: none; }
+<PageTitle>@_title</PageTitle>
 
-    @@media (max-width: 640px) {
-        .hs-desktop-view { display: none !important; }
-        .hs-history-list {
-            list-style: none; padding: 0; margin: 0; display: block;
-        }
-        .hs-history-list li {
-            padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.06);
-            display: flex; gap: 12px; justify-content: space-between; align-items: flex-start;
-        }
-        .hs-history-list li:last-child { border-bottom: none; }
-        .hs-history-list .hs-date-detail { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-        .hs-history-list .hs-date { font-size: 0.85rem; font-weight: 500; color: var(--mud-palette-text-secondary); }
-        .hs-history-list .hs-detail { font-size: 0.9rem; }
-        .hs-history-list .hs-rm { font-size: 0.85rem; font-weight: 500; text-align: right; white-space: nowrap; }
-        .hs-history-list .hs-rm.hs-max { font-weight: bold; color: var(--mud-palette-primary); }
-    }
+<PageShell>
+    <PageHeader Title="@_title">
+        <Actions>
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                           aria-label="Back"
+                           OnClick="GoBack" />
+        </Actions>
+    </PageHeader>
 
-    @@media (min-width: 641px) {
-        .hs-history-list { display: none !important; }
-        .hs-desktop-view { display: block !important; }
-        .hs-history-table th { font-size: 0.85rem; }
-        .hs-history-table td { font-size: 0.9rem; }
-    }
-
-    .hs-history-table {
-        width: 100%; table-layout: fixed; border-collapse: collapse; display: table;
-    }
-    .hs-history-table thead { display: table-header-group; }
-    .hs-history-table tbody { display: table-row-group; }
-    .hs-history-table tr { display: table-row; }
-    .hs-history-table th, .hs-history-table td {
-        display: table-cell; padding: 8px 6px; vertical-align: middle; font-size: 0.9rem;
-    }
-    .hs-history-table thead th { text-align: left; font-weight: 600; font-size: 0.85rem; }
-    .hs-history-table td.no-break { white-space: nowrap; }
-</style>
-
-<MudContainer MaxWidth="MaxWidth.Large" Class="hs-page-shell">
-    @if (_exercises == null || _kpis == null)
+    @if (_isLoading)
     {
-        <PageHeader Title="Exercise details" />
-        <LoadingState Message="Loading exercise data..." Size="MudBlazor.Size.Large" />
+        <LoadingState Message="Loading exercise..." />
     }
-    else
+    else if (!string.IsNullOrWhiteSpace(_errorMessage))
     {
-        <h1 class="hs-page-title hs-detail-page-title">
-            @_title
-        </h1>
+        <ErrorState Title="Couldn't load this exercise"
+                    Message="@_errorMessage"
+                    ActionLabel="Retry"
+                    OnAction="RetryAsync" />
+    }
+    else if (_exerciseType is not null)
+    {
+        <nav class="hs-exercise-detail-tabs" aria-label="Exercise details">
+            @foreach (var tab in DetailSections)
+            {
+                var isActive = _activeSection == tab.Key;
+                <button type="button"
+                        class="hs-exercise-detail-tab @(isActive ? "is-active" : null)"
+                        aria-selected="@isActive.ToString().ToLowerInvariant()"
+                        aria-controls="@($"exercise-section-{tab.Key}")"
+                        @onclick="() => SelectSection(tab.Key)">
+                    @tab.Label
+                </button>
+            }
+        </nav>
 
-        <MudGrid>
-            <MudItem xs="12">
-                <MudText Typo="Typo.subtitle1" Class="mb-2">Performance Summary</MudText>
-                <MudGrid Spacing="1" Class="mt-1">
-                    <!-- Max RM -->
-                    <MudItem xs="12" sm="6">
-                        <MudPaper Elevation="0"
-                                  Style="background-color: var(--mud-palette-primary); color: white; border-radius: 8px; padding: 8px; cursor: pointer;"
-                                  @onclick="() => ScrollToExerciseDateAsync(_kpis.MaxRMDate)">
-                            <MudStack Spacing="0">
-                                <MudText Typo="Typo.h6" Style="color: white;">@_kpis.MaxRM.ToString("F1") kg</MudText>
-                                <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.8);">Theoretical Max RM</MudText>
-                                <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.7); font-size: 0.75rem;">
-                                    @_kpis.MaxRMDate.ToShortDateString()
-                                </MudText>
-                            </MudStack>
-                        </MudPaper>
-                    </MudItem>
-                    <!-- Current 1RM -->
-                    <MudItem xs="12" sm="6">
-                        <MudPaper Elevation="0" Style="border-radius: 8px; border: 1px solid var(--mud-palette-lines-default); padding: 8px;">
-                            <MudStack Spacing="0">
-                                <MudText Typo="Typo.h6">@_kpis.Current1RM.ToString("F1") kg</MudText>
-                                <MudText Typo="Typo.caption" Color="MudBlazor.Color.Dark">Current 1RM</MudText>
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
-                                    <MudIcon Icon="@(_kpis.RMDiferentialInLast3Months >= 0 ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown)"
-                                             Size="MudBlazor.Size.Small"
-                                             Color="@(_kpis.RMDiferentialInLast3Months >= 0 ? MudBlazor.Color.Success : MudBlazor.Color.Error)" />
-                                    <MudText Typo="Typo.caption">@Math.Abs(_kpis.RMDiferentialInLast3Months) kg (3 mo)</MudText>
-                                </MudStack>
-                            </MudStack>
-                        </MudPaper>
-                    </MudItem>
-                </MudGrid>
-            </MudItem>
+        @if (AvailableTrainingTags.Count > 0)
+        {
+            <div class="hs-analysis-tag-filter"
+                 aria-label="Filter analysis by training tag">
+                <span>Filter</span>
+                <button type="button"
+                        class="@(_selectedTrainingTag is null ? "is-active" : null)"
+                        @onclick="() => SelectTrainingTagAsync(null)">
+                    All
+                </button>
+                @foreach (var tag in AvailableTrainingTags)
+                {
+                    <button type="button"
+                            class="@(string.Equals(
+                                _selectedTrainingTag,
+                                tag,
+                                StringComparison.OrdinalIgnoreCase)
+                                ? "is-active"
+                                : null)"
+                            @onclick="() => SelectTrainingTagAsync(tag)">
+                        @tag
+                    </button>
+                }
+            </div>
+        }
 
-            <!-- Chart -->
-            <MudItem xs="12" Class="mt-3">
-                <MudText Typo="Typo.h6" Class="mb-2">Performance Trends</MudText>
-                <div Style="border: 1px solid var(--mud-palette-lines-default); border-radius: 8px; overflow: hidden;">
-                    @if (_rmTrends != null && _volumeTrends != null)
-                    {
-                        <div style="height: 300px; padding: 8px;">
-                            <ApexChart @ref="_rmChart" TItem="DataPoint" Options="_chartOptions">
-                                <ApexPointSeries TItem="DataPoint" Items="_rmTrends" Name="RM"
-                                                 SeriesType="SeriesType.Line"
-                                                 XValue='e => e.Time.ToString("yyyy-MM-dd")'
-                                                 YAggregate="e => e.Average(x => x.Data)" />
-                                <ApexPointSeries TItem="DataPoint" Items="_volumeTrends" Name="Volume"
-                                                 SeriesType="SeriesType.Line"
-                                                 XValue='e => e.Time.ToString("yyyy-MM-dd")'
-                                                 YAggregate="e => e.Average(x => x.Data)" />
-                            </ApexChart>
-                        </div>
-                    }
-                </div>
-            </MudItem>
-
-            <!-- Exercise History -->
-            <MudItem xs="12" Class="mt-4">
-                <MudPaper Elevation="2" Class="px-3 py-2">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2">
-                        <MudText Typo="Typo.subtitle1">Exercise History</MudText>
-                        <MudButton Variant="Variant.Text" Color="MudBlazor.Color.Primary" Size="MudBlazor.Size.Small"
-                                   OnClick="ToggleExpand"
-                                   EndIcon="@(_expanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)">
-                            @(_expanded ? "Collapse" : "Expand")
-                        </MudButton>
-                    </MudStack>
-
-                    <MudCollapse Expanded="_expanded">
-                        <div style="max-height: 500px; overflow-y: auto; margin-top: 8px;">
-                            <!-- Desktop table -->
-                            <div style="overflow-x: auto; display: none;" class="hs-desktop-view">
-                                <table class="hs-history-table">
-                                    <colgroup>
-                                        <col style="width: 30%;" />
-                                        <col style="width: 50%;" />
-                                        <col style="width: 20%;" />
-                                    </colgroup>
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Details</th>
-                                            <th style="text-align: right;">1RM</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var e in _exercises.OrderByDescending(e => e.Workout?.Date))
-                                        {
-                                            <tr>
-                                                <td class="no-break">
-                                                    <MudText id="@($"exercise-{e.Workout?.Date?.ToString("yyyyMMdd")}")" Typo="Typo.body2">
-                                                        @e.Workout?.Date?.ToString("d MMM")
-                                                    </MudText>
-                                                </td>
-                                                <td>
-                                                    <MudText Typo="Typo.body2">@e.Series × @e.Repetitions × @e.Weight kg</MudText>
-                                                </td>
-                                                <td class="no-break" style="text-align: right;">
-                                                    <MudText Typo="Typo.body2"
-                                                             Style="@(e.Workout?.Date?.Date == _kpis.MaxRMDate.Date ? "font-weight: bold; color: var(--mud-palette-primary);" : "")">
-                                                        @string.Format("{0:F1} kg", e.MaxRepetition)
-                                                    </MudText>
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                            <!-- Mobile list -->
-                            <ul class="hs-history-list">
-                                @foreach (var e in _exercises.OrderByDescending(e => e.Workout?.Date))
+        <div class="hs-exercise-detail-content">
+            @switch (_activeSection)
+            {
+                case "history":
+                    <section id="exercise-section-history"
+                             class="hs-exercise-detail-section"
+                             aria-label="History">
+                        @if (_exercises.Count == 0)
+                        {
+                            <EmptyState Icon="@Icons.Material.Filled.History"
+                                        Title="No history yet"
+                                        Subtitle="Log this exercise in Today to start its history."
+                                        ActionLabel="Open Today"
+                                        OnAction="OpenToday" />
+                        }
+                        else
+                        {
+                            <div class="hs-exercise-history-list">
+                                @foreach (var exercise in _exercises.OrderByDescending(item => item.Workout?.Date))
                                 {
-                                    <li id="@($"exercise-{e.Workout?.Date?.ToString("yyyyMMdd")}")">
-                                        <div class="hs-date-detail">
-                                            <span class="hs-date">@e.Workout?.Date?.ToString("d MMM")</span>
-                                            <span class="hs-detail">@e.Series×@e.Repetitions×@e.Weight kg</span>
+                                    var rowContent = FormatHistoryRow(exercise);
+                                    if (TraineeId is null && exercise.Id.HasValue)
+                                    {
+                                        <a id="@HistoryRowId(exercise)"
+                                           class="hs-exercise-history-row"
+                                           href="@BuildEditRoute(exercise.Id.Value)">
+                                            @rowContent
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <div id="@HistoryRowId(exercise)"
+                                             class="hs-exercise-history-row">
+                                            @rowContent
                                         </div>
-                                        <span class="hs-rm @(e.Workout?.Date?.Date == _kpis.MaxRMDate.Date ? "hs-max" : "")">
-                                            @string.Format("{0:F1} kg", e.MaxRepetition)
-                                        </span>
-                                    </li>
+                                    }
                                 }
-                            </ul>
-                        </div>
-                    </MudCollapse>
+                            </div>
+                        }
+                    </section>
+                    break;
 
-                    @if (!_expanded && _exercises.Length > 0)
-                    {
-                        <MudText Typo="Typo.caption" Class="mt-1">@_exercises.Length sessions</MudText>
-                    }
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
+                case "trends":
+                    <section id="exercise-section-trends"
+                             class="hs-exercise-detail-section"
+                             aria-label="Trends">
+                        @if (_exercises.Count == 0)
+                        {
+                            <EmptyState Icon="@Icons.Material.Filled.ShowChart"
+                                        Title="No trend yet"
+                                        Subtitle="A trend appears after this exercise is logged." />
+                        }
+                        else if (!SupportsLoadMetrics)
+                        {
+                            <EmptyState Icon="@Icons.Material.Filled.Repeat"
+                                        Title="Repetition-based exercise"
+                                        Subtitle="Load and 1RM trends aren't used for this exercise." />
+                        }
+                        else if (!string.IsNullOrWhiteSpace(_performanceError))
+                        {
+                            <ErrorState Title="Couldn't load performance trends"
+                                        Message="@_performanceError"
+                                        ActionLabel="Retry"
+                                        OnAction="RetryPerformanceAsync" />
+                        }
+                        else if (_rmTrends.Count == 0 && _volumeTrends.Count == 0)
+                        {
+                            <EmptyState Icon="@Icons.Material.Filled.ShowChart"
+                                        Title="No trend data"
+                                        Subtitle="More complete workout entries are needed." />
+                        }
+                        else
+                        {
+                            <div class="hs-exercise-trend-card hs-surface">
+                                <ApexChart TItem="DataPoint" Options="_chartOptions">
+                                    <ApexPointSeries TItem="DataPoint"
+                                                     Items="_rmTrends"
+                                                     Name="Estimated 1RM"
+                                                     SeriesType="SeriesType.Line"
+                                                     XValue='point => point.Time.ToString("yyyy-MM-dd")'
+                                                     YAggregate="point => point.Average(item => item.Data)" />
+                                    <ApexPointSeries TItem="DataPoint"
+                                                     Items="_volumeTrends"
+                                                     Name="Volume"
+                                                     SeriesType="SeriesType.Line"
+                                                     XValue='point => point.Time.ToString("yyyy-MM-dd")'
+                                                     YAggregate="point => point.Average(item => item.Data)" />
+                                </ApexChart>
+                            </div>
+                        }
+                    </section>
+                    break;
+
+                case "variations":
+                    <section id="exercise-section-variations"
+                             class="hs-exercise-detail-section"
+                             aria-label="Variations">
+                        @if (_parentType is not null)
+                        {
+                            <a class="hs-exercise-related-card hs-surface"
+                               href="@BuildRelatedDetailsRoute(_parentType.Id)">
+                                <span class="hs-exercise-related-label">Main exercise</span>
+                                <strong>@_parentType.Name</strong>
+                            </a>
+                        }
+
+                        @if (RelatedVariations.Count > 0)
+                        {
+                            <div class="hs-exercise-related-list">
+                                @foreach (var variation in RelatedVariations)
+                                {
+                                    <a class="hs-exercise-related-card hs-surface"
+                                       href="@BuildRelatedDetailsRoute(variation.Id)">
+                                        <strong>@variation.Name</strong>
+                                        <span>@FormatTagLine(variation)</span>
+                                    </a>
+                                }
+                            </div>
+                        }
+                        else if (_parentType is null)
+                        {
+                            <EmptyState Icon="@Icons.Material.Filled.AccountTree"
+                                        Title="No variations"
+                                        Subtitle="This exercise has no catalog variations." />
+                        }
+                    </section>
+                    break;
+
+                default:
+                    <section id="exercise-section-overview"
+                             class="hs-exercise-detail-section"
+                             aria-label="Overview">
+                        <div class="hs-exercise-kpi-grid">
+                            <article class="hs-exercise-kpi hs-surface">
+                                <strong>@_exercises.Count</strong>
+                                <span>@FormatSessionLabel(_exercises.Count)</span>
+                            </article>
+                            <article class="hs-exercise-kpi hs-surface">
+                                <strong>@FormatLastPerformed()</strong>
+                                <span>Last performed</span>
+                            </article>
+
+                            @if (SupportsLoadMetrics && _kpis is not null && _kpis.MaxRM > 0)
+                            {
+                                <button type="button"
+                                        class="hs-exercise-kpi hs-surface is-action"
+                                        @onclick="() => OpenBestSessionAsync(_kpis.MaxRMDate)">
+                                    <strong>@_kpis.MaxRM.ToString("N1") kg</strong>
+                                    <span>Best estimated 1RM</span>
+                                </button>
+                                <article class="hs-exercise-kpi hs-surface">
+                                    <strong>@_kpis.Current1RM.ToString("N1") kg</strong>
+                                    <span>Current estimated 1RM</span>
+                                </article>
+                            }
+                            else if (!SupportsLoadMetrics)
+                            {
+                                <article class="hs-exercise-kpi hs-surface">
+                                    <strong>Reps</strong>
+                                    <span>Tracking mode</span>
+                                </article>
+                                <article class="hs-exercise-kpi hs-surface">
+                                    <strong>@(_kpis?.WeeklyFrequency ?? RecentSessionCount)</strong>
+                                    <span>Last 7 days</span>
+                                </article>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(_performanceError) && SupportsLoadMetrics)
+                        {
+                            <div class="hs-exercise-inline-error" role="alert">
+                                <span>@_performanceError</span>
+                                <button type="button" @onclick="RetryPerformanceAsync">Retry</button>
+                            </div>
+                        }
+
+                        <article class="hs-exercise-overview-card hs-surface">
+                            @if (!string.IsNullOrWhiteSpace(_exerciseType.Description))
+                            {
+                                <p>@_exerciseType.Description</p>
+                            }
+
+                            <div class="hs-exercise-overview-line">
+                                <span>Muscles</span>
+                                <strong>@AppState.FormatExerciseTypeMuscleLine(_exerciseType)</strong>
+                            </div>
+                            <div class="hs-exercise-overview-line">
+                                <span>Load</span>
+                                <strong>@FormatWeightMode(_exerciseType.WeightType)</strong>
+                            </div>
+
+                            @if ((_exerciseType.Tags?.Count ?? 0) > 0)
+                            {
+                                <div class="hs-exercise-overview-tags" aria-label="Exercise tags">
+                                    @foreach (var tag in _exerciseType.Tags!
+                                        .Select(item => item.Name)
+                                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                                        .Take(6))
+                                    {
+                                        <span>@tag</span>
+                                    }
+                                </div>
+                            }
+                        </article>
+                    </section>
+                    break;
+            }
+        </div>
     }
-</MudContainer>
+</PageShell>
 
 @code {
+    private static readonly (string Key, string Label)[] DetailSections =
+    [
+        ("overview", "Overview"),
+        ("history", "History"),
+        ("trends", "Trends"),
+        ("variations", "Variations")
+    ];
+
     [Parameter] public int ExerciseTypeId { get; set; }
     [Parameter] public string? TraineeId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "section")]
+    public string? Section { get; set; }
+    [SupplyParameterFromQuery(Name = "tag")]
+    public string? TrainingTag { get; set; }
 
-    private string _title = "Exercise Details";
-    private ApexChart<DataPoint>? _rmChart;
-    private ApexChartOptions<DataPoint> _chartOptions = new();
-
-    private List<DataPoint>? _rmTrends;
-    private List<DataPoint>? _volumeTrends;
-
-    private GetExerciseResource[]? _exercises;
+    private readonly ApexChartOptions<DataPoint> _chartOptions = new();
+    private GetExerciseTypeResource? _exerciseType;
+    private GetExerciseTypeResource? _parentType;
+    private List<GetExerciseResource> _allExercises = [];
+    private List<GetExerciseResource> _exercises = [];
+    private List<DataPoint> _rmTrends = [];
+    private List<DataPoint> _volumeTrends = [];
     private ExerciseKpis? _kpis;
-    private bool _expanded = false;
+    private string _title = "Exercise details";
+    private string _activeSection = "overview";
+    private string? _errorMessage;
+    private string? _performanceError;
+    private bool _isLoading = true;
+    private int _loadedExerciseTypeId;
+    private string? _selectedTrainingTag;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadDataAsync();
-        InitializeChartOptions();
-    }
+    private bool SupportsLoadMetrics
+        => (_exerciseType?.WeightType ?? ExerciseWeightType.Standard)
+            != ExerciseWeightType.None;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private int RecentSessionCount
+        => _exercises.Count(exercise =>
+            exercise.Workout?.Date >= DateTime.Today.AddDays(-7));
+
+    private List<string> AvailableTrainingTags
+        => _allExercises
+            .SelectMany(exercise => exercise.Tags)
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(tag => tag)
+            .ToList();
+
+    private List<GetExerciseTypeResource> RelatedVariations
+        => ((_parentType?.Variations ?? _exerciseType?.Variations) ?? [])
+            .Where(variation => variation.Id != ExerciseTypeId)
+            .OrderBy(variation => variation.Name)
+            .ToList();
+
+    protected override void OnInitialized()
     {
-        if (!firstRender) return;
-        await JSRuntime.InvokeVoidAsync("eval", @"
-            window.scrollToElement = function(id) {
-                const el = document.getElementById(id);
-                if (!el) return;
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                const row = el.closest('tr') ?? el.closest('li');
-                if (row) {
-                    row.style.backgroundColor = 'rgba(var(--mud-palette-primary-rgb), 0.1)';
-                    setTimeout(() => row.style.backgroundColor = '', 2000);
-                }
+        _chartOptions.Chart = new Chart
+        {
+            Height = 300,
+            Toolbar = new Toolbar { Show = false }
+        };
+        _chartOptions.Stroke = new Stroke
+        {
+            Curve = Curve.Smooth,
+            Width = 3
+        };
+        _chartOptions.Colors = ["#AE1D0D", "#035960"];
+        _chartOptions.Tooltip = new Tooltip
+        {
+            Shared = true,
+            Intersect = false
+        };
+        _chartOptions.Xaxis = new XAxis
+        {
+            Labels = new XAxisLabels
+            {
+                Rotate = -45,
+                RotateAlways = true,
+                ShowDuplicates = false
             }
-        ");
+        };
     }
 
-    public async ValueTask DisposeAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        try { await JSRuntime.InvokeVoidAsync("eval", "delete window.scrollToElement"); } catch { }
+        _activeSection = NormalizeSection(Section);
+        if (_loadedExerciseTypeId != ExerciseTypeId)
+        {
+            await LoadDataAsync();
+            return;
+        }
+
+        var requestedTag = AvailableTrainingTags.FirstOrDefault(
+            tag => string.Equals(
+                tag,
+                TrainingTag,
+                StringComparison.OrdinalIgnoreCase));
+        if (!string.Equals(
+            requestedTag,
+            _selectedTrainingTag,
+            StringComparison.OrdinalIgnoreCase))
+        {
+            _selectedTrainingTag = requestedTag;
+            ApplyTrainingTagFilter();
+            await LoadPerformanceAsync();
+        }
     }
 
     private async Task LoadDataAsync()
     {
-        var userParam = TraineeId != null ? $"&userId={TraineeId}" : "";
-        var exercisesTask = Http.GetFromJsonAsync<GetExerciseResource[]>($"/Exercises?exerciseTypeId={ExerciseTypeId}{userParam}");
-        var kpisTask = Http.GetFromJsonAsync<ExerciseKpis>($"/Exercises/{ExerciseTypeId}/kpis?userId={TraineeId}");
-        var rmTask = Http.GetFromJsonAsync<TrendResult>($"/Exercises/{ExerciseTypeId}/trends?type=RM{userParam}");
-        var volTask = Http.GetFromJsonAsync<TrendResult>($"/Exercises/{ExerciseTypeId}/trends?type=Volume{userParam}");
+        _isLoading = true;
+        _errorMessage = null;
+        _performanceError = null;
+        _exerciseType = null;
+        _parentType = null;
+        _allExercises = [];
+        _exercises = [];
+        _kpis = null;
+        _rmTrends = [];
+        _volumeTrends = [];
 
-        _exercises = await exercisesTask ?? Array.Empty<GetExerciseResource>();
-        _kpis = await kpisTask;
-        _rmTrends = (await rmTask)?.Points ?? new();
-        _volumeTrends = (await volTask)?.Points ?? new();
-
-        if (_exercises.Length > 0 && _exercises[0].Type != null)
+        try
         {
-            _title = _exercises[0].Type!.Name ?? "Exercise Details";
+            var userQuery = string.IsNullOrWhiteSpace(TraineeId)
+                ? string.Empty
+                : $"&userId={Uri.EscapeDataString(TraineeId)}";
+            var typeTask = Http.GetFromJsonAsync<GetExerciseTypeResource>(
+                $"/ExerciseTypes/{ExerciseTypeId}");
+            var exercisesTask = Http.GetFromJsonAsync<List<GetExerciseResource>>(
+                $"/Exercises?exerciseTypeId={ExerciseTypeId}{userQuery}");
+            var musclesTask = AppState.GetMusclesAsync();
+
+            await Task.WhenAll(typeTask, exercisesTask, musclesTask);
+            _exerciseType = await typeTask
+                ?? throw new InvalidOperationException("The exercise type response was empty.");
+            _allExercises = await exercisesTask ?? [];
+            _selectedTrainingTag = AvailableTrainingTags.FirstOrDefault(
+                tag => string.Equals(
+                    tag,
+                    TrainingTag,
+                    StringComparison.OrdinalIgnoreCase));
+            ApplyTrainingTagFilter();
+            _title = _exerciseType.Name ?? "Exercise details";
             TitleService.Title = _title;
+            _loadedExerciseTypeId = ExerciseTypeId;
+
+            if (_exerciseType.ParentExerciseTypeId.HasValue)
+            {
+                try
+                {
+                    _parentType = await Http.GetFromJsonAsync<GetExerciseTypeResource>(
+                        $"/ExerciseTypes/{_exerciseType.ParentExerciseTypeId.Value}");
+                }
+                catch
+                {
+                    _parentType = null;
+                }
+            }
+
+            if (_exercises.Count > 0)
+            {
+                await LoadPerformanceAsync();
+            }
+        }
+        catch
+        {
+            _title = "Exercise details";
+            TitleService.Title = _title;
+            _errorMessage = "Check your connection and try again.";
+        }
+        finally
+        {
+            _isLoading = false;
         }
     }
 
-    private void InitializeChartOptions()
+    private async Task LoadPerformanceAsync()
     {
-        _chartOptions.Chart = new Chart { Height = 350, Toolbar = new Toolbar { Show = true } };
-        _chartOptions.Tooltip = new Tooltip { Shared = true, Intersect = false };
-        _chartOptions.Grid = new Grid { BorderColor = "#f1f1f1" };
-        _chartOptions.Stroke = new Stroke { Curve = Curve.Smooth, Width = 3 };
-        _chartOptions.Colors = new List<string> { "#2196F3", "#00E396" };
+        _performanceError = null;
 
-        _chartOptions.Yaxis = new List<YAxis>
+        try
         {
-            new() { Title = new AxisTitle { Text = "RM (kg)" }, SeriesName = "RM", DecimalsInFloat = 0,
-                Labels = new YAxisLabels { Formatter = "function(v){return Number(v).toLocaleString()+' kg';}" } },
-            new() { Title = new AxisTitle { Text = "Volume (kg)" }, SeriesName = "Volume", DecimalsInFloat = 0,
-                Labels = new YAxisLabels { Formatter = "function(v){return Number(v).toLocaleString()+' kg';}" } }
-        };
-
-        _chartOptions.Xaxis = new XAxis { Labels = new XAxisLabels { ShowDuplicates = false } };
-
-        _chartOptions.Responsive = new List<Responsive<DataPoint>>
-        {
-            new()
+            if (!SupportsLoadMetrics)
             {
-                Breakpoint = 768,
-                Options = new ApexChartOptions<DataPoint>
+                return;
+            }
+
+            var queryParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(TraineeId))
+            {
+                queryParts.Add(
+                    $"userId={Uri.EscapeDataString(TraineeId)}");
+            }
+            if (!string.IsNullOrWhiteSpace(_selectedTrainingTag))
+            {
+                queryParts.Add(
+                    $"tag={Uri.EscapeDataString(_selectedTrainingTag)}");
+            }
+
+            var userQuery = queryParts.Count == 0
+                ? string.Empty
+                : $"?{string.Join("&", queryParts)}";
+            var separator = queryParts.Count == 0 ? "?" : "&";
+            var kpisTask = Http.GetFromJsonAsync<ExerciseKpis>(
+                $"/Exercises/{ExerciseTypeId}/kpis{userQuery}");
+
+            var rmTask = Http.GetFromJsonAsync<TrendResult>(
+                $"/Exercises/{ExerciseTypeId}/trends{userQuery}{separator}type=RM");
+            var volumeTask = Http.GetFromJsonAsync<TrendResult>(
+                $"/Exercises/{ExerciseTypeId}/trends{userQuery}{separator}type=Volume");
+
+            await Task.WhenAll(kpisTask, rmTask, volumeTask);
+            _kpis = await kpisTask;
+            _rmTrends = (await rmTask)?.Points ?? [];
+            _volumeTrends = (await volumeTask)?.Points ?? [];
+        }
+        catch
+        {
+            _performanceError = "Performance data is temporarily unavailable.";
+            _kpis = null;
+            _rmTrends = [];
+            _volumeTrends = [];
+        }
+    }
+
+    private Task RetryAsync()
+    {
+        _loadedExerciseTypeId = 0;
+        return LoadDataAsync();
+    }
+
+    private async Task RetryPerformanceAsync()
+    {
+        await LoadPerformanceAsync();
+    }
+
+    private void SelectSection(string section)
+    {
+        _activeSection = NormalizeSection(section);
+        var uri = NavigationManager.GetUriWithQueryParameter(
+            "section",
+            _activeSection == "overview" ? null : _activeSection);
+        NavigationManager.NavigateTo(uri, replace: true);
+    }
+
+    private async Task SelectTrainingTagAsync(string? tag)
+    {
+        _selectedTrainingTag = AvailableTrainingTags.FirstOrDefault(
+            candidate => string.Equals(
+                candidate,
+                tag,
+                StringComparison.OrdinalIgnoreCase));
+        ApplyTrainingTagFilter();
+        _kpis = null;
+        _rmTrends = [];
+        _volumeTrends = [];
+
+        var uri = NavigationManager.GetUriWithQueryParameter(
+            "tag",
+            _selectedTrainingTag);
+        NavigationManager.NavigateTo(uri, replace: true);
+
+        if (_exercises.Count > 0)
+        {
+            await LoadPerformanceAsync();
+        }
+    }
+
+    private void ApplyTrainingTagFilter()
+    {
+        _exercises = string.IsNullOrWhiteSpace(_selectedTrainingTag)
+            ? _allExercises.ToList()
+            : _allExercises
+                .Where(exercise => exercise.Tags.Contains(
+                    _selectedTrainingTag,
+                    StringComparer.OrdinalIgnoreCase))
+                .ToList();
+    }
+
+    private async Task OpenBestSessionAsync(DateTime date)
+    {
+        SelectSection("history");
+        await Task.Delay(50);
+        await JSRuntime.InvokeVoidAsync(
+            "scrollToElement",
+            $"exercise-{date:yyyyMMdd}");
+    }
+
+    private RenderFragment FormatHistoryRow(GetExerciseResource exercise)
+        => builder =>
+        {
+            var sequence = 0;
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", "hs-exercise-history-date");
+            builder.AddContent(
+                sequence++,
+                exercise.Workout?.Date?.ToString("d MMM yyyy") ?? "Date unavailable");
+            builder.CloseElement();
+
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", "hs-exercise-history-prescription");
+            builder.AddContent(sequence++, FormatPrescription(exercise));
+            builder.CloseElement();
+
+            if (exercise.Tags.Count > 0)
+            {
+                builder.OpenElement(sequence++, "span");
+                builder.AddAttribute(
+                    sequence++,
+                    "class",
+                    "hs-exercise-history-tags");
+                foreach (var tag in exercise.Tags)
                 {
-                    Chart = new Chart { Height = 300, Toolbar = new Toolbar { Show = false } },
-                    Yaxis = new List<YAxis>
-                    {
-                        new() { Show = false, SeriesName = "RM" },
-                        new() { Show = false, SeriesName = "Volume" }
-                    },
-                    Xaxis = new XAxis
-                    {
-                        Labels = new XAxisLabels { Rotate = -45, RotateAlways = true, MaxHeight = 60, ShowDuplicates = false }
-                    }
+                    builder.OpenElement(sequence++, "span");
+                    builder.AddContent(sequence++, tag);
+                    builder.CloseElement();
                 }
+                builder.CloseElement();
+            }
+
+            if (SupportsLoadMetrics && exercise.MaxRepetition is > 0)
+            {
+                builder.OpenElement(sequence++, "strong");
+                builder.AddAttribute(sequence++, "class", "hs-exercise-history-rm");
+                builder.AddContent(sequence++, $"{exercise.MaxRepetition.Value:N1} kg 1RM");
+                builder.CloseElement();
             }
         };
-    }
 
-    private void ToggleExpand() => _expanded = !_expanded;
-
-    private async Task ScrollToExerciseDateAsync(DateTime date)
+    private string FormatPrescription(GetExerciseResource exercise)
     {
-        _expanded = true;
-        StateHasChanged();
-        await Task.Delay(100);
-        await JSRuntime.InvokeVoidAsync("scrollToElement", $"exercise-{date:yyyyMMdd}");
+        var series = exercise.Series ?? 0;
+        var repetitions = exercise.Repetitions ?? 0;
+        var prescription = $"{series} sets × {repetitions} reps";
+
+        if (SupportsLoadMetrics && exercise.Weight is > 0)
+        {
+            prescription += $" · {exercise.Weight.Value:N1} kg";
+        }
+
+        return prescription;
     }
 
-    // Local DTOs (these are specific to this page's API endpoints)
-    public class TrendResult { public List<DataPoint> Points { get; set; } = new(); }
-    public class DataPoint   { public decimal Data { get; set; }
-    public DateTime Time { get; set; } }
-    public class ExerciseKpis
+    private string FormatLastPerformed()
+        => _exercises
+            .MaxBy(exercise => exercise.Workout?.Date)
+            ?.Workout?.Date?.ToString("d MMM")
+            ?? "Not yet";
+
+    private string FormatTagLine(GetExerciseTypeResource exercise)
+    {
+        var tags = (exercise.Tags ?? [])
+            .Select(tag => tag.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToList();
+        return tags.Count == 0 ? "Exercise variation" : string.Join(" · ", tags);
+    }
+
+    private string BuildEditRoute(Guid exerciseId)
+    {
+        var returnUrl = BuildCurrentDetailReturnUrl("history");
+        return $"/training/history/{exerciseId}/edit?returnUrl={Uri.EscapeDataString(returnUrl)}";
+    }
+
+    private string BuildRelatedDetailsRoute(int exerciseTypeId)
+    {
+        var baseRoute = string.IsNullOrWhiteSpace(TraineeId)
+            ? $"/training/library/{exerciseTypeId}"
+            : $"/exercises/types/{exerciseTypeId}/details/{Uri.EscapeDataString(TraineeId)}";
+        return $"{baseRoute}?returnUrl={Uri.EscapeDataString(BuildCurrentDetailReturnUrl("variations"))}";
+    }
+
+    private string BuildCurrentDetailReturnUrl(string section)
+    {
+        var baseRoute = string.IsNullOrWhiteSpace(TraineeId)
+            ? $"/training/library/{ExerciseTypeId}"
+            : $"/exercises/types/{ExerciseTypeId}/details/{Uri.EscapeDataString(TraineeId)}";
+        var query = $"section={Uri.EscapeDataString(section)}";
+        if (!string.IsNullOrWhiteSpace(_selectedTrainingTag))
+        {
+            query +=
+                $"&tag={Uri.EscapeDataString(_selectedTrainingTag)}";
+        }
+        var safeParentReturn = GetSafeReturnUrl(ReturnUrl, string.Empty);
+        if (!string.IsNullOrEmpty(safeParentReturn))
+        {
+            query += $"&returnUrl={Uri.EscapeDataString(safeParentReturn)}";
+        }
+
+        return $"{baseRoute}?{query}";
+    }
+
+    private string HistoryRowId(GetExerciseResource exercise)
+        => $"exercise-{exercise.Workout?.Date?.ToString("yyyyMMdd") ?? exercise.Id?.ToString("N")}";
+
+    private void OpenToday()
+        => NavigationManager.NavigateTo("/training/today");
+
+    private void GoBack()
+        => NavigationManager.NavigateTo(
+            GetSafeReturnUrl(ReturnUrl, "/training/library"));
+
+    private static string NormalizeSection(string? section)
+        => DetailSections.Any(item =>
+            string.Equals(item.Key, section, StringComparison.OrdinalIgnoreCase))
+            ? section!.ToLowerInvariant()
+            : "overview";
+
+    private static string GetSafeReturnUrl(string? returnUrl, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(returnUrl)
+            || !returnUrl.StartsWith('/')
+            || returnUrl.StartsWith("//", StringComparison.Ordinal)
+            || returnUrl.Contains('\\')
+            || returnUrl.Any(char.IsControl))
+        {
+            return fallback;
+        }
+
+        return returnUrl;
+    }
+
+    private static string FormatSessionLabel(int count)
+        => count == 1 ? "Session" : "Sessions";
+
+    private static string FormatWeightMode(ExerciseWeightType? weightType)
+        => weightType switch
+        {
+            ExerciseWeightType.None => "Repetitions only",
+            ExerciseWeightType.BodyWeight => "Body weight + load",
+            _ => "External load"
+        };
+
+    public sealed class TrendResult
+    {
+        public List<DataPoint> Points { get; set; } = [];
+    }
+
+    public sealed class DataPoint
+    {
+        public decimal Data { get; set; }
+        public DateTime Time { get; set; }
+    }
+
+    public sealed class ExerciseKpis
     {
         public float MaxRM { get; set; }
         public DateTime MaxRMDate { get; set; }
         public float Current1RM { get; set; }
         public int RMDiferentialInLast3Months { get; set; }
+        public int WeeklyFrequency { get; set; }
     }
 }

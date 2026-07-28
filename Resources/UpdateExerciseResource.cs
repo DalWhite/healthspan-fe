@@ -7,6 +7,7 @@ public class UpdateExerciseResource
     public decimal? BodyWeight { get; set; }
     public decimal? AddedWeight { get; set; }
     public ExerciseWeightType? WeightType { get; set; }
+    public List<string> Tags { get; set; } = [];
     public GetExerciseTypeResource? Type { get; set; }
     public GetWorkoutResource? Workout { get; set; }
 }

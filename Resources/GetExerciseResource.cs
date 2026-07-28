@@ -7,6 +7,8 @@ public class GetExerciseResource
     public double? MaxRepetition { get; set; }
     public int? Volume { get; set; }
     public int? Intensity { get; set; }
+    public string? Comments { get; set; }
+    public List<string> Tags { get; set; } = [];
     public decimal? BodyWeight { get; set; }
     public decimal? AddedWeight { get; set; }
     public ExerciseWeightType? WeightType { get; set; }

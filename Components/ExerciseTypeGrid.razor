@@ -299,9 +299,12 @@ else
     private string EmptyStateTitle => HasQueryOrFilters ? "No matching exercises" : "No exercises yet";
     private string EmptyStateSubtitle => HasQueryOrFilters ? "Change or clear the current filters." : "Create the first exercise type in the library.";
     private string EmptyStateActionLabel => HasQueryOrFilters ? "Clear filters" : "Add exercise type";
+    private bool ShouldPersistLibraryState
+        => TraineeId is null && !FavouritesOnly;
 
     protected override async Task OnInitializedAsync()
     {
+        RestoreLibraryState();
         await AppState.GetMusclesAsync();
         _musclesById = AppState.GetMuscleLookup();
         _muscleGroups = AppState.GetMuscleGroups();
@@ -327,6 +330,7 @@ else
     {
         _search = value;
         ApplyFilter();
+        PersistLibraryState();
     }
 
     private void BuildFilterOptions()
@@ -457,12 +461,17 @@ else
         => NavigationManager.NavigateTo(GetStatsRoute(exercise));
 
     private void GoToEditExerciseType(GetExerciseTypeResource exercise)
-        => NavigationManager.NavigateTo($"/training/library/{exercise.Id}/edit");
+        => NavigationManager.NavigateTo(
+            $"/training/library/{exercise.Id}/edit?returnUrl={Uri.EscapeDataString(GetCurrentRelativeUrl())}");
 
     private string GetStatsRoute(GetExerciseTypeResource exercise)
-        => TraineeId != null
+    {
+        var baseRoute = TraineeId != null
             ? $"/exercises/types/{exercise.Id}/details/{TraineeId}"
             : $"/training/library/{exercise.Id}";
+        var currentRoute = GetCurrentRelativeUrl();
+        return $"{baseRoute}?returnUrl={Uri.EscapeDataString(currentRoute)}";
+    }
 
     private async Task ToggleFavourite(MouseEventArgs _, GetExerciseTypeResource exercise)
     {
@@ -490,30 +499,38 @@ else
         }
     }
 
-    private void ToggleFilters() => _showFilters = !_showFilters;
+    private void ToggleFilters()
+    {
+        _showFilters = !_showFilters;
+        PersistLibraryState();
+    }
 
     private void OnMuscleGroupChanged(string? value)
     {
         _selectedMuscleGroup = value;
         ApplyFilter();
+        PersistLibraryState();
     }
 
     private void OnEquipmentChanged(string? value)
     {
         _selectedEquipment = value;
         ApplyFilter();
+        PersistLibraryState();
     }
 
     private void OnMovementChanged(string? value)
     {
         _selectedMovement = value;
         ApplyFilter();
+        PersistLibraryState();
     }
 
     private void OnFavouritesFilterChanged(bool value)
     {
         _favouritesOnlyFilter = value;
         ApplyFilter();
+        PersistLibraryState();
     }
 
     private void ClearMuscleGroup() => OnMuscleGroupChanged(null);
@@ -528,6 +545,7 @@ else
         _selectedMovement = null;
         _favouritesOnlyFilter = false;
         ApplyFilter();
+        PersistLibraryState();
     }
 
     private void HandleEmptyStateAction()
@@ -544,4 +562,43 @@ else
 
     private void GoToCreateExerciseType()
         => NavigationManager.NavigateTo("/training/library/create");
+
+    private void RestoreLibraryState()
+    {
+        if (!ShouldPersistLibraryState)
+        {
+            return;
+        }
+
+        var state = AppState.ExerciseLibraryView;
+        _search = state.Search;
+        _selectedMuscleGroup = state.MuscleGroup;
+        _selectedEquipment = state.Equipment;
+        _selectedMovement = state.Movement;
+        _favouritesOnlyFilter = state.FavouritesOnly;
+        _showFilters = state.FiltersExpanded;
+    }
+
+    private void PersistLibraryState()
+    {
+        if (!ShouldPersistLibraryState)
+        {
+            return;
+        }
+
+        var state = AppState.ExerciseLibraryView;
+        state.Search = _search;
+        state.MuscleGroup = _selectedMuscleGroup;
+        state.Equipment = _selectedEquipment;
+        state.Movement = _selectedMovement;
+        state.FavouritesOnly = _favouritesOnlyFilter;
+        state.FiltersExpanded = _showFilters;
+    }
+
+    private string GetCurrentRelativeUrl()
+    {
+        var relative = NavigationManager.ToBaseRelativePath(
+            NavigationManager.Uri);
+        return $"/{relative.TrimStart('/')}";
+    }
 }

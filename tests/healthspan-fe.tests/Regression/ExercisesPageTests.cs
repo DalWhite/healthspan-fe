@@ -179,6 +179,16 @@ public class ExercisesPageTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
+            MockHttp.GetMatchCount(deleteRequest).Should().Be(0);
+            cut.Markup.Should().Contain("Delete this entry?");
+            cut.Markup.Should().Contain("The workout and exercise type stay available.");
+        });
+        cut.FindAll("button")
+            .Single(button => button.TextContent.Contains("Delete entry"))
+            .Click();
+
+        cut.WaitForAssertion(() =>
+        {
             MockHttp.GetMatchCount(deleteRequest).Should().Be(1);
             navigationManager.Uri.Should().EndWith("/training/history");
         }, timeout: TimeSpan.FromSeconds(3));
@@ -192,7 +202,15 @@ public class ExercisesPageTests : BlazorTestBase
         ConfigureEditExerciseRequests(exerciseId, workoutId);
 
         MockHttp.When(HttpMethod.Delete, $"/exercises/{exerciseId}")
-            .Respond(HttpStatusCode.BadRequest, "application/problem+json", "{}");
+            .Respond(
+                HttpStatusCode.Conflict,
+                "application/problem+json",
+                """
+                {
+                  "title": "The exercise could not be deleted.",
+                  "detail": "Reload the workout and try again."
+                }
+                """);
 
         var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
         navigationManager.NavigateTo($"https://localhost/exercises/edit/{exerciseId}");
@@ -205,10 +223,48 @@ public class ExercisesPageTests : BlazorTestBase
             timeout: TimeSpan.FromSeconds(3));
 
         cut.FindAll("button").Single(button => button.TextContent.Contains("Delete")).Click();
+        cut.WaitForAssertion(() =>
+            cut.FindAll("button")
+                .Should().Contain(button => button.TextContent.Contains("Delete entry")));
+        cut.FindAll("button")
+            .Single(button => button.TextContent.Contains("Delete entry"))
+            .Click();
 
         cut.WaitForAssertion(() =>
-            navigationManager.Uri.Should().EndWith($"/exercises/edit/{exerciseId}"),
-            timeout: TimeSpan.FromSeconds(3));
+        {
+            navigationManager.Uri.Should().EndWith($"/exercises/edit/{exerciseId}");
+            cut.Markup.Should().Contain("The exercise could not be deleted.");
+            cut.Markup.Should().Contain("Reload the workout and try again.");
+        }, timeout: TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
+    public void Edit_Page_Preserves_Validated_ReturnUrl_After_Save()
+    {
+        var exerciseId = Guid.NewGuid();
+        var workoutId = Guid.NewGuid();
+        ConfigureEditExerciseRequests(exerciseId, workoutId);
+
+        MockHttp.When(HttpMethod.Put, "/exercises")
+            .Respond(HttpStatusCode.OK, "application/json", "{}");
+
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo(
+            $"https://localhost/training/history/{exerciseId}/edit?returnUrl=%2Ftraining%2Flibrary%2F21%3Fsection%3Dhistory");
+
+        var cut = RenderComponent<EditExercise>(parameters => parameters
+            .Add(component => component.ExerciseId, exerciseId.ToString()));
+
+        cut.WaitForAssertion(() =>
+            cut.FindAll("button")
+                .Should().Contain(button => button.TextContent.Contains("Save Form")));
+        cut.FindAll("button")
+            .Single(button => button.TextContent.Contains("Save Form"))
+            .Click();
+
+        cut.WaitForAssertion(() =>
+            navigationManager.Uri.Should()
+                .EndWith("/training/library/21?section=history"));
     }
 
     private void ConfigureEditExerciseRequests(Guid exerciseId, Guid workoutId)

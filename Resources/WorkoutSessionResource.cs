@@ -16,6 +16,7 @@ public sealed class WorkoutSessionExerciseResource
     public int? Repetitions { get; set; }
     public decimal? Weight { get; set; }
     public string? Comments { get; set; }
+    public List<string> Tags { get; set; } = new();
 }
 
 public sealed class StartWorkoutSessionResource

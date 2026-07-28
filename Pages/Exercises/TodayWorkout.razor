@@ -72,7 +72,15 @@
                     @foreach (var exercise in _session.Exercises)
                     {
                         <article class="hs-today-exercise-item">
-                            <span class="hs-today-exercise-name">@exercise.Name</span>
+                            <span class="hs-today-exercise-name">
+                                @exercise.Name
+                                @if (exercise.Tags.Count > 0)
+                                {
+                                    <span class="hs-training-tag-inline">
+                                        @string.Join(" · ", exercise.Tags)
+                                    </span>
+                                }
+                            </span>
                             <span class="hs-today-exercise-load">@FormatExercise(exercise)</span>
                         </article>
                     }

@@ -210,4 +210,38 @@ public class ExerciseCreationFormTests : BlazorTestBase
             cut.Markup.Should().Contain("Favourites");
         });
     }
+
+    [Fact]
+    public void Custom_Training_Tags_Are_Submitted_With_The_Exercise()
+    {
+        var workoutId = Guid.NewGuid();
+        AddExerciseResource? submitted = null;
+
+        MockHttp.When(HttpMethod.Post, "/Exercises")
+            .Respond(HttpStatusCode.Created, "application/json", "{}");
+
+        var cut = RenderComponent<ExerciseCreationForm>(parameters => parameters
+            .Add(component => component.ExerciseTypes, new[]
+            {
+                new GetExerciseTypeResource
+                {
+                    Id = 21,
+                    Name = "Bench Press",
+                    WeightType = ExerciseWeightType.Standard
+                }
+            })
+            .Add(component => component.WorkoutId, workoutId)
+            .Add(component => component.InitialExerciseTypeId, 21)
+            .Add(component => component.OnExerciseAdded, exercise => submitted = exercise));
+
+        cut.Find("input[placeholder='Bilbo']")
+            .Input("Bilbo, Tempo");
+        cut.Find("form").Submit();
+
+        cut.WaitForAssertion(() =>
+        {
+            submitted.Should().NotBeNull();
+            submitted!.Tags.Should().Equal("Bilbo", "Tempo");
+        });
+    }
 }

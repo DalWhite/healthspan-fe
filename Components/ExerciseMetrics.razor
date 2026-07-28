@@ -1,6 +1,6 @@
 @using MudBlazor
 
-@if (Metrics != null)
+@if (WeightType != ExerciseWeightType.None)
 {
 <MudGrid Class="mt-4, justify-center" GutterSize="0">
     <MudItem xs="4">
@@ -32,10 +32,19 @@
 
 @code {
     // Prepare display values for the text fields.
-    private string MaxRepetitionDisplay => Metrics.MaxRepetition?.ToString("N1") + " Kg" ?? "N/A";
-    private string VolumeDisplay => Metrics.Volume?.ToString() + " Kg" ?? "N/A";
-    private string IntensityDisplay => Metrics.Intensity != null ? $"{Metrics.Intensity.Value.ToString("0")}%": "N/A";
+    private string MaxRepetitionDisplay
+        => Metrics.MaxRepetition.HasValue
+            ? $"{Metrics.MaxRepetition.Value:N1} kg"
+            : "N/A";
+    private string VolumeDisplay
+        => Metrics.Volume.HasValue
+            ? $"{Metrics.Volume.Value:N0} kg"
+            : "N/A";
+    private string IntensityDisplay
+        => Metrics.Intensity.HasValue
+            ? $"{Metrics.Intensity.Value:0}%"
+            : "N/A";
 
-    [Parameter]
-    public GetExerciseMetrics Metrics { get; set; }
+    [Parameter, EditorRequired] public GetExerciseMetrics Metrics { get; set; } = new();
+    [Parameter] public ExerciseWeightType? WeightType { get; set; }
 }

@@ -1,0 +1,73 @@
+<div class="hs-training-tag-editor">
+    <MudTextField T="string"
+                  Label="Training tags"
+                  Value="_text"
+                  ValueChanged="OnTextChanged"
+                  Variant="Variant.Outlined"
+                  Placeholder="Bilbo"
+                  HelperText="Optional · separate tags with commas"
+                  Immediate="true"
+                  Class="ma-2" />
+
+    @if (_previewTags.Count > 0)
+    {
+        <div class="hs-training-tag-preview" aria-label="Training tags">
+            @foreach (var tag in _previewTags)
+            {
+                <span>@tag</span>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(ValidationMessage))
+    {
+        <span class="hs-training-tag-error" role="alert">
+            @ValidationMessage
+        </span>
+    }
+</div>
+
+@code {
+    [Parameter] public List<string> Tags { get; set; } = [];
+    [Parameter] public EventCallback<List<string>> TagsChanged { get; set; }
+
+    private string _text = string.Empty;
+    private string _externalSignature = string.Empty;
+    private List<string> _previewTags = [];
+
+    private string? ValidationMessage
+        => _previewTags.Count > ExerciseTagText.MaximumCount
+            ? $"Use up to {ExerciseTagText.MaximumCount} tags."
+            : _previewTags.Any(
+                tag => tag.Length > ExerciseTagText.MaximumLength)
+                ? $"Keep each tag under {ExerciseTagText.MaximumLength + 1} characters."
+                : null;
+
+    protected override void OnParametersSet()
+    {
+        var normalized = ExerciseTagText.Normalize(Tags);
+        var signature = BuildSignature(normalized);
+        if (string.Equals(
+            signature,
+            _externalSignature,
+            StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _previewTags = normalized;
+        _text = ExerciseTagText.Format(normalized);
+        _externalSignature = signature;
+    }
+
+    private async Task OnTextChanged(string value)
+    {
+        _text = value ?? string.Empty;
+        _previewTags = ExerciseTagText.Parse(_text);
+        _externalSignature = BuildSignature(_previewTags);
+        await TagsChanged.InvokeAsync(_previewTags);
+    }
+
+    private static string BuildSignature(IEnumerable<string> tags)
+        => string.Join("\u001f", tags);
+}

@@ -20,14 +20,21 @@
     {
         <ErrorState Title="Exercise type could not be loaded"
                     Message="@_errorMessage"
-                    ActionLabel="Back to Exercise Library"
-                    OnAction="@(() => NavigationManager.NavigateTo("/training/library"))" />
+                    ActionLabel="Back"
+                    OnAction="GoBack" />
     }
     else if (_et != null)
     {
         <ExerciseTypeForm Model="_model"
                           OnSubmit="SaveAsync"
                           OnCancel="Cancel" />
+
+        @if (!string.IsNullOrWhiteSpace(_actionError))
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" role="alert">
+                @_actionError
+            </MudAlert>
+        }
                           
         <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Error" OnClick="ConfirmDeleteAsync"
                    StartIcon="@Icons.Material.Filled.Delete" Class="mt-4">
@@ -42,12 +49,15 @@
 
 @code {
     [Parameter] public int ExerciseTypeId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
 
     private GetExerciseTypeResource? _et;
     private UpdateExerciseTypeResource _model = new();
     private List<Muscle> _muscles = new();
     private bool _isLoading = true;
     private string _errorMessage = "";
+    private string? _actionError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -96,6 +106,7 @@
 
     private async Task SaveAsync(UpdateExerciseTypeResource payload)
     {
+        _actionError = null;
         try
         {
             var response = await Http.PutAsJsonAsync("/ExerciseTypes", payload);
@@ -104,16 +115,18 @@
             {
                 AppState.InvalidateExerciseTypes();
                 Snackbar.Add("Exercise type saved successfully!", Severity.Success);
-                NavigationManager.NavigateTo("/training/library");
+                GoBack();
             }
             else
             {
-                Snackbar.Add("Failed to save exercise type.", Severity.Error);
+                _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
+                    response,
+                    "Couldn't save this exercise type.");
             }
         }
-        catch (Exception ex)
+        catch
         {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            _actionError = "Couldn't save this exercise type.";
         }
     }
 
@@ -132,6 +145,7 @@
     private async Task DeleteAsync()
     {
         if (_et == null) return;
+        _actionError = null;
         try
         {
             var response = await Http.DeleteAsync($"/ExerciseTypes/{_et.Id}");
@@ -139,19 +153,41 @@
             {
                 AppState.InvalidateExerciseTypes();
                 Snackbar.Add("Exercise type deleted.", Severity.Warning);
-                NavigationManager.NavigateTo("/training/library");
+                GoBack();
             }
             else
             {
-                Snackbar.Add("Failed to delete exercise type.", Severity.Error);
+                _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
+                    response,
+                    "Couldn't delete this exercise type.");
             }
         }
-        catch (Exception ex)
+        catch
         {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            _actionError = "Couldn't delete this exercise type.";
         }
     }
 
     private void Cancel()
-        => NavigationManager.NavigateTo("/training/library");
+        => GoBack();
+
+    private void GoBack()
+        => NavigationManager.NavigateTo(
+            GetSafeReturnUrl(ReturnUrl, "/training/library"));
+
+    private static string GetSafeReturnUrl(
+        string? returnUrl,
+        string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(returnUrl)
+            || !returnUrl.StartsWith('/')
+            || returnUrl.StartsWith("//", StringComparison.Ordinal)
+            || returnUrl.Contains('\\')
+            || returnUrl.Any(char.IsControl))
+        {
+            return fallback;
+        }
+
+        return returnUrl;
+    }
 }
