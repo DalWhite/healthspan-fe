@@ -102,6 +102,48 @@ public class TodayWorkoutTests : BlazorTestBase
     }
 
     [Fact]
+    public void Shows_BodyWeight_And_Added_Load_Separately()
+    {
+        var workoutId = Guid.NewGuid();
+        var exerciseId = Guid.NewGuid();
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", $$"""
+                {
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [
+                        {
+                            "id": "{{exerciseId}}",
+                            "typeId": 1,
+                            "name": "Weighted Pull-up",
+                            "series": 3,
+                            "repetitions": 5,
+                            "weight": 85,
+                            "bodyWeight": 80,
+                            "addedWeight": 5
+                        }
+                    ],
+                    "recentExerciseTypeIds": []
+                }
+                """);
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Weighted Pull-up");
+            cut.Markup.Should().Contain(
+                "3 × 5 · 80 kg BW + 5 kg");
+        });
+    }
+
+    [Fact]
     public void StartWorkout_Malformed_Response_Shows_One_Error()
     {
         MockHttp.When(HttpMethod.Get, "/ExerciseTypes")

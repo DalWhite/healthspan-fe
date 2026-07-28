@@ -145,20 +145,54 @@
                         else
                         {
                             <div class="hs-exercise-trend-card hs-surface">
-                                <ApexChart TItem="DataPoint" Options="_chartOptions">
-                                    <ApexPointSeries TItem="DataPoint"
-                                                     Items="_rmTrends"
-                                                     Name="Estimated 1RM"
-                                                     SeriesType="SeriesType.Line"
-                                                     XValue='point => point.Time.ToString("yyyy-MM-dd")'
-                                                     YAggregate="point => point.Average(item => item.Data)" />
-                                    <ApexPointSeries TItem="DataPoint"
-                                                     Items="_volumeTrends"
-                                                     Name="Volume"
-                                                     SeriesType="SeriesType.Line"
-                                                     XValue='point => point.Time.ToString("yyyy-MM-dd")'
-                                                     YAggregate="point => point.Average(item => item.Data)" />
-                                </ApexChart>
+                                <div class="hs-exercise-trend-header">
+                                    <div>
+                                        <span>Performance trend</span>
+                                        <strong>@ActiveTrendTitle</strong>
+                                        <small>@ActiveTrendDescription</small>
+                                    </div>
+                                    <div class="hs-exercise-trend-metrics"
+                                         role="group"
+                                         aria-label="Trend metric">
+                                        <button type="button"
+                                                class="@(_selectedTrendMetric == RmTrendMetric ? "is-active" : null)"
+                                                aria-pressed="@(_selectedTrendMetric == RmTrendMetric)"
+                                                @onclick="() => SelectTrendMetric(RmTrendMetric)">
+                                            1RM
+                                        </button>
+                                        <button type="button"
+                                                class="@(_selectedTrendMetric == VolumeTrendMetric ? "is-active" : null)"
+                                                aria-pressed="@(_selectedTrendMetric == VolumeTrendMetric)"
+                                                @onclick="() => SelectTrendMetric(VolumeTrendMetric)">
+                                            Volume
+                                        </button>
+                                    </div>
+                                </div>
+
+                                @if (ActiveTrendPoints.Count == 0)
+                                {
+                                    <div class="hs-exercise-trend-empty">
+                                        No @ActiveTrendTitle.ToLowerInvariant() data for this filter.
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="hs-exercise-trend-latest">
+                                        Latest
+                                        <strong>@FormatTrendValue(ActiveTrendPoints[^1])</strong>
+                                    </div>
+                                    <ApexChart @key="_selectedTrendMetric"
+                                               TItem="DataPoint"
+                                               Options="_chartOptions"
+                                               Height="260">
+                                        <ApexPointSeries TItem="DataPoint"
+                                                         Items="ActiveTrendPoints"
+                                                         Name="@ActiveTrendTitle"
+                                                         SeriesType="SeriesType.Line"
+                                                         XValue='point => point.Time.ToString("yyyy-MM-dd")'
+                                                         YAggregate="points => points.Average(point => point.Data)" />
+                                    </ApexChart>
+                                }
                             </div>
                         }
                     </section>
@@ -291,6 +325,12 @@
         ("trends", "Trends"),
         ("variations", "Variations")
     ];
+    private const string RmTrendMetric = "rm";
+    private const string VolumeTrendMetric = "volume";
+    private const string TrendDateFormatter =
+        "function(value) { if (!value) return ''; const date = new Date(value + 'T00:00:00'); return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }); }";
+    private const string TrendValueFormatter =
+        "function(value) { return Math.round(value).toLocaleString(); }";
 
     [Parameter] public int ExerciseTypeId { get; set; }
     [Parameter] public string? TraineeId { get; set; }
@@ -316,6 +356,7 @@
     private bool _isLoading = true;
     private int _loadedExerciseTypeId;
     private string? _selectedTrainingTag;
+    private string _selectedTrendMetric = RmTrendMetric;
 
     private bool SupportsLoadMetrics
         => (_exerciseType?.WeightType ?? ExerciseWeightType.Standard)
@@ -324,6 +365,21 @@
     private int RecentSessionCount
         => _exercises.Count(exercise =>
             exercise.Workout?.Date >= DateTime.Today.AddDays(-7));
+
+    private IReadOnlyList<DataPoint> ActiveTrendPoints
+        => _selectedTrendMetric == VolumeTrendMetric
+            ? _volumeTrends
+            : _rmTrends;
+
+    private string ActiveTrendTitle
+        => _selectedTrendMetric == VolumeTrendMetric
+            ? "Session volume"
+            : "Estimated 1RM";
+
+    private string ActiveTrendDescription
+        => _selectedTrendMetric == VolumeTrendMetric
+            ? "Total load completed in each workout."
+            : "Best estimated strength from each workout.";
 
     private List<string> AvailableTrainingTags
         => _allExercises
@@ -343,29 +399,50 @@
     {
         _chartOptions.Chart = new Chart
         {
-            Height = 300,
             Toolbar = new Toolbar { Show = false }
         };
+        _chartOptions.DataLabels = new DataLabels { Enabled = false };
+        _chartOptions.Grid = new Grid
+        {
+            BorderColor = "rgba(15, 95, 103, 0.12)"
+        };
+        _chartOptions.Legend = new Legend { Show = false };
         _chartOptions.Stroke = new Stroke
         {
             Curve = Curve.Smooth,
             Width = 3
         };
-        _chartOptions.Colors = ["#AE1D0D", "#035960"];
+        _chartOptions.Colors = ["#AE1D0D"];
         _chartOptions.Tooltip = new Tooltip
         {
-            Shared = true,
+            Shared = false,
             Intersect = false
         };
         _chartOptions.Xaxis = new XAxis
         {
+            TickAmount = 4,
             Labels = new XAxisLabels
             {
-                Rotate = -45,
-                RotateAlways = true,
-                ShowDuplicates = false
+                Rotate = 0,
+                RotateAlways = false,
+                HideOverlappingLabels = true,
+                ShowDuplicates = false,
+                Formatter = TrendDateFormatter
             }
         };
+        _chartOptions.Yaxis =
+        [
+            new YAxis
+            {
+                DecimalsInFloat = 0,
+                ForceNiceScale = true,
+                TickAmount = 4,
+                Labels = new YAxisLabels
+                {
+                    Formatter = TrendValueFormatter
+                }
+            }
+        ];
     }
 
     protected override async Task OnParametersSetAsync()
@@ -405,6 +482,7 @@
         _kpis = null;
         _rmTrends = [];
         _volumeTrends = [];
+        SelectTrendMetric(RmTrendMetric);
 
         try
         {
@@ -551,6 +629,19 @@
         {
             await LoadPerformanceAsync();
         }
+    }
+
+    private void SelectTrendMetric(string metric)
+    {
+        _selectedTrendMetric = metric == VolumeTrendMetric
+            ? VolumeTrendMetric
+            : RmTrendMetric;
+        _chartOptions.Colors =
+        [
+            _selectedTrendMetric == VolumeTrendMetric
+                ? "#035960"
+                : "#AE1D0D"
+        ];
     }
 
     private void ApplyTrainingTagFilter()
@@ -719,6 +810,9 @@
             ExerciseWeightType.BodyWeight => "Body weight + load",
             _ => "External load"
         };
+
+    private static string FormatTrendValue(DataPoint point)
+        => $"{point.Data:N0} kg · {point.Time:dd MMM yyyy}";
 
     public sealed class TrendResult
     {

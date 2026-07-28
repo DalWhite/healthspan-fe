@@ -218,6 +218,48 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         });
     }
 
+    [Fact]
+    public void Trends_Use_One_Metric_Scale_At_A_Time()
+    {
+        ConfigureWeightedExercise();
+        var navigationManager =
+            Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo(
+            "https://localhost/training/library/21?section=trends");
+
+        var cut = RenderComponent<ExerciseTypeDetails>(parameters => parameters
+            .Add(component => component.ExerciseTypeId, 21));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find(".hs-exercise-trend-header")
+                .TextContent.Should().Contain("Estimated 1RM");
+            cut.FindAll(".hs-exercise-trend-metrics button.is-active")
+                .Should().ContainSingle()
+                .Which.TextContent.Trim().Should().Be("1RM");
+            cut.Find(".hs-exercise-trend-latest")
+                .TextContent.Should().Contain("101");
+        });
+
+        cut.FindAll(".hs-exercise-trend-metrics button")
+            .Single(button => button.TextContent.Trim() == "Volume")
+            .Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find(".hs-exercise-trend-header")
+                .TextContent.Should().Contain("Session volume");
+            cut.Find(".hs-exercise-trend-header")
+                .TextContent.Should().Contain(
+                    "Total load completed in each workout.");
+            cut.FindAll(".hs-exercise-trend-metrics button.is-active")
+                .Should().ContainSingle()
+                .Which.TextContent.Trim().Should().Be("Volume");
+            cut.Find(".hs-exercise-trend-latest")
+                .TextContent.Should().Contain("560 kg");
+        });
+    }
+
     private void ConfigureWeightedExercise()
     {
         MockHttp.When("/ExerciseTypes/21")

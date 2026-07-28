@@ -203,20 +203,26 @@ Implementation status:
 
 ## 9. Harden and normalize API contracts — P0/P1, medium
 
-- Establish one source of truth for each request and response contract.
-- Reconcile workout user ID types and nullability.
-- Reconcile bodyweight fields between frontend and backend exercise contracts.
-- Validate trainer-to-trainee access before accepting another user's ID.
-- Keep global query filters as the default and authorize every bypass.
-- Restrict exercise-library mutation endpoints appropriately.
-- Standardize Problem Details responses.
-- Add cancellation tokens and server-side pagination bounds.
-- Normalize route casing and prefixes gradually.
+- [x] Establish separate workout create, update, and response contracts.
+- [x] Reconcile workout user ID types and nullability without changing existing routes.
+- [x] Persist bodyweight and added-weight values end to end, including an EF migration.
+- [x] Validate self or assigned-trainer access before accepting another user's ID.
+- [x] Keep query filters as the default and explicitly authorize the training access lookup.
+- [ ] Define ownership or an administrator policy before restricting shared exercise-library mutations.
+- [x] Return Problem Details from the hardened training validation and failure paths.
+- [x] Propagate cancellation through workout operations and cap exercise pagination at 100 rows.
+- [ ] Normalize route casing and `/api` prefixes gradually, preserving current route compatibility.
+
+Step 9 implementation note: access-control, DTO, bodyweight, pagination, and error-contract
+regressions are covered. Shared exercise types do not currently have an owner, and normal users
+can create custom types, so mutation restrictions require a product/data-model decision rather
+than a role check added implicitly.
 
 ## 10. Add UX-focused verification and release incrementally — P1, medium
 
 Add coverage for:
 
+- [x] Exercise trends use one metric scale at a time and aggregate volume per workout.
 - Role-aware navigation and legacy routes.
 - Complete Today workout logging.
 - Workout pagination and grouping.

@@ -178,7 +178,9 @@ else
              _catalog.AddRange(await ApiClient.GetGalpinCatalogAsync());
              _history.Clear();
              _history.AddRange(await ApiClient.GetGalpinAssessmentsAsync());
-             _latest = await ApiClient.GetLatestGalpinAssessmentAsync();
+             _latest = _history
+                 .OrderByDescending(item => item.AssessedOnUtc)
+                 .FirstOrDefault();
 
              _draft = new AddGalpinAssessmentResource
              {

@@ -302,7 +302,9 @@
 
             var endpoint = UseWorkoutSessionEndpoint
                 ? $"/Workouts/{workoutId}/exercises"
-                : "/Exercises";
+                : string.IsNullOrWhiteSpace(TraineeId)
+                    ? "/Exercises"
+                    : $"/Exercises?userId={Uri.EscapeDataString(TraineeId)}";
             using var response = await Http.PostAsJsonAsync(endpoint, _exercise);
 
             if (!response.IsSuccessStatusCode)

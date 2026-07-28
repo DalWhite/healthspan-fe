@@ -82,7 +82,7 @@
                                         </span>
                                     }
                                 </span>
-                                <span class="hs-today-exercise-load">@FormatExercise(exercise)</span>
+                                <span class="hs-today-exercise-load">@FormatExerciseLoad(exercise)</span>
                             </div>
                             <a class="hs-workout-edit-link hs-today-exercise-edit-link"
                                href="@BuildEditRoute(exercise.Id)"
@@ -240,14 +240,21 @@
     private static string BuildEditRoute(Guid exerciseId)
         => $"/training/history/{exerciseId}/edit?returnUrl={Uri.EscapeDataString("/training/today")}";
 
-    private static string FormatExercise(WorkoutSessionExerciseResource exercise)
+    private static string FormatExerciseLoad(
+        WorkoutSessionExerciseResource exercise)
     {
         var sets = exercise.Series ?? 0;
         var repetitions = exercise.Repetitions ?? 0;
-        var load = exercise.Weight.GetValueOrDefault() > 0
-            ? $" · {exercise.Weight:0.#} kg"
-            : string.Empty;
+        var load = exercise.BodyWeight.GetValueOrDefault() > 0
+            ? $" · {exercise.BodyWeight:0.#} kg BW"
+              + (exercise.AddedWeight.GetValueOrDefault() > 0
+                  ? $" + {exercise.AddedWeight:0.#} kg"
+                  : string.Empty)
+            : exercise.Weight.GetValueOrDefault() > 0
+                ? $" · {exercise.Weight:0.#} kg"
+                : string.Empty;
 
         return $"{sets} × {repetitions}{load}";
     }
+
 }
