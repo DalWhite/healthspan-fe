@@ -160,10 +160,14 @@
                                 }
 
                                 <div class="hs-workout-detail-actions">
+                                    <a class="hs-workout-action hs-workout-add-exercise"
+                                       href="@BuildAddExerciseRoute(detail)">
+                                        Add exercise
+                                    </a>
                                     <button type="button"
                                             class="hs-workout-action"
                                             @onclick="() => OpenEdit(detail)">
-                                        Edit
+                                        Edit workout
                                     </button>
                                     <button type="button"
                                             class="hs-workout-action is-danger"
@@ -609,6 +613,18 @@
 
     private static string BuildExerciseEditRoute(Guid exerciseId)
         => $"/training/history/{exerciseId}/edit?returnUrl={Uri.EscapeDataString("/training/history")}";
+
+    private static string BuildAddExerciseRoute(GetWorkoutResource workout)
+    {
+        var query =
+            $"workoutId={workout.Id}&returnUrl={Uri.EscapeDataString("/training/history")}";
+        if (workout.Date.HasValue)
+        {
+            query += $"&date={workout.Date.Value:yyyy-MM-dd}";
+        }
+
+        return $"/exercises/create?{query}";
+    }
 
     private string FormatLoadedCount()
     {

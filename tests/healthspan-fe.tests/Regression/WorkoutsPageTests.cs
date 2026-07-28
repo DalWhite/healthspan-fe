@@ -66,6 +66,10 @@ public class WorkoutsPageTests : BlazorTestBase
             cut.Markup.Should().Contain("Bench Press");
             cut.Markup.Should().Contain("4 sets × 8 reps");
             cut.Markup.Should().Contain("80.0 kg");
+            cut.Find("a.hs-workout-add-exercise")
+                .GetAttribute("href")
+                .Should().Be(
+                    $"/exercises/create?workoutId={PushWorkoutId}&returnUrl=%2Ftraining%2Fhistory&date=2025-06-01");
             cut.Find("a.hs-workout-edit-link")
                 .GetAttribute("href")
                 .Should().StartWith(
@@ -132,9 +136,9 @@ public class WorkoutsPageTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
             cut.FindAll(".hs-workout-action")
-                .Should().Contain(button => button.TextContent.Trim() == "Edit"));
+                .Should().Contain(button => button.TextContent.Trim() == "Edit workout"));
         cut.FindAll(".hs-workout-action")
-            .Single(button => button.TextContent.Trim() == "Edit")
+            .Single(button => button.TextContent.Trim() == "Edit workout")
             .Click();
 
         cut.WaitForAssertion(() =>

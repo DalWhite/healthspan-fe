@@ -5,17 +5,22 @@
 @inject TitleService TitleService
 @using Microsoft.AspNetCore.Components
 
-<PageTitle>Log Exercise</PageTitle>
+<PageTitle>@PageTitleText</PageTitle>
 
 <PageShell Narrow="true">
-    <PageHeader Title="Log Exercise" />
+    <PageHeader Title="@PageTitleText" />
 
     <MudPaper Class="hs-surface hs-form-surface">
         <MudContainer MaxWidth="MaxWidth.Medium">
             <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
                                   TraineeId="@TraineeId"
+                                  WorkoutId="@WorkoutId.GetValueOrDefault()"
                                   InitialExerciseTypeId="@ExerciseTypeId"
-                                  InitialDate="@_initialDate"
+                                  InitialDate="@InitialWorkoutDate"
+                                  ShowDatePicker="@(!HasExistingWorkout)"
+                                  ShowQuickPicks="@HasExistingWorkout"
+                                  UseWorkoutSessionEndpoint="@HasExistingWorkout"
+                                  SubmitLabel="@SubmitLabel"
                                   OnExerciseAdded="HandleExerciseAdded" />
 
             <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
@@ -23,7 +28,7 @@
                        Variant="Variant.Outlined"
                        Class="mt-4 rounded-button"
                        OnClick="NavigateBack">
-                Back to history
+                @(HasExistingWorkout ? "Done" : "Back to history")
             </MudButton>
         </MudContainer>
     </MudPaper>
@@ -33,13 +38,23 @@
     [Parameter] public string? TraineeId { get; set; }
     [SupplyParameterFromQuery(Name = "exerciseTypeId")]
     public int? ExerciseTypeId { get; set; }
+    [SupplyParameterFromQuery(Name = "workoutId")]
+    public Guid? WorkoutId { get; set; }
+    [SupplyParameterFromQuery(Name = "date")]
+    public DateTime? WorkoutDate { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
 
     private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
-    private readonly DateTime _initialDate = DateTime.Today;
+    private bool HasExistingWorkout
+        => WorkoutId.HasValue && WorkoutId.Value != Guid.Empty;
+    private DateTime InitialWorkoutDate => WorkoutDate?.Date ?? DateTime.Today;
+    private string PageTitleText => HasExistingWorkout ? "Add to workout" : "Log Exercise";
+    private string SubmitLabel => HasExistingWorkout ? "Add exercise" : "Save exercise";
 
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Log Exercise";
+        TitleService.Title = PageTitleText;
         _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes")
                          ?? Array.Empty<GetExerciseTypeResource>();
     }
@@ -47,12 +62,34 @@
     private Task HandleExerciseAdded(AddExerciseResource _)
     {
         Snackbar.Add("Exercise added successfully!", Severity.Success);
-        NavigateBack();
+        if (!HasExistingWorkout)
+        {
+            NavigateBack();
+        }
+
         return Task.CompletedTask;
     }
 
     private void NavigateBack()
         => NavigationManager.NavigateTo(
-            TraineeId is null ? "/training/history" : $"/trainees/{TraineeId}/exercises",
+            GetSafeReturnUrl(
+                ReturnUrl,
+                TraineeId is null
+                    ? "/training/history"
+                    : $"/trainees/{TraineeId}/exercises"),
             forceLoad: false);
+
+    private static string GetSafeReturnUrl(string? returnUrl, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(returnUrl)
+            || !returnUrl.StartsWith('/')
+            || returnUrl.StartsWith("//", StringComparison.Ordinal)
+            || returnUrl.Contains('\\')
+            || returnUrl.Any(char.IsControl))
+        {
+            return fallback;
+        }
+
+        return returnUrl;
+    }
 }

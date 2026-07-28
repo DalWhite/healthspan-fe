@@ -116,6 +116,71 @@ public class ExercisesPageTests : BlazorTestBase
     }
 
     [Fact]
+    public void Create_Page_Appends_Multiple_Exercises_To_Existing_Workout()
+    {
+        var workoutId = Guid.NewGuid();
+
+        MockHttp.When("/ExerciseTypes")
+            .Respond("application/json", """
+                [
+                    {
+                        "id": 21,
+                        "name": "Bench Press",
+                        "isFavourite": true,
+                        "weightType": 0
+                    }
+                ]
+            """);
+        var addRequest = MockHttp
+            .When(HttpMethod.Post, $"/Workouts/{workoutId}/exercises")
+            .Respond(HttpStatusCode.OK, "application/json", $$"""
+                {
+                    "id": "{{workoutId}}",
+                    "date": "2025-06-02",
+                    "type": "Training",
+                    "exercises": [],
+                    "recentExerciseTypeIds": []
+                }
+            """);
+
+        var navigationManager =
+            Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo(
+            $"https://localhost/exercises/create?workoutId={workoutId}" +
+            "&date=2025-06-02&exerciseTypeId=21" +
+            "&returnUrl=%2Ftraining%2Fhistory");
+
+        var cut = RenderComponent<CreateExercises>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Add to workout");
+            var form = cut.FindComponent<ExerciseCreationForm>().Instance;
+            form.WorkoutId.Should().Be(workoutId);
+            form.InitialDate.Should().Be(new DateTime(2025, 6, 2));
+            form.ShowDatePicker.Should().BeFalse();
+            form.UseWorkoutSessionEndpoint.Should().BeTrue();
+        });
+
+        cut.Find("form").Submit();
+        cut.WaitForAssertion(() =>
+        {
+            MockHttp.GetMatchCount(addRequest).Should().Be(1);
+            navigationManager.Uri.Should().Contain("/exercises/create?");
+        });
+
+        cut.Find("form").Submit();
+        cut.WaitForAssertion(() =>
+            MockHttp.GetMatchCount(addRequest).Should().Be(2));
+
+        cut.FindAll("button")
+            .Single(button => button.TextContent.Trim() == "Done")
+            .Click();
+        cut.WaitForAssertion(() =>
+            navigationManager.Uri.Should().EndWith("/training/history"));
+    }
+
+    [Fact]
     public void Edit_Page_Update_Navigates_Back_After_Successful_Save()
     {
         var exerciseId = Guid.NewGuid();
