@@ -47,7 +47,8 @@ public class DashboardPageTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Failed to load");
+            cut.Markup.Should().Contain(
+                "Health summary could not be loaded");
         });
     }
 

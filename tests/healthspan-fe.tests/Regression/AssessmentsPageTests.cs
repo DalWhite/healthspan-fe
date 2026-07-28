@@ -26,7 +26,7 @@ public sealed class AssessmentsPageTests : BlazorTestBase
         {
             cut.Markup.Should().Contain("No assessments yet");
             cut.Markup.Should().NotContain(
-                "Failed to load Galpin assessments");
+                "Assessments could not be loaded");
             MockHttp.GetMatchCount(latestRequest).Should().Be(0);
         });
     }

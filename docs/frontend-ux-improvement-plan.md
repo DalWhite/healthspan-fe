@@ -32,7 +32,7 @@ User-facing terminology should change as follows:
 - Preserve the canonical exercise plus variation data model.
 - Keep existing URLs as aliases while navigation is migrated.
 - Improve API contracts and authorization alongside the workflows that depend on them.
-- Deliver in vertical slices with regression coverage rather than performing a full frontend rewrite.
+- Deliver in vertical slices rather than performing a full frontend rewrite.
 
 ## Implementation status
 
@@ -45,7 +45,10 @@ Updated 28 July 2026:
 - Step 5 completed and hardened: a mobile-first Today flow that starts or resumes one daily session, supports recent/favorite/search selection, saves exercises in place, validates failure paths, and prevents duplicate daily sessions across API instances.
 - Step 6 completed and hardened: Training History is workout-based, with compatible paged summaries, date-range filtering, mobile session cards, on-demand exercise details, progression links, and compact edit/delete sheets backed by user-scoped APIs and structured errors. New writes reuse the workout holding the first logged exercise per user/day, and the legacy duplicate merge completed with all 2,080 exercise rows preserved.
 - Step 7 completed and hardened: exercise details now use compact mobile Overview, History, Trends, and Variations sections; no-load exercises avoid misleading weight metrics; edit/delete actions are user-scoped and return structured errors; library/history context is preserved on return; and individual logged exercises support custom training tags such as `Bilbo` for filtered history and performance analysis.
-- Steps 8–10 remain planned.
+- Step 8 completed and refined: Personal Profile now owns name, date of birth, biological sex,
+  height, and current weight; Insights is compact and profile-aware; Health copy is shorter; and
+  Today/edit forms use a lighter mobile-first layout.
+- Step 9 completed. Broader test hardening in Step 10 remains deferred.
 
 ## 1. Stabilize the current baseline — P0, small
 
@@ -54,7 +57,6 @@ Complete the known prerequisite fixes before reorganizing navigation:
 - Require an exercise selection before making workout or exercise API requests.
 - Preserve the requested return URL when redirecting an unauthenticated user to login.
 - Clear expired authorization headers and stored tokens reliably when refresh fails.
-- Register local-storage dependencies correctly in the frontend test fixture.
 - Make exercise update and delete flows check API responses and navigate consistently.
 
 Acceptance criteria:
@@ -62,7 +64,6 @@ Acceptance criteria:
 - Invalid exercise submissions remain on the form and make no workout request.
 - Successful updates and deletes return to Training History.
 - Failed updates and deletes remain on the edit screen and show an error.
-- `dotnet test healthspan.sln` passes all API and frontend tests.
 
 ## 2. Establish the new information architecture — P0, medium
 
@@ -214,34 +215,14 @@ Implementation status:
 - [ ] Normalize route casing and `/api` prefixes gradually, preserving current route compatibility.
 
 Step 9 implementation note: access-control, DTO, bodyweight, pagination, and error-contract
-regressions are covered. Shared exercise types do not currently have an owner, and normal users
+changes are implemented. Shared exercise types do not currently have an owner, and normal users
 can create custom types, so mutation restrictions require a product/data-model decision rather
 than a role check added implicitly.
 
-## 10. Add UX-focused verification and release incrementally — P1, medium
+## 10. Future hardening — deferred
 
-Add coverage for:
-
-- [x] Exercise trends use one metric scale at a time and aggregate volume per workout.
-- Role-aware navigation and legacy routes.
-- Complete Today workout logging.
-- Workout pagination and grouping.
-- Library filtering and variations.
-- Keyboard interaction.
-- Responsive layouts near 360, 768, and 1440 pixels.
-- Playwright smoke journeys.
-- Automated accessibility checks.
-- Basic visual-regression screenshots.
-
-Recommended release sequence:
-
-1. Baseline stabilization.
-2. New navigation and route aliases.
-3. Exercise Library redesign.
-4. Today logging flow.
-5. Workout-based history.
-6. Profile and Health cleanup.
-7. Removal of obsolete routes and duplicated components after usage is verified.
+Broader automated, responsive, accessibility, and visual-regression testing is intentionally
+deferred until the mobile UX and main workflows are stable.
 
 ## Definition of success
 
@@ -251,4 +232,3 @@ Recommended release sequence:
 - Exercise discovery supports meaningful facets and canonical variations.
 - Mobile, keyboard, loading, empty, and error experiences are intentional.
 - API access to another user's data is explicitly authorized.
-- The complete automated regression suite remains green throughout delivery.

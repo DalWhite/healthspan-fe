@@ -8,264 +8,257 @@
 
 <PageTitle>Training insights</PageTitle>
 
-@if (_isLoading)
-{
-    <PageShell>
-        <PageHeader Title="Training insights" />
-        <LoadingState Message="Loading training insights..." Size="Size.Large" />
-    </PageShell>
-}
-else
-{
-    <div class="hs-health-shell hs-profile-shell">
-        <MudPaper Class="hs-profile-hero">
-            <div class="hs-profile-hero-copy">
-                <MudText Typo="Typo.overline" Class="hs-dashboard-eyebrow">Training insights</MudText>
-                <MudText Typo="Typo.h5">Weekly planning</MudText>
-                <MudText Typo="Typo.body1" Class="hs-profile-hero-copy-text">
-                    Review weekly load and decide what carries forward.
-                </MudText>
-                <div class="hs-profile-chip-row">
-                    <MudChip Color="Color.Secondary" Variant="Variant.Outlined">@SelectedWeekRangeLabel</MudChip>
-                    <MudChip Color="Color.Default" Variant="Variant.Outlined">@FormatCount(_weeklySnapshots.Count, "tracked week", "tracked weeks")</MudChip>
-                    <MudChip Color="Color.Primary" Variant="Variant.Outlined">@FormatCount(_assessmentCount, "assessment", "assessments")</MudChip>
-                </div>
-            </div>
+<PageShell Class="hs-insights-page">
+    <div class="hs-insights-header">
+        <div>
+            <MudText Typo="Typo.h5">Insights</MudText>
+            <MudText Typo="Typo.caption" Class="hs-muted-copy">
+                @SelectedWeekRangeLabel
+            </MudText>
+        </div>
 
-            <div class="hs-profile-hero-stats">
-                <div class="hs-hero-stat hs-hero-stat-emphasis">
-                    <span class="hs-hero-stat-value">@FormatLoad(SelectedWeek?.TotalLoad ?? 0)</span>
-                    <span class="hs-hero-stat-label">Selected week load</span>
-                    <span class="hs-hero-stat-foot">@GetWeekDeltaHeadline()</span>
-                </div>
-                <div class="hs-hero-stat">
-                    <span class="hs-hero-stat-value">@((SelectedWeek?.WorkoutCount ?? 0).ToString())</span>
-                    <span class="hs-hero-stat-label">Workout sessions</span>
-                </div>
-                <div class="hs-hero-stat">
-                    <span class="hs-hero-stat-value">@CarryForwardExercises.Count()</span>
-                    <span class="hs-hero-stat-label">Carry-forward anchors</span>
-                </div>
-                <div class="hs-hero-stat">
-                    <span class="hs-hero-stat-value">@FormatDate(_latestAssessmentDate)</span>
-                    <span class="hs-hero-stat-label">Latest assessment</span>
-                </div>
-            </div>
-        </MudPaper>
+        @if (_weeklySnapshots.Count > 0)
+        {
+            <MudSelect T="DateTime"
+                       Value="_selectedWeekStart"
+                       ValueChanged="OnWeekChanged"
+                       Label="Week"
+                       Dense="true"
+                       Variant="Variant.Outlined"
+                       Class="hs-insights-week-select">
+                @foreach (var snapshot in _weeklySnapshots)
+                {
+                    <MudSelectItem T="DateTime"
+                                   Value="@snapshot.WeekStart">
+                        @FormatWeekRange(snapshot.WeekStart)
+                    </MudSelectItem>
+                }
+            </MudSelect>
+        }
+    </div>
 
+    @if (_isLoading)
+    {
+        <LoadingState Message="Loading insights..." />
+    }
+    else if (SelectedWeek is null)
+    {
+        <EmptyState Icon="@Icons.Material.Filled.Insights"
+                    Title="No training data yet"
+                    Subtitle="Log a workout to start seeing weekly load." />
+    }
+    else
+    {
         @if (_errorMessages.Count > 0)
         {
-            <MudAlert Severity="Severity.Warning" Dense="true">@string.Join(" ", _errorMessages)</MudAlert>
+            <MudAlert Severity="Severity.Warning"
+                      Dense="true">
+                @string.Join(" ", _errorMessages)
+            </MudAlert>
         }
 
-        <MudGrid Spacing="3">
-            <MudItem xs="12" lg="7">
-                <MudPaper Class="hs-health-panel hs-profile-panel-rich">
-                    <div class="hs-detail-heading">
-                        <div>
-                            <MudText Typo="Typo.h6">Weekly muscle load</MudText>
-                            <MudText Typo="Typo.body2" Class="hs-muted-copy">Switch the selected week and body view to see where work accumulated.</MudText>
-                        </div>
+        <div class="hs-insights-kpis">
+            <div class="hs-insights-kpi">
+                <span>Load</span>
+                <strong>@FormatLoad(SelectedWeek.TotalLoad)</strong>
+            </div>
+            <div class="hs-insights-kpi">
+                <span>Sessions</span>
+                <strong>@SelectedWeek.WorkoutCount</strong>
+            </div>
+            <div class="hs-insights-kpi">
+                <span>Exercises</span>
+                <strong>@SelectedWeek.ExerciseCount</strong>
+            </div>
+            <div class="hs-insights-kpi">
+                <span>Change</span>
+                <strong>@GetWeekDeltaLabel()</strong>
+            </div>
+        </div>
 
-                        @if (_weeklySnapshots.Count > 0)
+        <div class="hs-insights-layout">
+            <section class="hs-insights-map-card hs-surface"
+                     aria-labelledby="muscle-load-title">
+                <div class="hs-insights-section-head">
+                    <div>
+                        <MudText Typo="Typo.h6"
+                                 id="muscle-load-title">
+                            Muscle load
+                        </MudText>
+                        @if (_healthProfile.BiologicalSex == HealthBiologicalSex.Unknown)
                         {
-                            <MudSelect T="DateTime"
-                                       Value="_selectedWeekStart"
-                                       ValueChanged="OnWeekChanged"
-                                       Label="Week"
-                                       Dense="true"
-                                       Variant="Variant.Outlined"
-                                       Class="hs-profile-week-select">
-                                @foreach (var snapshot in _weeklySnapshots)
-                                {
-                                    <MudSelectItem T="DateTime" Value="@snapshot.WeekStart">@FormatWeekRange(snapshot.WeekStart)</MudSelectItem>
-                                }
-                            </MudSelect>
+                            <a href="/health/profile"
+                               class="hs-insights-profile-link">
+                                Set body profile
+                            </a>
                         }
                     </div>
 
-                    @if (SelectedWeek == null)
+                    <div class="hs-insights-view-switch"
+                         role="group"
+                         aria-label="Body view">
+                        @foreach (var view in BodyViews)
+                        {
+                            <button type="button"
+                                    class="@(_bodyViewMode == view.Key ? "is-active" : null)"
+                                    aria-pressed="@((_bodyViewMode == view.Key).ToString().ToLowerInvariant())"
+                                    @onclick="() => SetBodyViewMode(view.Key)">
+                                @view.Label
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <MuscleLoadBodyMap Regions="SelectedWeek.Regions"
+                                   ViewMode="_bodyViewMode"
+                                   BiologicalSex="_healthProfile.BiologicalSex" />
+            </section>
+
+            <aside class="hs-insights-side">
+                <section class="hs-insights-list-card hs-surface">
+                    <MudText Typo="Typo.h6">Top areas</MudText>
+                    @if (!TopSelectedRegions.Any())
                     {
-                        <EmptyState Icon="@Icons.Material.Filled.AccessibilityNew"
-                                    Title="No workout history yet"
-                                    Subtitle="Log workouts with muscle assignments to populate the body heatmap." />
+                        <span class="hs-muted-copy">No mapped load.</span>
                     }
                     else
                     {
-                        <div class="hs-profile-filter-row mt-3">
-                            <MudButtonGroup Variant="Variant.Outlined" Color="Color.Secondary">
-                                <MudButton Variant="@GetViewButtonVariant("both")" OnClick='@(() => SetBodyViewMode("both"))'>Both</MudButton>
-                                <MudButton Variant="@GetViewButtonVariant("front")" OnClick='@(() => SetBodyViewMode("front"))'>Front</MudButton>
-                                <MudButton Variant="@GetViewButtonVariant("back")" OnClick='@(() => SetBodyViewMode("back"))'>Back</MudButton>
-                            </MudButtonGroup>
-
-                            <div class="hs-profile-focus-strip">
-                                @foreach (var focus in SelectedWeekFocusGroups)
-                                {
-                                    <MudChip Color="Color.Secondary" Variant="Variant.Outlined" Size="Size.Small">@focus</MudChip>
-                                }
+                        @foreach (var region in TopSelectedRegions)
+                        {
+                            <div class="hs-insights-ranked-row">
+                                <div>
+                                    <strong>@region.Label</strong>
+                                    <span>@region.Group</span>
+                                </div>
+                                <span>@FormatLoad(region.Load)</span>
                             </div>
-                        </div>
-
-                        <MuscleLoadBodyMap Regions="SelectedWeek.Regions" ViewMode="_bodyViewMode" />
-                    }
-                </MudPaper>
-            </MudItem>
-
-            <MudItem xs="12" lg="5">
-                <WeeklyTrainingSummaryPanel
-                    SelectedWeek="SelectedWeek"
-                    CarryForwardExercises="CarryForwardExercises.ToList()"
-                    TopRegions="TopSelectedRegions.ToList()"
-                    PlanningNarrative="@BuildPlanningNarrative()" />
-            </MudItem>
-
-            <MudItem xs="12">
-                <MudPaper Class="hs-health-panel hs-profile-panel-rich">
-                    <div class="hs-detail-heading">
-                        <div>
-                            <MudText Typo="Typo.h6">Workouts this week</MudText>
-                            <MudText Typo="Typo.body2" Class="hs-muted-copy">Exact sessions and exercise prescriptions from the selected week so you can mirror or adjust them next week.</MudText>
-                        </div>
-
-                        @if (SelectedWeek != null)
-                        {
-                            <MudChip Color="Color.Default" Variant="Variant.Outlined">@SelectedWeek.WorkoutCount sessions</MudChip>
                         }
+                    }
+                </section>
+
+                <section class="hs-insights-list-card hs-surface">
+                    <div class="hs-insights-section-head">
+                        <MudText Typo="Typo.h6">Top exercises</MudText>
+                        <a href="/training/history"
+                           class="hs-insights-profile-link">
+                            History
+                        </a>
                     </div>
 
-                    @if (SelectedWeek == null || !OrderedSelectedSessions.Any())
+                    @if (!TopExercises.Any())
                     {
-                        <EmptyState Icon="@Icons.Material.Filled.CalendarMonth"
-                                    Title="No workouts logged in this week"
-                                    Subtitle="Choose another tracked week or add sessions to build a next-week template." />
+                        <span class="hs-muted-copy">No exercises this week.</span>
                     }
                     else
                     {
-                        <div class="hs-profile-session-grid mt-3">
-                            @foreach (var session in OrderedSelectedSessions)
-                            {
-                                <WorkoutSessionCard Session="session" />
-                            }
-                        </div>
+                        @foreach (var exercise in TopExercises)
+                        {
+                            <div class="hs-insights-ranked-row">
+                                <div>
+                                    <strong>@exercise.Name</strong>
+                                    <span>@exercise.Prescription</span>
+                                </div>
+                                <span>@FormatLoad(exercise.Load)</span>
+                            </div>
+                        }
                     }
-                </MudPaper>
-            </MudItem>
-
-            <MudItem xs="12">
-                <AdaptationSummaryPanel
-                    Axes="_radarAxes"
-                    Series="_radarSeries"
-                    MissingSnapshots="_missingRadarSnapshots" />
-            </MudItem>
-        </MudGrid>
-    </div>
-}
+                </section>
+            </aside>
+        </div>
+    }
+</PageShell>
 
 @code {
+    private static readonly (string Key, string Label)[] BodyViews =
+    [
+        ("both", "Both"),
+        ("front", "Front"),
+        ("back", "Back")
+    ];
+
     private bool _isLoading = true;
-    private int _assessmentCount;
-    private DateTime? _latestAssessmentDate;
     private DateTime _selectedWeekStart;
     private string _bodyViewMode = "both";
-    private readonly List<string> _errorMessages = new();
-    private readonly List<string> _missingRadarSnapshots = new();
-    private readonly List<WeeklyBodyLoadSnapshot> _weeklySnapshots = new();
-    private readonly List<AdaptationRadarAxis> _radarAxes = new();
-    private readonly List<AdaptationRadarSeries> _radarSeries = new();
+    private HealthProfileResource _healthProfile = new();
+    private readonly List<string> _errorMessages = [];
+    private readonly List<WeeklyBodyLoadSnapshot> _weeklySnapshots = [];
 
-    private WeeklyBodyLoadSnapshot? SelectedWeek => _weeklySnapshots.FirstOrDefault(snapshot => snapshot.WeekStart == _selectedWeekStart);
+    private WeeklyBodyLoadSnapshot? SelectedWeek
+        => _weeklySnapshots.FirstOrDefault(
+            snapshot => snapshot.WeekStart == _selectedWeekStart);
 
     private WeeklyBodyLoadSnapshot? PreviousSelectedWeek
     {
         get
         {
-            var selectedIndex = _weeklySnapshots.FindIndex(snapshot => snapshot.WeekStart == _selectedWeekStart);
-            return selectedIndex >= 0 && selectedIndex + 1 < _weeklySnapshots.Count
+            var selectedIndex = _weeklySnapshots.FindIndex(
+                snapshot => snapshot.WeekStart == _selectedWeekStart);
+            return selectedIndex >= 0
+                   && selectedIndex + 1 < _weeklySnapshots.Count
                 ? _weeklySnapshots[selectedIndex + 1]
                 : null;
         }
     }
 
-    private IEnumerable<WeeklyWorkoutSessionResource> OrderedSelectedSessions
-        => SelectedWeek?.Sessions
-               .OrderBy(session => session.Date)
-               .ThenBy(session => session.Label)
-           ?? Enumerable.Empty<WeeklyWorkoutSessionResource>();
-
-    private IEnumerable<WeeklyWorkoutExerciseResource> CarryForwardExercises
-        => OrderedSelectedSessions
+    private IEnumerable<ExerciseInsight> TopExercises
+        => (SelectedWeek?.Sessions ?? [])
             .SelectMany(session => session.Exercises)
             .Where(exercise => !string.IsNullOrWhiteSpace(exercise.Name))
-            .GroupBy(exercise => exercise.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group
-                .OrderByDescending(item => item.Load)
-                .ThenByDescending(item => item.MaxRepetition ?? 0)
-                .First())
-            .OrderByDescending(item => item.Load)
-            .ThenByDescending(item => item.MaxRepetition ?? 0)
-            .Take(4);
+            .GroupBy(
+                exercise => exercise.Name,
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var representative = group
+                    .OrderByDescending(exercise => exercise.Load)
+                    .First();
+                return new ExerciseInsight(
+                    group.Key,
+                    representative.Prescription,
+                    group.Sum(exercise => exercise.Load));
+            })
+            .OrderByDescending(exercise => exercise.Load)
+            .Take(5);
 
     private IEnumerable<MuscleLoadRegionResource> TopSelectedRegions
         => SelectedWeek is null
-            ? Enumerable.Empty<MuscleLoadRegionResource>()
+            ? []
             : SelectedWeek.Regions
                 .Where(region => region.Load > 0)
                 .OrderByDescending(region => region.Load)
                 .Take(5);
 
-    private IEnumerable<string> SelectedWeekFocusGroups
-        => OrderedSelectedSessions
-            .SelectMany(session => session.FocusGroups)
-            .Where(group => !string.IsNullOrWhiteSpace(group))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(4);
-
     private string SelectedWeekRangeLabel
-        => SelectedWeek is null ? "No week selected" : FormatWeekRange(SelectedWeek.WeekStart);
+        => SelectedWeek is null
+            ? "Weekly muscle load"
+            : FormatWeekRange(SelectedWeek.WeekStart);
 
     protected override async Task OnInitializedAsync()
     {
         TitleService.Title = "Training insights";
-        await LoadProfileAsync();
+        await LoadInsightsAsync();
     }
 
-    private async Task LoadProfileAsync()
+    private async Task LoadInsightsAsync()
     {
         _isLoading = true;
         _errorMessages.Clear();
-        _missingRadarSnapshots.Clear();
 
         try
         {
-            var weeklySummaryTask = LoadWeeklyTrainingSummaryAsync();
-            var assessmentsTask = LoadAssessmentsAsync();
-            var catalogTask = LoadCatalogAsync();
-            await Task.WhenAll(
-                weeklySummaryTask,
-                assessmentsTask,
-                catalogTask);
+            var weeklyTask = LoadWeeklyTrainingSummaryAsync();
+            var profileTask = LoadHealthProfileAsync();
+            await Task.WhenAll(weeklyTask, profileTask);
 
-            var weeklySummary = await weeklySummaryTask;
-            var assessments = await assessmentsTask;
-            var catalog = await catalogTask;
-
-            _assessmentCount = assessments.Count;
-            _latestAssessmentDate = assessments.OrderByDescending(item => item.AssessedOnUtc).FirstOrDefault()?.AssessedOnUtc;
-
+            _healthProfile = await profileTask;
             _weeklySnapshots.Clear();
-            _weeklySnapshots.AddRange(weeklySummary.Weeks);
-
+            _weeklySnapshots.AddRange(
+                (await weeklyTask).Weeks
+                .OrderByDescending(snapshot => snapshot.WeekStart));
             if (_weeklySnapshots.Count > 0)
             {
                 _selectedWeekStart = _weeklySnapshots[0].WeekStart;
             }
-
-            _radarAxes.Clear();
-            _radarAxes.AddRange(BuildRadarAxes(catalog));
-
-            _radarSeries.Clear();
-            _radarSeries.AddRange(BuildRadarSeries(_radarAxes, assessments));
         }
         finally
         {
@@ -282,125 +275,49 @@ else
                        "/Workouts/weekly-summary?weeks=12")
                    ?? new WeeklyTrainingSummaryResource();
         }
-        catch (Exception ex)
+        catch
         {
-            _errorMessages.Add(
-                $"Weekly training summary could not be loaded: {ex.Message}");
+            _errorMessages.Add("Training summary is unavailable.");
             return new WeeklyTrainingSummaryResource();
         }
     }
 
-    private async Task<List<GetGalpinAssessmentResource>> LoadAssessmentsAsync()
+    private async Task<HealthProfileResource> LoadHealthProfileAsync()
     {
         try
         {
-            return (await ApiClient.GetGalpinAssessmentsAsync()).ToList();
+            return await ApiClient.GetHealthProfileAsync();
         }
-        catch (Exception ex)
+        catch
         {
-            _errorMessages.Add($"Assessment history could not be loaded: {ex.Message}");
-            return new List<GetGalpinAssessmentResource>();
+            _errorMessages.Add("Personal profile is unavailable.");
+            return new HealthProfileResource();
         }
     }
 
-    private async Task<List<GalpinAdaptationCatalogItemResource>> LoadCatalogAsync()
+    private void SetBodyViewMode(string viewMode)
+        => _bodyViewMode = viewMode;
+
+    private void OnWeekChanged(DateTime weekStart)
+        => _selectedWeekStart = weekStart;
+
+    private string GetWeekDeltaLabel()
     {
-        try
+        var selected = SelectedWeek;
+        var previous = PreviousSelectedWeek;
+        if (selected is null || previous is null || previous.TotalLoad <= 0)
         {
-            return (await ApiClient.GetGalpinCatalogAsync()).ToList();
+            return "—";
         }
-        catch (Exception ex)
-        {
-            _errorMessages.Add($"Assessment catalog could not be loaded: {ex.Message}");
-            return new List<GalpinAdaptationCatalogItemResource>();
-        }
+
+        var delta =
+            (selected.TotalLoad - previous.TotalLoad)
+            / previous.TotalLoad;
+        return $"{delta:+0%;-0%;0%}";
     }
-
-    private static List<AdaptationRadarAxis> BuildRadarAxes(IReadOnlyList<GalpinAdaptationCatalogItemResource> catalog)
-    {
-        var catalogLookup = catalog.ToDictionary(item => item.Adaptation, item => item);
-
-        return Enum.GetValues<GalpinAdaptationType>()
-            .Select(adaptation => new AdaptationRadarAxis
-            {
-                Key = adaptation.ToString(),
-                Label = catalogLookup.TryGetValue(adaptation, out var item) && !string.IsNullOrWhiteSpace(item.DisplayName)
-                    ? item.DisplayName!
-                    : HealthDisplayHelpers.ResolveAdaptationLabel(adaptation)
-            })
-            .ToList();
-    }
-
-    private List<AdaptationRadarSeries> BuildRadarSeries(IReadOnlyList<AdaptationRadarAxis> axes, IReadOnlyList<GetGalpinAssessmentResource> assessments)
-    {
-        var series = new List<AdaptationRadarSeries>();
-        var ordered = assessments.OrderBy(item => item.AssessedOnUtc).ToList();
-        var latest = ordered.LastOrDefault();
-
-        if (latest == null)
-        {
-            return series;
-        }
-
-        var usedAssessmentIds = new HashSet<Guid>();
-
-        AddSnapshotSeries(series, usedAssessmentIds, axes, ordered.LastOrDefault(item => item.AssessedOnUtc <= latest.AssessedOnUtc.AddYears(-1)), "last-year", "Last year", "#c8942f");
-        AddSnapshotSeries(series, usedAssessmentIds, axes, ordered.LastOrDefault(item => item.AssessedOnUtc <= latest.AssessedOnUtc.AddMonths(-2)), "two-months", "2 months ago", "#0f5f67");
-        AddSnapshotSeries(series, usedAssessmentIds, axes, latest, "now", "Now", "#ae1d0d");
-
-        if (!series.Any(item => item.Key == "last-year"))
-        {
-            _missingRadarSnapshots.Add("No assessment far enough back to paint the last-year overlay yet.");
-        }
-
-        if (!series.Any(item => item.Key == "two-months"))
-        {
-            _missingRadarSnapshots.Add("No assessment older than two months is available yet.");
-        }
-
-        return series;
-    }
-
-    private void AddSnapshotSeries(
-        ICollection<AdaptationRadarSeries> series,
-        ISet<Guid> usedAssessmentIds,
-        IReadOnlyList<AdaptationRadarAxis> axes,
-        GetGalpinAssessmentResource? assessment,
-        string key,
-        string label,
-        string color)
-    {
-        if (assessment == null || !usedAssessmentIds.Add(assessment.Id))
-        {
-            return;
-        }
-
-        var values = axes.ToDictionary(
-            axis => axis.Key,
-            axis =>
-            {
-                var adaptation = Enum.Parse<GalpinAdaptationType>(axis.Key);
-                return assessment.Scores?.FirstOrDefault(score => score.Adaptation == adaptation)?.Score ?? 0d;
-            });
-
-        series.Add(new AdaptationRadarSeries
-        {
-            Key = key,
-            Label = label,
-            AccentColor = color,
-            Caption = assessment.AssessedOnUtc.ToString("dd MMM yyyy"),
-            Values = values
-        });
-    }
-
-    private static string FormatCount(int count, string singular, string plural)
-        => $"{count} {(count == 1 ? singular : plural)}";
-
-    private static string FormatDate(DateTime? value)
-        => value?.ToString("dd MMM yyyy") ?? "Not available";
 
     private static string FormatWeekRange(DateTime weekStart)
-        => $"{weekStart:dd MMM} - {weekStart.AddDays(6):dd MMM yyyy}";
+        => $"{weekStart:dd MMM} – {weekStart.AddDays(6):dd MMM yyyy}";
 
     private static string FormatLoad(double load)
         => load <= 0
@@ -409,103 +326,8 @@ else
                 ? $"{Math.Round(load):0} kg"
                 : $"{load:0.#} kg";
 
-    private static string FormatExerciseMuscleLine(WeeklyWorkoutExerciseResource exercise)
-    {
-        var primaryMuscles = exercise.PrimaryMuscles
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var secondaryMuscles = exercise.SecondaryMuscles
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (primaryMuscles.Count > 0 && secondaryMuscles.Count > 0)
-        {
-            return $"{string.Join(", ", primaryMuscles)} · {string.Join(", ", secondaryMuscles)}";
-        }
-
-        if (primaryMuscles.Count > 0)
-        {
-            return string.Join(", ", primaryMuscles);
-        }
-
-        if (secondaryMuscles.Count > 0)
-        {
-            return string.Join(", ", secondaryMuscles);
-        }
-
-        return "Muscle target not mapped";
-    }
-
-    private Variant GetViewButtonVariant(string viewMode)
-        => string.Equals(_bodyViewMode, viewMode, StringComparison.OrdinalIgnoreCase) ? Variant.Filled : Variant.Outlined;
-
-    private void SetBodyViewMode(string viewMode)
-        => _bodyViewMode = viewMode;
-
-    private void OnWeekChanged(DateTime weekStart)
-        => _selectedWeekStart = weekStart;
-
-    private string GetWeekDeltaHeadline()
-    {
-        var selectedWeek = SelectedWeek;
-        if (selectedWeek == null)
-        {
-            return "Select a tracked week";
-        }
-
-        var previousWeek = PreviousSelectedWeek;
-        if (previousWeek == null || previousWeek.TotalLoad <= 0)
-        {
-            return selectedWeek.TotalLoad > 0
-                ? "First comparable tracked week"
-                : "No measurable load recorded";
-        }
-
-        var delta = (selectedWeek.TotalLoad - previousWeek.TotalLoad) / previousWeek.TotalLoad;
-        if (Math.Abs(delta) < 0.05d)
-        {
-            return "Load is flat versus the prior tracked week";
-        }
-
-        var direction = delta > 0 ? "above" : "below";
-        return $"{Math.Abs(delta * 100d):0}% {direction} the prior tracked week";
-    }
-
-    private string BuildPlanningNarrative()
-    {
-        var selectedWeek = SelectedWeek;
-        if (selectedWeek == null)
-        {
-            return "Choose a tracked week to review the sessions and decide what should carry forward.";
-        }
-
-        if (!OrderedSelectedSessions.Any())
-        {
-            return "No complete workout sessions were logged in this week yet.";
-        }
-
-        var rankedRegions = TopSelectedRegions.ToList();
-        var lead = rankedRegions.FirstOrDefault();
-        var secondary = rankedRegions.Skip(1).FirstOrDefault();
-        var anchorNames = CarryForwardExercises.Select(exercise => exercise.Name).Take(3).ToList();
-        var anchorCopy = anchorNames.Count > 0
-            ? $"Prioritize {string.Join(", ", anchorNames)} when you lay out next week."
-            : "Use the session list below to decide which lifts should repeat next week.";
-
-        if (lead == null)
-        {
-            return $"{GetWeekDeltaHeadline()}. {anchorCopy}";
-        }
-
-        if (secondary == null)
-        {
-            return $"{GetWeekDeltaHeadline()}. {lead.Label} carried most of the work at {FormatLoad(lead.Load)} across {selectedWeek.WorkoutCount} sessions. {anchorCopy}";
-        }
-
-        return $"{GetWeekDeltaHeadline()}. {lead.Label} led the week at {FormatLoad(lead.Load)}, with {secondary.Label} next at {FormatLoad(secondary.Load)} across {selectedWeek.WorkoutCount} sessions. {anchorCopy}";
-    }
-
+    private sealed record ExerciseInsight(
+        string Name,
+        string? Prescription,
+        double Load);
 }

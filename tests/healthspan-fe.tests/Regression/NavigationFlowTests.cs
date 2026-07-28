@@ -61,7 +61,7 @@ public class NavigationFlowTests : BlazorTestBase
             cut.Markup.Should().Contain("Today");
             cut.Markup.Should().Contain("Training History");
             cut.Markup.Should().Contain("Exercise Library");
-            cut.Markup.Should().Contain("Health Profile");
+            cut.Markup.Should().Contain("Personal Profile");
             cut.Markup.Should().Contain("Insights");
             cut.Markup.Should().Contain("Account &amp; Settings");
             cut.FindAll("a").Should().Contain(link => link.GetAttribute("href") == "training/today");

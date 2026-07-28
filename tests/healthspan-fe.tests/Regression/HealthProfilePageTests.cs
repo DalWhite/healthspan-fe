@@ -16,8 +16,11 @@ public sealed class HealthProfilePageTests : BlazorTestBase
         MockHttp.When("/HealthProfile")
             .Respond("application/json", """
                 {
+                  "name": "David",
                   "dateOfBirth": "1989-06-15",
-                  "biologicalSex": 1
+                  "biologicalSex": 1,
+                  "heightCm": 180,
+                  "weightKg": 80
                 }
                 """);
 
@@ -25,11 +28,11 @@ public sealed class HealthProfilePageTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Health profile");
-            cut.Markup.Should().Contain("Complete");
-            cut.Markup.Should().Contain("Save health profile");
-            cut.Markup.Should().Contain(
-                "never changes your original lab result");
+            cut.Markup.Should().Contain("Personal profile");
+            cut.Markup.Should().Contain("David");
+            cut.Markup.Should().Contain("Current weight");
+            cut.FindAll("button")
+                .Should().Contain(button => button.TextContent.Contains("Save"));
         });
     }
 
@@ -44,8 +47,9 @@ public sealed class HealthProfilePageTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain(
-                "Health profile could not be loaded");
-            cut.Markup.Should().Contain("Save health profile");
+                "Profile could not be loaded");
+            cut.FindAll("button")
+                .Should().Contain(button => button.TextContent.Contains("Save"));
         });
     }
 }

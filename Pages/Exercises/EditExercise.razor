@@ -1,13 +1,23 @@
 @page "/exercises/edit/{ExerciseId}"
 @page "/training/history/{ExerciseId}/edit"
 @inject HttpClient Http
+@inject HealthspanApiClient ApiClient
 @inject NavigationManager NavigationManager
 @inject TitleService TitleService
 
 <PageTitle>@_title</PageTitle>
 
-<PageShell Narrow="true">
-    <PageHeader Title="@_title" />
+<PageShell Narrow="true" Class="hs-exercise-edit-page">
+    <div class="hs-exercise-edit-heading">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                       Size="MudBlazor.Size.Small"
+                       OnClick="GoBack"
+                       aria-label="Back" />
+        <div>
+            <MudText Typo="Typo.h5">@ExerciseName</MudText>
+            <MudText Typo="Typo.caption" Class="hs-muted-copy">Edit entry</MudText>
+        </div>
+    </div>
 
     @if (_isLoading)
     {
@@ -22,10 +32,12 @@
     }
     else if (Exercise is not null)
     {
-        <div class="hs-surface hs-form-surface">
+        <div class="hs-surface hs-form-surface hs-exercise-edit-surface">
             <ExerciseForm Exercise="_editModel"
                           @bind-Date="_workoutDate"
                           ExerciseTypes="_exerciseTypes"
+                          CurrentUserBodyWeight="@_currentUserBodyWeight"
+                          IsSaving="@_isSaving"
                           OnSubmit="UpdateExerciseAsync" />
 
             @if (_exerciseMetrics is not null)
@@ -39,7 +51,7 @@
                 <p class="hs-exercise-edit-error" role="alert">@_actionError</p>
             }
 
-            <div class="hs-exercise-edit-actions">
+            <div class="hs-exercise-edit-footer">
                 <button type="button"
                         class="hs-exercise-edit-button"
                         disabled="@_isSaving"
@@ -97,12 +109,17 @@
     private DateTime? _originalWorkoutDate;
     private GetExerciseMetrics? _exerciseMetrics;
     private GetExerciseTypeResource[] _exerciseTypes = [];
+    private decimal? _currentUserBodyWeight;
     private string _title = "Edit exercise";
     private string? _loadError;
     private string? _actionError;
     private bool _isLoading = true;
     private bool _isSaving;
     private bool _deleteConfirmationOpen;
+    private string ExerciseName
+        => Exercise?.Type?.Name is { Length: > 0 } name
+            ? name
+            : "Exercise";
 
     protected override async Task OnInitializedAsync()
     {
@@ -121,9 +138,11 @@
                 "/ExerciseTypes");
             var exerciseTask = Http.GetFromJsonAsync<GetExerciseResource>(
                 $"/exercises/{ExerciseId}");
-            await Task.WhenAll(typesTask, exerciseTask);
+            var profileWeightTask = LoadProfileWeightAsync();
+            await Task.WhenAll(typesTask, exerciseTask, profileWeightTask);
 
             _exerciseTypes = await typesTask ?? [];
+            _currentUserBodyWeight = await profileWeightTask;
             Exercise = await exerciseTask
                 ?? throw new InvalidOperationException("The exercise response was empty.");
             _title = Exercise.Type?.Name is { Length: > 0 } name
@@ -279,6 +298,19 @@
         }
 
         return workout.Id;
+    }
+
+    private async Task<decimal?> LoadProfileWeightAsync()
+    {
+        try
+        {
+            var profile = await ApiClient.GetHealthProfileAsync();
+            return profile.WeightKg;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void OpenDeleteConfirmation()

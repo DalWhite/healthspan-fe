@@ -14,11 +14,8 @@
 else
 {
     <div class="hs-health-shell">
-        <div class="hs-page-hero">
-            <div>
-                <h1 class="hs-native-page-title">Galpin Assessments</h1>
-                <MudText Typo="Typo.body1" Class="hs-muted-copy">Structured owner-focused scoring of the nine adaptations, with evidence notes and adaptation-specific trends.</MudText>
-            </div>
+        <div class="hs-page-hero hs-health-page-heading">
+            <MudText Typo="Typo.h5">Assessments</MudText>
             <MudChipSet>
                 <MudChip Color="Color.Default" Variant="Variant.Outlined">@_catalog.Count adaptations</MudChip>
                 <MudChip Color="Color.Secondary" Variant="Variant.Outlined">@_history.Count assessments</MudChip>
@@ -41,7 +38,6 @@ else
                     <div class="hs-detail-heading">
                         <div>
                             <MudText Typo="Typo.h6">Current assessment</MudText>
-                            <MudText Typo="Typo.body2" Class="hs-muted-copy">Capture a current evidence-based snapshot. Latest scores are preloaded when available.</MudText>
                         </div>
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_isSubmitting" OnClick="SubmitAsync">
                             @(_isSubmitting ? "Submitting..." : "Save assessment")
@@ -59,13 +55,11 @@ else
                                 <div class="hs-biomarker-header">
                                     <div>
                                         <div class="hs-biomarker-name">@(adaptation.DisplayName ?? HealthDisplayHelpers.ResolveAdaptationLabel(adaptation.Adaptation))</div>
-                                        <div class="hs-muted-copy">@adaptation.Description</div>
                                     </div>
                                     <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="() => SelectAdaptationAsync(adaptation)">Trend</MudButton>
                                 </div>
                                 <MudNumericField T="double?" @bind-Value="score.Score" Label="Score" Min="0" Max="10" Step="0.1" Variant="Variant.Outlined" Margin="Margin.Dense" />
                                 <MudTextField @bind-Value="score.EvidenceNotes" Label="Evidence notes" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" />
-                                <MudText Typo="Typo.caption" Class="hs-muted-copy">Latest saved: @FormatLatestScore(adaptation.Adaptation)</MudText>
                             </MudPaper>
                         }
                     </div>
@@ -200,9 +194,9 @@ else
                  await SelectAdaptationAsync(_catalog[0]);
              }
          }
-         catch (Exception ex)
+         catch
          {
-             _errorMessage = $"Failed to load Galpin assessments: {ex.Message}";
+             _errorMessage = "Assessments could not be loaded.";
          }
          finally
          {
@@ -228,10 +222,10 @@ else
              _operationMessage = "Assessment saved.";
              await LoadAsync();
          }
-         catch (Exception ex)
+         catch
          {
              _operationSeverity = Severity.Error;
-             _operationMessage = $"Failed to save assessment: {ex.Message}";
+             _operationMessage = "Assessment could not be saved.";
          }
          finally
          {
@@ -261,9 +255,9 @@ else
                      }).ToList() ?? new List<TrendPointResource>()
                  };
          }
-         catch (Exception ex)
+         catch
          {
-             _errorMessage = $"Failed to load adaptation trend: {ex.Message}";
+             _errorMessage = "This trend could not be loaded.";
              _selectedTrend = null;
          }
          finally
@@ -274,9 +268,6 @@ else
 
      private GalpinAssessmentScoreResource GetDraftScore(GalpinAdaptationType adaptation)
          => _draft.Scores!.First(x => x.Adaptation == adaptation);
-
-     private string FormatLatestScore(GalpinAdaptationType adaptation)
-         => _latest?.Scores?.FirstOrDefault(x => x.Adaptation == adaptation)?.Score?.ToString("0.0") ?? "No prior score";
 
      private static double AverageScore(GetGalpinAssessmentResource assessment)
          => assessment.Scores == null || assessment.Scores.Count == 0

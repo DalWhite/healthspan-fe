@@ -19,9 +19,6 @@
             Assessments
         </MudNavLink>
 
-        <MudNavLink Href="health/profile" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Badge">
-            Health Profile
-        </MudNavLink>
     </MudNavGroup>
 
     <MudNavGroup Title="Training" Icon="@Icons.Material.Filled.FitnessCenter" Expanded="true">
@@ -52,6 +49,10 @@
     }
 
     <MudNavGroup Title="Account" Icon="@Icons.Material.Filled.AccountCircle">
+        <MudNavLink Href="health/profile" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Badge">
+            Personal Profile
+        </MudNavLink>
+
         <MudNavLink Href="settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">
             Account &amp; Settings
         </MudNavLink>

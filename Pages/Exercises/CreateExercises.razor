@@ -1,5 +1,6 @@
 @page "/exercises/create/{TraineeId?}"
 @inject HttpClient Http
+@inject HealthspanApiClient ApiClient
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject TitleService TitleService
@@ -7,12 +8,15 @@
 
 <PageTitle>@PageTitleText</PageTitle>
 
-<PageShell Narrow="true">
-    <PageHeader Title="@PageTitleText" />
+<PageShell Narrow="true" Class="hs-exercise-create-page">
+    <div class="hs-compact-page-heading">
+        <MudText Typo="Typo.h5">@PageTitleText</MudText>
+    </div>
 
-    <MudPaper Class="hs-surface hs-form-surface">
+    <MudPaper Class="hs-surface hs-form-surface hs-exercise-create-surface">
         <MudContainer MaxWidth="MaxWidth.Medium">
             <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
+                                  CurrentUserBodyWeight="@_currentUserBodyWeight"
                                   TraineeId="@TraineeId"
                                   WorkoutId="@WorkoutId.GetValueOrDefault()"
                                   InitialExerciseTypeId="@ExerciseTypeId"
@@ -46,6 +50,7 @@
     public string? ReturnUrl { get; set; }
 
     private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
+    private decimal? _currentUserBodyWeight;
     private bool HasExistingWorkout
         => WorkoutId.HasValue && WorkoutId.Value != Guid.Empty;
     private DateTime InitialWorkoutDate => WorkoutDate?.Date ?? DateTime.Today;
@@ -55,8 +60,28 @@
     protected override async Task OnInitializedAsync()
     {
         TitleService.Title = PageTitleText;
-        _exerciseTypes = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes")
+        var typesTask = Http.GetFromJsonAsync<GetExerciseTypeResource[]>(
+            "/ExerciseTypes");
+        var profileWeightTask = string.IsNullOrWhiteSpace(TraineeId)
+            ? LoadProfileWeightAsync()
+            : Task.FromResult<decimal?>(null);
+        await Task.WhenAll(typesTask, profileWeightTask);
+        _exerciseTypes = await typesTask
                          ?? Array.Empty<GetExerciseTypeResource>();
+        _currentUserBodyWeight = await profileWeightTask;
+    }
+
+    private async Task<decimal?> LoadProfileWeightAsync()
+    {
+        try
+        {
+            var profile = await ApiClient.GetHealthProfileAsync();
+            return profile.WeightKg;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private Task HandleExerciseAdded(AddExerciseResource _)

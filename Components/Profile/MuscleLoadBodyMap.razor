@@ -1,6 +1,10 @@
-<div class="hs-body-map-shell">
+<div class="hs-body-map-shell @BodyProfileClass"
+     data-body-profile="@BodyProfileKey">
     <div class="hs-body-map-stage">
-        <svg viewBox="0 0 420 520" class="hs-body-map-svg" role="img" aria-label="Weekly body load heatmap">
+        <svg viewBox="0 0 420 520"
+             class="hs-body-map-svg"
+             role="img"
+             aria-label="@BodyMapAriaLabel">
             @if (ShowFront)
             {
                 <g transform="@GetFrontTransform()">
@@ -86,19 +90,32 @@
 @code {
     [Parameter] public IReadOnlyList<MuscleLoadRegionResource> Regions { get; set; } = Array.Empty<MuscleLoadRegionResource>();
     [Parameter] public string ViewMode { get; set; } = "both";
+    [Parameter] public HealthBiologicalSex BiologicalSex { get; set; }
 
     private readonly Dictionary<string, MuscleLoadRegionResource> _regionsByKey = new(StringComparer.OrdinalIgnoreCase);
 
     private bool ShowFront => !string.Equals(ViewMode, "back", StringComparison.OrdinalIgnoreCase);
     private bool ShowBack => !string.Equals(ViewMode, "front", StringComparison.OrdinalIgnoreCase);
+    private string BodyProfileKey
+        => BiologicalSex switch
+        {
+            HealthBiologicalSex.Female => "female",
+            HealthBiologicalSex.Male => "male",
+            _ => "neutral"
+        };
+    private string BodyProfileClass => $"is-{BodyProfileKey}";
+    private string BodyMapAriaLabel
+        => $"{BodyProfileKey} weekly muscle load map";
 
     private IEnumerable<MuscleLoadRegionResource> VisibleRegions =>
         Regions
+            .Where(region => region.Load > 0)
             .Where(region => string.Equals(ViewMode, "both", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(region.Side, "both", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(region.Side, ViewMode, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(region => region.Load)
-            .ThenBy(region => region.Label);
+            .ThenBy(region => region.Label)
+            .Take(6);
 
     protected override void OnParametersSet()
     {
@@ -119,60 +136,74 @@
         builder.AddAttribute(4, "class", "hs-body-base");
         builder.CloseElement();
 
-        builder.OpenElement(5, "rect");
-        builder.AddAttribute(6, "x", "28");
-        builder.AddAttribute(7, "y", "78");
-        builder.AddAttribute(8, "width", "64");
-        builder.AddAttribute(9, "height", "118");
-        builder.AddAttribute(10, "rx", "28");
-        builder.AddAttribute(11, "class", "hs-body-base");
+        builder.OpenElement(5, "path");
+        builder.AddAttribute(6, "d", GetTorsoPath());
+        builder.AddAttribute(7, "class", "hs-body-base");
         builder.CloseElement();
 
-        builder.OpenElement(12, "rect");
-        builder.AddAttribute(13, "x", "22");
-        builder.AddAttribute(14, "y", "190");
-        builder.AddAttribute(15, "width", "76");
-        builder.AddAttribute(16, "height", "48");
-        builder.AddAttribute(17, "rx", "18");
-        builder.AddAttribute(18, "class", "hs-body-base");
+        builder.OpenElement(8, "path");
+        builder.AddAttribute(9, "d", GetPelvisPath());
+        builder.AddAttribute(10, "class", "hs-body-base");
         builder.CloseElement();
 
-        builder.OpenElement(19, "rect");
-        builder.AddAttribute(20, "x", "8");
-        builder.AddAttribute(21, "y", "96");
-        builder.AddAttribute(22, "width", "18");
-        builder.AddAttribute(23, "height", "146");
-        builder.AddAttribute(24, "rx", "9");
-        builder.AddAttribute(25, "class", "hs-body-base");
+        builder.OpenElement(11, "rect");
+        builder.AddAttribute(12, "x", "8");
+        builder.AddAttribute(13, "y", "96");
+        builder.AddAttribute(14, "width", "18");
+        builder.AddAttribute(15, "height", "146");
+        builder.AddAttribute(16, "rx", "9");
+        builder.AddAttribute(17, "class", "hs-body-base");
         builder.CloseElement();
 
-        builder.OpenElement(26, "rect");
-        builder.AddAttribute(27, "x", "94");
-        builder.AddAttribute(28, "y", "96");
-        builder.AddAttribute(29, "width", "18");
-        builder.AddAttribute(30, "height", "146");
-        builder.AddAttribute(31, "rx", "9");
-        builder.AddAttribute(32, "class", "hs-body-base");
+        builder.OpenElement(18, "rect");
+        builder.AddAttribute(19, "x", "94");
+        builder.AddAttribute(20, "y", "96");
+        builder.AddAttribute(21, "width", "18");
+        builder.AddAttribute(22, "height", "146");
+        builder.AddAttribute(23, "rx", "9");
+        builder.AddAttribute(24, "class", "hs-body-base");
         builder.CloseElement();
 
-        builder.OpenElement(33, "rect");
-        builder.AddAttribute(34, "x", "30");
-        builder.AddAttribute(35, "y", "236");
-        builder.AddAttribute(36, "width", "26");
-        builder.AddAttribute(37, "height", "188");
-        builder.AddAttribute(38, "rx", "12");
-        builder.AddAttribute(39, "class", "hs-body-base");
+        builder.OpenElement(25, "rect");
+        builder.AddAttribute(26, "x", "30");
+        builder.AddAttribute(27, "y", "236");
+        builder.AddAttribute(28, "width", "26");
+        builder.AddAttribute(29, "height", "188");
+        builder.AddAttribute(30, "rx", "12");
+        builder.AddAttribute(31, "class", "hs-body-base");
         builder.CloseElement();
 
-        builder.OpenElement(40, "rect");
-        builder.AddAttribute(41, "x", "64");
-        builder.AddAttribute(42, "y", "236");
-        builder.AddAttribute(43, "width", "26");
-        builder.AddAttribute(44, "height", "188");
-        builder.AddAttribute(45, "rx", "12");
-        builder.AddAttribute(46, "class", "hs-body-base");
+        builder.OpenElement(32, "rect");
+        builder.AddAttribute(33, "x", "64");
+        builder.AddAttribute(34, "y", "236");
+        builder.AddAttribute(35, "width", "26");
+        builder.AddAttribute(36, "height", "188");
+        builder.AddAttribute(37, "rx", "12");
+        builder.AddAttribute(38, "class", "hs-body-base");
         builder.CloseElement();
     };
+
+    private string GetTorsoPath()
+        => BiologicalSex switch
+        {
+            HealthBiologicalSex.Female =>
+                "M32 78 Q60 68 88 78 L82 176 Q78 196 60 204 Q42 196 38 176 Z",
+            HealthBiologicalSex.Male =>
+                "M22 80 Q60 62 98 80 L84 190 Q60 200 36 190 Z",
+            _ =>
+                "M28 78 Q60 68 92 78 L88 190 Q60 202 32 190 Z"
+        };
+
+    private string GetPelvisPath()
+        => BiologicalSex switch
+        {
+            HealthBiologicalSex.Female =>
+                "M34 184 Q60 174 86 184 L98 222 Q94 238 60 240 Q26 238 22 222 Z",
+            HealthBiologicalSex.Male =>
+                "M36 188 Q60 184 84 188 L90 224 Q84 238 60 238 Q36 238 30 224 Z",
+            _ =>
+                "M32 188 Q60 180 88 188 L96 224 Q88 238 60 238 Q32 238 24 224 Z"
+        };
 
     private string GetFrontTransform()
         => ShowFront && ShowBack ? "translate(42 34)" : "translate(150 34)";

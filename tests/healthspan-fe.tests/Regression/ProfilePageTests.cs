@@ -10,7 +10,7 @@ namespace healthspan_fe.tests.Regression;
 public class ProfilePageTests : BlazorTestBase
 {
     [Fact]
-    public void Renders_Profile_With_Muscle_Load_And_Radar_Snapshots()
+    public void Renders_Insights_With_Profile_Aware_Muscle_Load()
     {
         MockHttp.When("/Workouts/weekly-summary?weeks=12")
             .Respond("application/json", """
@@ -77,89 +77,28 @@ public class ProfilePageTests : BlazorTestBase
                 }
             """);
 
-        MockHttp.When("/GalpinAssessments/catalog")
+        MockHttp.When("/HealthProfile")
             .Respond("application/json", """
-                [
-                  { "adaptation": 0, "displayName": "Strength" },
-                  { "adaptation": 1, "displayName": "Power" },
-                  { "adaptation": 2, "displayName": "Speed" },
-                  { "adaptation": 3, "displayName": "Hypertrophy" },
-                  { "adaptation": 4, "displayName": "Muscular Endurance" },
-                  { "adaptation": 5, "displayName": "Anaerobic Capacity" },
-                  { "adaptation": 6, "displayName": "Max Aerobic Output" },
-                  { "adaptation": 7, "displayName": "Long Duration Endurance" },
-                  { "adaptation": 8, "displayName": "Mobility & Stability" }
-                ]
-            """);
-
-        MockHttp.When("/GalpinAssessments")
-            .Respond("application/json", """
-                [
-                  {
-                    "id": "8141cad2-9f2f-4c71-b498-4bf4a0a2f120",
-                    "assessedOnUtc": "2025-01-15T00:00:00",
-                    "scores": [
-                      { "adaptation": 0, "score": 5.2 },
-                      { "adaptation": 1, "score": 5.8 },
-                      { "adaptation": 2, "score": 5.4 },
-                      { "adaptation": 3, "score": 6.1 },
-                      { "adaptation": 4, "score": 6.0 },
-                      { "adaptation": 5, "score": 5.9 },
-                      { "adaptation": 6, "score": 5.5 },
-                      { "adaptation": 7, "score": 5.7 },
-                      { "adaptation": 8, "score": 6.2 }
-                    ]
-                  },
-                  {
-                    "id": "aa3de6ff-0b16-4b61-a1d6-d934c026d17f",
-                    "assessedOnUtc": "2026-01-20T00:00:00",
-                    "scores": [
-                      { "adaptation": 0, "score": 6.3 },
-                      { "adaptation": 1, "score": 6.5 },
-                      { "adaptation": 2, "score": 6.1 },
-                      { "adaptation": 3, "score": 6.8 },
-                      { "adaptation": 4, "score": 6.4 },
-                      { "adaptation": 5, "score": 6.2 },
-                      { "adaptation": 6, "score": 6.0 },
-                      { "adaptation": 7, "score": 5.9 },
-                      { "adaptation": 8, "score": 6.6 }
-                    ]
-                  },
-                  {
-                    "id": "b0c4f6e9-905f-4719-b857-b9b7719f7130",
-                    "assessedOnUtc": "2026-04-08T00:00:00",
-                    "scores": [
-                      { "adaptation": 0, "score": 7.1 },
-                      { "adaptation": 1, "score": 7.0 },
-                      { "adaptation": 2, "score": 6.7 },
-                      { "adaptation": 3, "score": 7.4 },
-                      { "adaptation": 4, "score": 6.9 },
-                      { "adaptation": 5, "score": 6.8 },
-                      { "adaptation": 6, "score": 6.5 },
-                      { "adaptation": 7, "score": 6.4 },
-                      { "adaptation": 8, "score": 7.2 }
-                    ]
-                  }
-                ]
-            """);
+                {
+                  "biologicalSex": 1,
+                  "heightCm": 168,
+                  "weightKg": 64
+                }
+                """);
 
         var cut = RenderComponent<Profile>();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Weekly muscle load");
-            cut.Markup.Should().Contain("Workouts this week");
-            cut.Markup.Should().Contain("Carry this into next week");
-            cut.Markup.Should().Contain("Upper strength");
+            cut.Markup.Should().Contain("Insights");
+            cut.Markup.Should().Contain("Muscle load");
+            cut.Markup.Should().Contain("Sessions");
+            cut.Markup.Should().Contain("Exercises");
             cut.Markup.Should().Contain("Bench Press");
             cut.Markup.Should().Contain("Deadlift");
             cut.Markup.Should().Contain("4 x 8 @ 80 kg");
-            cut.Markup.Should().Contain("Barbell");
             cut.Markup.Should().Contain("Chest");
-            cut.Markup.Should().Contain("Physical adaptations");
-            cut.Markup.Should().Contain("Last year");
-            cut.Markup.Should().Contain("2 months ago");
-            cut.Markup.Should().Contain("Now");
+            cut.Markup.Should().Contain("data-body-profile=\"female\"");
         });
     }
 
@@ -168,18 +107,15 @@ public class ProfilePageTests : BlazorTestBase
     {
         MockHttp.When("/Workouts/weekly-summary?weeks=12")
             .Respond("application/json", """{ "weeks": [] }""");
-        MockHttp.When("/GalpinAssessments/catalog")
-            .Respond("application/json", "[]");
-        MockHttp.When("/GalpinAssessments")
-            .Respond("application/json", "[]");
-
+        MockHttp.When("/HealthProfile")
+            .Respond("application/json", """{ "biologicalSex": 0 }""");
         var cut = RenderComponent<Profile>();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("No workout history yet");
-            cut.Markup.Should().Contain("No workouts logged in this week");
-            cut.Markup.Should().Contain("No adaptation assessments yet");
+            cut.Markup.Should().Contain("No training data yet");
+            cut.Markup.Should().Contain(
+                "Log a workout to start seeing weekly load");
         });
     }
 }

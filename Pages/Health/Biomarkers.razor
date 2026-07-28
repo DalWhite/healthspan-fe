@@ -14,12 +14,8 @@
 else
 {
     <div class="hs-health-shell">
-        <div class="hs-page-hero">
-            <div>
-                <h1 class="hs-native-page-title">Biomarkers</h1>
-                <MudText Typo="Typo.body1" Class="hs-muted-copy">Latest marker snapshots with trend charts filtered by explicit date bounds.</MudText>
-                <MudText Typo="Typo.caption" Class="hs-mobile-note mt-2">Trend charts only include tests where a biomarker was actually measured. Missing points do not imply zero.</MudText>
-            </div>
+        <div class="hs-page-hero hs-health-page-heading">
+            <MudText Typo="Typo.h5">Biomarkers</MudText>
             <MudStack Class="hs-filter-stack">
                 <MudSelect T="string" Label="Category" Value="_selectedCategory" ValueChanged="OnCategoryChanged" Variant="Variant.Outlined" Dense="true">
                     @foreach (var category in _categories)
@@ -94,8 +90,6 @@ else
                             <ClinicalStatusChip Status="@HealthDisplayHelpers.GetMarkerStatusLabel(_selectedMarker.Status, _selectedMarker.Value, _selectedMarker.ReferenceMinValue, _selectedMarker.ReferenceMaxValue)" />
                         </div>
 
-                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3 hs-soft-alert">The current trends endpoint returns only measured observations. It does not report which blood tests omitted the marker.</MudAlert>
-
                         @if (_isTrendLoading)
                         {
                             <LoadingState Message="Loading biomarker trend..." />
@@ -158,9 +152,9 @@ else
                 await SelectMarkerAsync(_filteredMarkers[0]);
             }
         }
-        catch (Exception ex)
+        catch
         {
-            _errorMessage = $"Failed to load biomarker snapshots: {ex.Message}";
+            _errorMessage = "Biomarkers could not be loaded.";
         }
         finally
         {
@@ -230,9 +224,9 @@ else
                     }).ToList() ?? new List<TrendPointResource>()
                 };
         }
-        catch (Exception ex)
+        catch
         {
-            _errorMessage = $"Failed to load marker trend: {ex.Message}";
+            _errorMessage = "This trend could not be loaded.";
             _selectedTrend = null;
         }
         finally

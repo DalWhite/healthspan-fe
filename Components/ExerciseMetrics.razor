@@ -2,36 +2,24 @@
 
 @if (WeightType != ExerciseWeightType.None)
 {
-<MudGrid Class="mt-4, justify-center" GutterSize="0">
-    <MudItem xs="4">
-        <MudTextField Label="RM"
-                      Value="@MaxRepetitionDisplay"
-                      Variant="Variant.Outlined"
-                      ReadOnly="true"
-                      Adornment="Adornment.End"
-                      FullWidth
-                      class= "pr-0"/>
-    </MudItem>
-    <MudItem xs="4">
-        <MudTextField Label="Volume"
-                      Value="@VolumeDisplay"
-                      Variant="Variant.Outlined"
-                      ReadOnly="true"
-                      FullWidth />
-    </MudItem>
-    <MudItem xs="4">
-        <MudTextField Label="Intensity"
-                      Value="@IntensityDisplay"
-                      Variant="Variant.Outlined"
-                      ReadOnly="true"
-                      FullWidth />
-    </MudItem>
-</MudGrid>
+    <div class="hs-exercise-metrics" aria-label="Exercise metrics">
+        <div>
+            <span>Estimated 1RM</span>
+            <strong>@MaxRepetitionDisplay</strong>
+        </div>
+        <div>
+            <span>Volume</span>
+            <strong>@VolumeDisplay</strong>
+        </div>
+        <div>
+            <span>Intensity</span>
+            <strong>@IntensityDisplay</strong>
+        </div>
+    </div>
 }
 
 
 @code {
-    // Prepare display values for the text fields.
     private string MaxRepetitionDisplay
         => Metrics.MaxRepetition.HasValue
             ? $"{Metrics.MaxRepetition.Value:N1} kg"

@@ -208,10 +208,10 @@ public class ExercisesPageTests : BlazorTestBase
             .Add(component => component.ExerciseId, exerciseId.ToString()));
 
         cut.WaitForAssertion(() =>
-            cut.FindAll("button").Should().Contain(button => button.TextContent.Contains("Save Form")),
+            cut.FindAll("button").Should().Contain(button => button.TextContent.Contains("Save changes")),
             timeout: TimeSpan.FromSeconds(3));
 
-        cut.FindAll("button").Single(button => button.TextContent.Contains("Save Form")).Click();
+        cut.FindAll("button").Single(button => button.TextContent.Contains("Save changes")).Click();
 
         cut.WaitForAssertion(() =>
         {
@@ -322,9 +322,9 @@ public class ExercisesPageTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
             cut.FindAll("button")
-                .Should().Contain(button => button.TextContent.Contains("Save Form")));
+                .Should().Contain(button => button.TextContent.Contains("Save changes")));
         cut.FindAll("button")
-            .Single(button => button.TextContent.Contains("Save Form"))
+            .Single(button => button.TextContent.Contains("Save changes"))
             .Click();
 
         cut.WaitForAssertion(() =>

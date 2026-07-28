@@ -3,40 +3,41 @@
 @inject TitleService TitleService
 @inject ISnackbar Snackbar
 
-<PageTitle>Health profile</PageTitle>
+<PageTitle>Personal profile</PageTitle>
 
-@if (_isLoading)
-{
-    <PageShell>
-        <PageHeader Title="Health profile" />
-        <LoadingState Message="Loading health profile..." />
-    </PageShell>
-}
-else
-{
-    <div class="hs-health-shell hs-health-profile-shell">
-        <MudPaper Class="hs-health-panel hs-health-profile-card">
-            <div class="hs-detail-heading">
-                <div>
-                    <MudText Typo="Typo.h5">Health profile</MudText>
-                    <MudText Typo="Typo.body2" Class="hs-muted-copy">
-                        Used to choose age- and sex-aware biomarker ranges.
-                    </MudText>
-                </div>
-                @if (_isComplete)
-                {
-                    <MudChip Color="Color.Success" Variant="Variant.Outlined">Complete</MudChip>
-                }
-            </div>
+<PageShell Narrow="true" Class="hs-personal-profile-page">
+    <div class="hs-compact-page-heading">
+        <div>
+            <MudText Typo="Typo.h5">Personal profile</MudText>
+            <MudText Typo="Typo.caption" Class="hs-muted-copy">
+                Used for health ranges and bodyweight exercises.
+            </MudText>
+        </div>
+    </div>
 
+    @if (_isLoading)
+    {
+        <LoadingState Message="Loading profile..." />
+    }
+    else
+    {
+        <div class="hs-personal-profile-card hs-surface">
             @if (!string.IsNullOrWhiteSpace(_errorMessage))
             {
-                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">
+                <MudAlert Severity="Severity.Error"
+                          Dense="true"
+                          Class="mb-3">
                     @_errorMessage
                 </MudAlert>
             }
 
-            <div class="hs-health-profile-form mt-4">
+            <div class="hs-personal-profile-grid">
+                <MudTextField @bind-Value="_name"
+                              Label="Name"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              MaxLength="100" />
+
                 <MudDatePicker Label="Date of birth"
                                Date="_dateOfBirth"
                                DateChanged="OnDateOfBirthChanged"
@@ -49,41 +50,53 @@ else
                            @bind-Value="_biologicalSex"
                            Variant="Variant.Outlined"
                            Margin="Margin.Dense">
-                    <MudSelectItem Value="HealthBiologicalSex.Unknown">Prefer not to specify</MudSelectItem>
+                    <MudSelectItem Value="HealthBiologicalSex.Unknown">Not specified</MudSelectItem>
                     <MudSelectItem Value="HealthBiologicalSex.Female">Female</MudSelectItem>
                     <MudSelectItem Value="HealthBiologicalSex.Male">Male</MudSelectItem>
                 </MudSelect>
 
-                <MudAlert Severity="Severity.Info" Dense="true">
-                    This personalizes reference ranges. It never changes your original lab result.
-                </MudAlert>
+                <MudNumericField T="int?"
+                                 @bind-Value="_heightCm"
+                                 Label="Height (cm)"
+                                 Min="80"
+                                 Max="250"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense" />
 
+                <MudNumericField T="int?"
+                                 @bind-Value="_weightKg"
+                                 Label="Current weight (kg)"
+                                 Min="20"
+                                 Max="500"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense" />
+            </div>
+
+            <div class="hs-personal-profile-actions">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            Disabled="_isSaving"
-                           OnClick="SaveAsync"
-                           Class="hs-mobile-full-action">
-                    @(_isSaving ? "Saving..." : "Save health profile")
+                           OnClick="SaveAsync">
+                    @(_isSaving ? "Saving..." : "Save")
                 </MudButton>
             </div>
-        </MudPaper>
-    </div>
-}
+        </div>
+    }
+</PageShell>
 
 @code {
+    private string? _name;
     private DateTime? _dateOfBirth;
     private HealthBiologicalSex _biologicalSex;
+    private int? _heightCm;
+    private int? _weightKg;
     private bool _isLoading = true;
     private bool _isSaving;
     private string? _errorMessage;
 
-    private bool _isComplete
-        => _dateOfBirth.HasValue
-           && _biologicalSex != HealthBiologicalSex.Unknown;
-
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Health profile";
+        TitleService.Title = "Personal profile";
         await LoadAsync();
     }
 
@@ -92,14 +105,16 @@ else
         try
         {
             var profile = await ApiClient.GetHealthProfileAsync();
+            _name = profile.Name;
             _dateOfBirth = profile.DateOfBirth?.ToDateTime(
                 TimeOnly.MinValue);
             _biologicalSex = profile.BiologicalSex;
+            _heightCm = profile.HeightCm;
+            _weightKg = profile.WeightKg;
         }
-        catch (Exception ex)
+        catch
         {
-            _errorMessage =
-                $"Health profile could not be loaded: {ex.Message}";
+            _errorMessage = "Profile could not be loaded.";
         }
         finally
         {
@@ -120,21 +135,26 @@ else
             var saved = await ApiClient.UpdateHealthProfileAsync(
                 new UpdateHealthProfileResource
                 {
+                    Name = _name,
                     DateOfBirth = _dateOfBirth.HasValue
                         ? DateOnly.FromDateTime(_dateOfBirth.Value)
                         : null,
-                    BiologicalSex = _biologicalSex
+                    BiologicalSex = _biologicalSex,
+                    HeightCm = _heightCm,
+                    WeightKg = _weightKg
                 });
 
+            _name = saved.Name;
             _dateOfBirth = saved.DateOfBirth?.ToDateTime(
                 TimeOnly.MinValue);
             _biologicalSex = saved.BiologicalSex;
-            Snackbar.Add("Health profile saved.", Severity.Success);
+            _heightCm = saved.HeightCm;
+            _weightKg = saved.WeightKg;
+            Snackbar.Add("Profile saved.", Severity.Success);
         }
-        catch (Exception ex)
+        catch
         {
-            _errorMessage =
-                $"Health profile could not be saved: {ex.Message}";
+            _errorMessage = "Profile could not be saved.";
         }
         finally
         {

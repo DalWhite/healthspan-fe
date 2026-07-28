@@ -24,11 +24,9 @@ else if (_bloodTest == null)
 else
 {
     <div class="hs-health-shell">
-        <div class="hs-page-hero">
+        <div class="hs-page-hero hs-health-page-heading">
             <div>
-                <h1 class="hs-native-page-title">Review OCR suggestions</h1>
-                <MudText Typo="Typo.body1" Class="hs-muted-copy">Clean up the OCR marker list, correct metadata, and submit the final marker set.</MudText>
-                <MudText Typo="Typo.caption" Class="hs-mobile-note mt-2">Confidence is read-only context only. Final review depends on manual cleanup, not automatic acceptance.</MudText>
+                <MudText Typo="Typo.h5">Review blood test</MudText>
             </div>
             <MudChipSet>
                 <MudChip Color="Color.Default" Variant="Variant.Outlined">@_markerRows.Count rows</MudChip>
@@ -51,11 +49,10 @@ else
                 <MudPaper Class="hs-health-panel">
                     <div class="hs-detail-heading">
                         <div>
-                            <MudText Typo="Typo.h6">Final review payload</MudText>
-                            <MudText Typo="Typo.body2" Class="hs-muted-copy">Edit the test metadata and keep only clinically useful marker rows.</MudText>
+                            <MudText Typo="Typo.h6">Results</MudText>
                         </div>
                         <MudStack Row="true" Class="hs-list-card-actions">
-                            <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="BackToList">Back to blood tests</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="BackToList">Back</MudButton>
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isSubmitting || !_bloodTest.RequiresReview)" OnClick="SubmitAsync">
                                 @(_isSubmitting ? "Submitting..." : "Submit reviewed markers")
                             </MudButton>
@@ -114,11 +111,10 @@ else
 
             <MudItem xs="12" lg="4">
                 <MudPaper Class="hs-health-panel hs-sticky-panel">
-                    <MudText Typo="Typo.h6">Review context</MudText>
+                    <MudText Typo="Typo.h6">Source</MudText>
                     <div class="hs-table-stack mt-3">
                         <MudText Typo="Typo.body2"><strong>Source:</strong> @(_bloodTest.SourceFileName ?? "Manual entry")</MudText>
                         <MudText Typo="Typo.body2"><strong>Status:</strong> @HealthDisplayHelpers.GetProcessingStatusLabel(_bloodTest.ProcessingStatus)</MudText>
-                        <MudText Typo="Typo.body2"><strong>Original OCR rows:</strong> @(_bloodTest.Markers?.Count ?? 0)</MudText>
                     </div>
 
                     @if (!string.IsNullOrWhiteSpace(_bloodTest.ProcessingNotes))
@@ -128,11 +124,11 @@ else
 
                     @if (!_bloodTest.RequiresReview)
                     {
-                        <MudAlert Severity="Severity.Success" Dense="true" Class="mt-3 hs-soft-alert">This blood test is already finalized. Re-open the detail view if you only need to inspect the saved markers.</MudAlert>
+                        <MudAlert Severity="Severity.Success" Dense="true" Class="mt-3 hs-soft-alert">Already finalized.</MudAlert>
                     }
                     else
                     {
-                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3 hs-soft-alert">Blank rows are ignored on submit. Keep only the final marker set you want associated with this blood test.</MudAlert>
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3 hs-soft-alert">Blank rows are ignored.</MudAlert>
                     }
                 </MudPaper>
             </MudItem>
@@ -170,7 +166,7 @@ else
             _bloodTest = await ApiClient.GetBloodTestAsync(BloodTestId);
             if (_bloodTest == null)
             {
-                _errorMessage = "Unable to load the blood test review payload.";
+                _errorMessage = "Blood test could not be loaded.";
                 return;
             }
 
@@ -183,9 +179,9 @@ else
 
             _reviewTestDate = _reviewDraft.TestDate;
         }
-        catch (Exception ex)
+        catch
         {
-            _errorMessage = $"Failed to load blood test review: {ex.Message}";
+            _errorMessage = "Blood test could not be loaded.";
         }
         finally
         {
@@ -215,10 +211,10 @@ else
             await ApiClient.ReviewBloodTestAsync(BloodTestId, _reviewDraft);
             NavigationManager.NavigateTo($"/health/blood-tests?selectedId={BloodTestId}");
         }
-        catch (Exception ex)
+        catch
         {
             _operationSeverity = Severity.Error;
-            _operationMessage = $"Failed to submit reviewed blood test: {ex.Message}";
+            _operationMessage = "Review could not be saved.";
         }
         finally
         {
