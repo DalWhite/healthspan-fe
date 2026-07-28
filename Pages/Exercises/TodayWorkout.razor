@@ -7,28 +7,36 @@
 @using System.Net
 @using System.Text.Json
 
-<PageTitle>Today's Workout</PageTitle>
+<PageTitle>Train</PageTitle>
 
 <PageShell Narrow="true" Class="hs-today-page">
     <div class="hs-today-heading">
         <div>
-            <MudText Typo="Typo.h5">Today</MudText>
+            <MudText Typo="Typo.h5">Training</MudText>
             <MudText Typo="Typo.caption" Class="hs-muted-copy">@DateLabel</MudText>
         </div>
 
         @if (_session is not null)
         {
-            <MudButton Variant="Variant.Text"
-                       Color="MudBlazor.Color.Primary"
-                       OnClick="FinishWorkout">
-                Finish
-            </MudButton>
+            <MudStack Row="true" Spacing="1">
+                <MudButton Variant="Variant.Outlined"
+                           Color="MudBlazor.Color.Primary"
+                           Disabled="@_isStarting"
+                           OnClick="StartWorkout">
+                    New session
+                </MudButton>
+                <MudButton Variant="Variant.Text"
+                           Color="MudBlazor.Color.Primary"
+                           OnClick="FinishWorkout">
+                    Finish
+                </MudButton>
+            </MudStack>
         }
     </div>
 
     @if (_isLoading)
     {
-        <LoadingState Message="Loading today's workout..." />
+        <LoadingState Message="Loading training sessions..." />
     }
     else if (!string.IsNullOrWhiteSpace(_error))
     {
@@ -58,12 +66,33 @@
     }
     else
     {
+        @if (_sessions.Count > 1)
+        {
+            <div class="hs-today-session-switcher"
+                 role="tablist"
+                 aria-label="Training sessions">
+                @for (var index = 0; index < _sessions.Count; index++)
+                {
+                    var session = _sessions[index];
+                    var sessionNumber = index + 1;
+                    <button type="button"
+                            role="tab"
+                            aria-selected="@((_session?.Id == session.Id).ToString().ToLowerInvariant())"
+                            class="@(_session?.Id == session.Id ? "is-active" : null)"
+                            @onclick="() => SelectSession(session)">
+                        Session @sessionNumber
+                        <span>@session.Exercises.Count</span>
+                    </button>
+                }
+            </div>
+        }
+
         <section class="hs-today-session" aria-label="Current workout">
             <div class="hs-today-session-summary">
                 <span>@ExerciseSummary</span>
             </div>
 
-            @if (_session.Exercises.Count == 0)
+            @if (_session!.Exercises.Count == 0)
             {
                 <div class="hs-today-empty-session">No exercises yet.</div>
             }
@@ -115,6 +144,7 @@
 @code {
     private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
     private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
+    private readonly List<WorkoutSessionResource> _sessions = [];
     private WorkoutSessionResource? _session;
     private decimal? _currentUserBodyWeight;
     private string? _error;
@@ -136,7 +166,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Today";
+        TitleService.Title = "Train";
         await LoadPageAsync();
     }
 
@@ -148,17 +178,22 @@
         try
         {
             var typesTask = Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
-            var sessionTask = LoadSessionAsync();
+            var sessionsTask = LoadSessionsAsync();
             var profileWeightTask = LoadProfileWeightAsync();
-            await Task.WhenAll(typesTask, sessionTask, profileWeightTask);
+            await Task.WhenAll(
+                typesTask,
+                sessionsTask,
+                profileWeightTask);
 
             _exerciseTypes = typesTask.Result ?? Array.Empty<GetExerciseTypeResource>();
-            _session = sessionTask.Result;
+            _sessions.Clear();
+            _sessions.AddRange(sessionsTask.Result);
+            _session = _sessions.LastOrDefault();
             _currentUserBodyWeight = profileWeightTask.Result;
         }
         catch (HttpRequestException)
         {
-            _error = "Today's workout could not be loaded.";
+            _error = "Training sessions could not be loaded.";
         }
         catch (TaskCanceledException)
         {
@@ -174,16 +209,14 @@
         }
     }
 
-    private async Task<WorkoutSessionResource?> LoadSessionAsync()
+    private async Task<List<WorkoutSessionResource>> LoadSessionsAsync()
     {
-        using var response = await Http.GetAsync($"/Workouts/today?date={_today:yyyy-MM-dd}");
-        if (response.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-
+        using var response = await Http.GetAsync(
+            $"/Workouts/today/sessions?date={_today:yyyy-MM-dd}");
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<WorkoutSessionResource>();
+        return await response.Content
+                   .ReadFromJsonAsync<List<WorkoutSessionResource>>()
+               ?? [];
     }
 
     private async Task<decimal?> LoadProfileWeightAsync()
@@ -213,7 +246,11 @@
         {
             using var response = await Http.PostAsJsonAsync(
                 "/Workouts/today",
-                new StartWorkoutSessionResource { Date = _today });
+                new StartWorkoutSessionResource
+                {
+                    Date = _today,
+                    CreateNew = _sessions.Count > 0
+                });
 
             if (!response.IsSuccessStatusCode)
             {
@@ -225,6 +262,18 @@
             if (_session is null)
             {
                 _error = "The workout response was incomplete.";
+                return;
+            }
+
+            var existingIndex = _sessions.FindIndex(
+                session => session.Id == _session.Id);
+            if (existingIndex >= 0)
+            {
+                _sessions[existingIndex] = _session;
+            }
+            else
+            {
+                _sessions.Add(_session);
             }
         }
         catch (HttpRequestException)
@@ -248,9 +297,23 @@
     private Task HandleSessionUpdated(WorkoutSessionResource session)
     {
         _session = session;
+        var index = _sessions.FindIndex(
+            item => item.Id == session.Id);
+        if (index >= 0)
+        {
+            _sessions[index] = session;
+        }
+        else
+        {
+            _sessions.Add(session);
+        }
+
         Snackbar.Add("Exercise added.", Severity.Success);
         return Task.CompletedTask;
     }
+
+    private void SelectSession(WorkoutSessionResource session)
+        => _session = session;
 
     private void FinishWorkout()
         => NavigationManager.NavigateTo("/training/history");

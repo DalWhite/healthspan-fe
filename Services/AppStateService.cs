@@ -28,7 +28,7 @@ public class AppStateService
         new() { Id = 17, Slug = "hamstrings", Name = "Hamstrings", Side = "back", MuscleGroup = "Legs", SortOrder = 170 },
         new() { Id = 18, Slug = "adductors", Name = "Adductors", Side = "front", MuscleGroup = "Legs", SortOrder = 180 },
         new() { Id = 19, Slug = "abductors", Name = "Abductors", Side = "back", MuscleGroup = "Legs", SortOrder = 190 },
-        new() { Id = 20, Slug = "calves", Name = "Calves", Side = "back", MuscleGroup = "Legs", SortOrder = 200 }
+        new() { Id = 20, Slug = "calves", Name = "Calves", Side = "both", MuscleGroup = "Legs", SortOrder = 200 }
     ];
 
     private List<GetExerciseTypeResource>? _exerciseTypes;

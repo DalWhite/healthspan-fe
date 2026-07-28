@@ -11,6 +11,14 @@ public sealed class MuscleLoadRegionResource
 public sealed class WeeklyTrainingSummaryResource
 {
     public List<WeeklyBodyLoadSnapshot> Weeks { get; set; } = new();
+    public List<TrainingDayActivityResource> ActivityDays { get; set; } = new();
+}
+
+public sealed class TrainingDayActivityResource
+{
+    public DateTime Date { get; set; }
+    public int WorkoutCount { get; set; }
+    public int ExerciseCount { get; set; }
 }
 
 public sealed class WeeklyBodyLoadSnapshot

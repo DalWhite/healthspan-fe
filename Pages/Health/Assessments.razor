@@ -50,8 +50,8 @@ else
                         </MudStack>
                     </div>
 
-                    <MudDatePicker Label="Assessed on" @bind-Date="_draftAssessedOn" />
-                    <MudTextField @bind-Value="_draft.Notes" Label="Assessment notes" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" />
+                    <MudDatePicker Label="Assessed on" @bind-Date="_draftAssessedOn" Class="hs-assessment-field" />
+                    <MudTextField @bind-Value="_draft.Notes" Label="Assessment notes" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" Class="hs-assessment-field" />
 
                     <div class="hs-assessment-grid mt-3">
                         @foreach (var adaptation in _catalog)
@@ -64,8 +64,8 @@ else
                                     </div>
                                     <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="() => SelectAdaptationAsync(adaptation)">Trend</MudButton>
                                 </div>
-                                <MudNumericField T="double?" @bind-Value="score.Score" Label="Score" Min="0" Max="10" Step="0.1" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                                <MudTextField @bind-Value="score.EvidenceNotes" Label="Evidence notes" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" />
+                                <MudNumericField T="double?" @bind-Value="score.Score" Label="Score" Min="0" Max="10" Step="0.1" Variant="Variant.Outlined" Margin="Margin.Dense" Class="hs-assessment-field" />
+                                <MudTextField @bind-Value="score.EvidenceNotes" Label="Evidence notes" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" Class="hs-assessment-field" />
                             </MudPaper>
                         }
                     </div>

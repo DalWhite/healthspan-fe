@@ -48,6 +48,12 @@ html {
   box-shadow: var(--hs-shadow-focus);
 }
 
+/* MudBlazor draws the accessible focus state on the outlined container. */
+.mud-input-slot:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -2155,6 +2161,10 @@ a.hs-exercise-history-row:hover {
   background: var(--mud-palette-surface);
 }
 
+.hs-assessment-grid .hs-assessment-field .mud-input-label {
+  background: var(--mud-palette-background-grey);
+}
+
 .hs-kpi-card-dashboard {
   display: flex;
   flex-direction: column;
@@ -2718,9 +2728,21 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-body-base {
-  fill: rgba(210, 220, 223, 0.58);
-  stroke: #c8d3d7;
-  stroke-width: 2;
+  fill: rgba(222, 229, 231, 0.7);
+  stroke: #bdcbd0;
+  stroke-width: 1.35;
+  stroke-linejoin: round;
+}
+
+.hs-body-muscle {
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+}
+
+.hs-body-detail {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.68);
+  stroke-width: 1;
 }
 
 .hs-body-figure-label {
@@ -3762,4 +3784,98 @@ a.hs-exercise-history-row:hover {
     .hs-history-filter-actions {
         justify-content: flex-end;
     }
+}
+.hs-today-session-switcher {
+  display: flex;
+  gap: var(--hs-space-2);
+  margin-bottom: var(--hs-space-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hs-today-session-switcher button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hs-space-2);
+  min-height: var(--hs-touch-target);
+  padding: 0 var(--hs-space-3);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-chip);
+  background: var(--hs-color-surface);
+  color: var(--hs-color-muted);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.hs-today-session-switcher button span {
+  display: inline-grid;
+  min-width: 1.35rem;
+  min-height: 1.35rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--hs-color-background);
+  font-size: .72rem;
+}
+
+.hs-today-session-switcher button.is-active {
+  border-color: var(--hs-color-primary);
+  color: var(--hs-color-primary);
+}
+.hs-training-activity {
+  padding: var(--hs-space-4);
+}
+
+.hs-training-activity-count {
+  color: var(--hs-color-muted);
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.hs-training-activity-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 13px);
+  grid-auto-flow: column;
+  grid-auto-columns: 13px;
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  margin: var(--hs-space-3) auto;
+  overflow-x: auto;
+}
+
+.hs-training-activity-day {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  background: rgba(15, 95, 103, .08);
+}
+
+.hs-training-activity-day.level-1 {
+  background: rgba(15, 95, 103, .28);
+}
+
+.hs-training-activity-day.level-2 {
+  background: rgba(15, 95, 103, .48);
+}
+
+.hs-training-activity-day.level-3 {
+  background: rgba(15, 95, 103, .7);
+}
+
+.hs-training-activity-day.level-4 {
+  background: var(--hs-color-secondary);
+}
+
+.hs-training-activity-day.is-spacer {
+  visibility: hidden;
+}
+
+.hs-training-activity-range {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--hs-space-2);
+  color: var(--hs-color-muted);
+  font-size: .72rem;
 }

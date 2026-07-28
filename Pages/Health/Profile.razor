@@ -76,6 +76,8 @@
             </div>
         </div>
 
+        <TrainingActivityHeatmap ActivityDays="_activityDays" />
+
         <div class="hs-insights-layout">
             <section class="hs-insights-map-card hs-surface"
                      aria-labelledby="muscle-load-title">
@@ -110,7 +112,7 @@
                 </div>
 
                 <MuscleLoadBodyMap Regions="SelectedWeek.Regions"
-                                   ViewMode="_bodyViewMode"
+                                   ViewMode="@_bodyViewMode"
                                    BiologicalSex="_healthProfile.BiologicalSex" />
             </section>
 
@@ -182,6 +184,7 @@
     private HealthProfileResource _healthProfile = new();
     private readonly List<string> _errorMessages = [];
     private readonly List<WeeklyBodyLoadSnapshot> _weeklySnapshots = [];
+    private readonly List<TrainingDayActivityResource> _activityDays = [];
 
     private WeeklyBodyLoadSnapshot? SelectedWeek
         => _weeklySnapshots.FirstOrDefault(
@@ -251,10 +254,13 @@
             await Task.WhenAll(weeklyTask, profileTask);
 
             _healthProfile = await profileTask;
+            var summary = await weeklyTask;
             _weeklySnapshots.Clear();
             _weeklySnapshots.AddRange(
-                (await weeklyTask).Weeks
+                summary.Weeks
                 .OrderByDescending(snapshot => snapshot.WeekStart));
+            _activityDays.Clear();
+            _activityDays.AddRange(summary.ActivityDays);
             if (_weeklySnapshots.Count > 0)
             {
                 _selectedWeekStart = _weeklySnapshots[0].WeekStart;

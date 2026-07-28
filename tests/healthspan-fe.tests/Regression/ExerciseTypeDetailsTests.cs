@@ -137,7 +137,7 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         {
             cut.Markup.Should().Contain("New Exercise");
             cut.Markup.Should().Contain("No history yet");
-            cut.Markup.Should().Contain("Open Today");
+            cut.Markup.Should().Contain("Open Train");
         });
     }
 

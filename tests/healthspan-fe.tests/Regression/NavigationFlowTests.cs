@@ -58,7 +58,7 @@ public class NavigationFlowTests : BlazorTestBase
         {
             cut.Markup.Should().Contain("Health");
             cut.Markup.Should().Contain("Training");
-            cut.Markup.Should().Contain("Today");
+            cut.Markup.Should().Contain("Train");
             cut.Markup.Should().Contain("Training History");
             cut.Markup.Should().Contain("Exercise Library");
             cut.Markup.Should().Contain("Personal Profile");

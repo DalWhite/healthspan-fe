@@ -25,4 +25,5 @@ public sealed class StartWorkoutSessionResource
 {
     public DateOnly Date { get; set; }
     public string Type { get; set; } = "Training";
+    public bool CreateNew { get; set; }
 }

@@ -19,8 +19,8 @@ public class TodayWorkoutTests : BlazorTestBase
             .Respond("application/json", "[]");
         MockHttp.When(
                 HttpMethod.Get,
-                $"/Workouts/today?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond(HttpStatusCode.NoContent);
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "[]");
         MockHttp.When(HttpMethod.Post, "/Workouts/today")
             .Respond(HttpStatusCode.Created, "application/json", $$"""
                 {
@@ -66,9 +66,9 @@ public class TodayWorkoutTests : BlazorTestBase
                 """);
         MockHttp.When(
                 HttpMethod.Get,
-                $"/Workouts/today?date={DateTime.Today:yyyy-MM-dd}")
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
             .Respond("application/json", $$"""
-                {
+                [{
                     "id": "{{workoutId}}",
                     "date": "{{DateTime.Today:yyyy-MM-dd}}",
                     "type": "Training",
@@ -83,7 +83,7 @@ public class TodayWorkoutTests : BlazorTestBase
                         }
                     ],
                     "recentExerciseTypeIds": [1]
-                }
+                }]
                 """);
 
         var cut = RenderComponent<TodayWorkout>();
@@ -111,9 +111,9 @@ public class TodayWorkoutTests : BlazorTestBase
             .Respond("application/json", "[]");
         MockHttp.When(
                 HttpMethod.Get,
-                $"/Workouts/today?date={DateTime.Today:yyyy-MM-dd}")
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
             .Respond("application/json", $$"""
-                {
+                [{
                     "id": "{{workoutId}}",
                     "date": "{{DateTime.Today:yyyy-MM-dd}}",
                     "type": "Training",
@@ -130,7 +130,7 @@ public class TodayWorkoutTests : BlazorTestBase
                         }
                     ],
                     "recentExerciseTypeIds": []
-                }
+                }]
                 """);
 
         var cut = RenderComponent<TodayWorkout>();
@@ -150,8 +150,8 @@ public class TodayWorkoutTests : BlazorTestBase
             .Respond("application/json", "[]");
         MockHttp.When(
                 HttpMethod.Get,
-                $"/Workouts/today?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond(HttpStatusCode.NoContent);
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "[]");
         MockHttp.When(HttpMethod.Post, "/Workouts/today")
             .Respond(HttpStatusCode.Created, "application/json", "{not-json}");
 
@@ -176,8 +176,8 @@ public class TodayWorkoutTests : BlazorTestBase
             .Respond("application/json", "[]");
         MockHttp.When(
                 HttpMethod.Get,
-                $"/Workouts/today?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond(HttpStatusCode.NoContent);
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "[]");
         MockHttp.When(HttpMethod.Post, "/Workouts/today")
             .Respond(_ => throw new TaskCanceledException());
 
@@ -202,7 +202,7 @@ public class TodayWorkoutTests : BlazorTestBase
             .Respond("application/json", "[]");
         MockHttp.When(
                 HttpMethod.Get,
-                $"/Workouts/today?date={DateTime.Today:yyyy-MM-dd}")
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
             .Respond("application/json", "{not-json}");
 
         var cut = RenderComponent<TodayWorkout>();
