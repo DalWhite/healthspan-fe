@@ -50,7 +50,7 @@ public enum GalpinAdaptationType
     LongDurationEndurance = 8
 }
 
-public class GetBloodTestResource
+public class BloodTestSummaryResource
 {
     public Guid Id { get; set; }
     public DateTime TestDate { get; set; }
@@ -59,11 +59,19 @@ public class GetBloodTestResource
     public BloodTestProcessingStatus ProcessingStatus { get; set; }
     public string? ProcessingNotes { get; set; }
     public bool RequiresReview { get; set; }
+    public int MarkerCount { get; set; }
+    public DateTime UpdatedAtUtc { get; set; }
+}
+
+public class GetBloodTestResource
+    : BloodTestSummaryResource
+{
     public List<BloodTestMarkerResource>? Markers { get; set; }
 }
 
 public class BloodTestMarkerResource
 {
+    public Guid? Id { get; set; }
     public string? Name { get; set; }
     public double? Value { get; set; }
     public string? Unit { get; set; }
@@ -72,6 +80,14 @@ public class BloodTestMarkerResource
     public MarkerStatus Status { get; set; }
     public double? ReferenceMinValue { get; set; }
     public double? ReferenceMaxValue { get; set; }
+    public bool ReferenceRangeFromReport { get; set; }
+}
+
+public sealed class BloodTestUploadResource
+{
+    public Guid Id { get; set; }
+    public BloodTestProcessingStatus ProcessingStatus { get; set; }
+    public Guid? PossibleDuplicateBloodTestId { get; set; }
 }
 
 public class AddBloodTestResource
@@ -96,6 +112,7 @@ public class ReviewBloodTestResource
 
 public class LatestMarkerSnapshotResource
 {
+    public Guid BloodTestId { get; set; }
     public string? MetricKey { get; set; }
     public string? DisplayName { get; set; }
     public double? Value { get; set; }
@@ -109,11 +126,15 @@ public class LatestMarkerSnapshotResource
 public class GetMarkerTrendResource
 {
     public string? MetricKey { get; set; }
+    public string? Unit { get; set; }
+    public bool HasIncompatibleUnits { get; set; }
+    public List<string>? AvailableUnits { get; set; }
     public List<GetMarkerTrendPointResource>? Points { get; set; }
 }
 
 public class GetMarkerTrendPointResource
 {
+    public Guid BloodTestId { get; set; }
     public DateTime Time { get; set; }
     public double Value { get; set; }
     public string? Unit { get; set; }

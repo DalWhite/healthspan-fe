@@ -21,22 +21,9 @@ public class BloodTestsPageTests : BlazorTestBase
                         "labName": "Test Lab",
                         "processingStatus": 1,
                         "requiresReview": false,
-                        "markers": [{ "name": "Glucose", "value": 90, "unit": "mg/dL", "status": 1 }]
+                        "markerCount": 1
                     }
                 ]
-            """);
-        MockHttp.When("/BloodTests/pending-review")
-            .Respond("application/json", "[]");
-        MockHttp.When("/BloodTests/*")
-            .Respond("application/json", """
-                {
-                    "id": "00000000-0000-0000-0000-000000000001",
-                    "testDate": "2025-06-01T00:00:00",
-                    "labName": "Test Lab",
-                    "processingStatus": 1,
-                    "requiresReview": false,
-                    "markers": [{ "name": "Glucose", "value": 90, "unit": "mg/dL", "status": 1 }]
-                }
             """);
 
         var cut = RenderComponent<BloodTests>();
@@ -52,8 +39,6 @@ public class BloodTestsPageTests : BlazorTestBase
     {
         MockHttp.When("/BloodTests")
             .Respond("application/json", "[]");
-        MockHttp.When("/BloodTests/pending-review")
-            .Respond("application/json", "[]");
 
         var cut = RenderComponent<BloodTests>();
 
@@ -67,8 +52,6 @@ public class BloodTestsPageTests : BlazorTestBase
     public void Renders_PendingReview_Badge_When_Present()
     {
         MockHttp.When("/BloodTests")
-            .Respond("application/json", "[]");
-        MockHttp.When("/BloodTests/pending-review")
             .Respond("application/json", """
                 [
                     {
@@ -77,27 +60,17 @@ public class BloodTestsPageTests : BlazorTestBase
                         "labName": "Pending Lab",
                         "processingStatus": 0,
                         "requiresReview": true,
-                        "markers": []
+                        "markerCount": 0
                     }
                 ]
-            """);
-        MockHttp.When("/BloodTests/*")
-            .Respond("application/json", """
-                {
-                    "id": "00000000-0000-0000-0000-000000000002",
-                    "testDate": "2025-06-02T00:00:00",
-                    "labName": "Pending Lab",
-                    "processingStatus": 0,
-                    "requiresReview": true,
-                    "markers": []
-                }
             """);
 
         var cut = RenderComponent<BloodTests>();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Pending");
+            cut.Markup.Should().Contain("Pending review");
+            cut.Markup.Should().Contain("Review results");
         });
     }
 }

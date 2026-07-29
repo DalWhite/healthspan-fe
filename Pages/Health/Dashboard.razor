@@ -4,127 +4,243 @@
 @inject TitleService TitleService
 @inject NavigationManager NavigationManager
 
-<PageTitle>Health Dashboard</PageTitle>
+<PageTitle>Health</PageTitle>
 
-@if (_isLoading)
-{
-    <PageShell>
-        <PageHeader Title="Health Dashboard" />
-        <LoadingState Message="Loading dashboard..." Size="Size.Large" />
-    </PageShell>
-}
-else
-{
-    <div class="hs-health-shell">
-        <div class="hs-page-hero hs-health-page-heading">
-            <MudText Typo="Typo.h5">Health</MudText>
-            <div class="hs-health-heading-actions">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenBloodTests">Blood tests</MudButton>
-                <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="OpenAssessments">Assessments</MudButton>
-            </div>
-        </div>
+<PageShell>
+    <div class="hs-compact-page-heading">
+        <MudText Typo="Typo.h5">Health</MudText>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.UploadFile"
+                   OnClick="OpenUpload">
+            Upload report
+        </MudButton>
+    </div>
 
-        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    @if (_isLoading)
+    {
+        <LoadingState Message="Loading health..." />
+    }
+    else if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <ErrorState Title="Health unavailable"
+                    Message="@_errorMessage"
+                    ActionLabel="Retry"
+                    OnAction="LoadAsync" />
+    }
+    else
+    {
+        @if (NeedsAttention.Count > 0)
         {
-            <MudAlert Severity="Severity.Error" Dense="true">@_errorMessage</MudAlert>
-        }
-
-        @if (_summary == null)
-        {
-            <EmptyState Icon="@Icons.Material.Filled.SpaceDashboard"
-                        Title="No dashboard summary yet"
-                        Subtitle="Your health summary will appear here." />
-        }
-        else
-        {
-            @if (_pendingReview.Any())
-            {
-                <MudPaper Class="hs-health-panel mb-3">
-                    <div class="hs-section-heading">
-                        <div>
-                            <MudText Typo="Typo.h6">Pending blood test review</MudText>
-                            <MudText Typo="Typo.body2" Class="hs-muted-copy">@_pendingReview.Count waiting</MudText>
-                        </div>
-                        <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="OpenNextPendingReview">Review next</MudButton>
-                    </div>
-
-                    <div class="hs-section-stack mt-3">
-                        @foreach (var item in _pendingReview.Take(3))
-                        {
-                            <div class="hs-list-card hs-status-card-pending">
-                                <div class="hs-list-card-row">
-                                    <div>
-                                        <div class="hs-list-card-title">@item.TestDate.ToString("dd MMM yyyy")</div>
-                                        <div class="hs-list-card-subtitle">@(item.LabName ?? "No lab name")</div>
-                                    </div>
-                                    <ClinicalStatusChip Status="@HealthDisplayHelpers.GetProcessingStatusLabel(item.ProcessingStatus)" />
-                                </div>
-                                <div class="hs-list-card-meta mt-2">
-                                    <span>@(item.SourceFileName ?? "Manual entry")</span>
-                                    <span>@(item.Markers?.Count ?? 0) markers</span>
-                                </div>
-                                @if (!string.IsNullOrWhiteSpace(item.ProcessingNotes))
-                                {
-                                    <div class="hs-list-card-footnote">@item.ProcessingNotes</div>
-                                }
-                                <div class="hs-list-card-actions">
-                                    <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="() => OpenBloodTestDetail(item.Id)">Details</MudButton>
-                                    <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="() => OpenReview(item.Id)">Review</MudButton>
-                                </div>
+            <section class="hs-health-panel hs-attention-panel">
+                <div class="hs-section-heading">
+                    <MudText Typo="Typo.h6">Needs attention</MudText>
+                    <span>@NeedsAttention.Count</span>
+                </div>
+                <div class="hs-compact-action-list">
+                    @foreach (var test in NeedsAttention.Take(3))
+                    {
+                        <a href="@GetTestActionRoute(test)">
+                            <div>
+                                <strong>@GetTestAction(test)</strong>
+                                <span>
+                                    @test.TestDate.ToString("dd MMM")
+                                    · @(test.LabName ?? "Unknown lab")
+                                </span>
                             </div>
-                        }
-                    </div>
-                </MudPaper>
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronRight"
+                                     Size="Size.Small" />
+                        </a>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (ProfileIncomplete)
+        {
+            <a class="hs-profile-prompt"
+               href="/health/profile">
+                <MudIcon Icon="@Icons.Material.Filled.Badge"
+                         Size="Size.Small" />
+                <span>Complete profile for more accurate ranges</span>
+                <MudIcon Icon="@Icons.Material.Filled.ChevronRight"
+                         Size="Size.Small" />
+            </a>
+        }
+
+        <div class="hs-health-overview-grid">
+            @if (LatestFinalizedTest is not null)
+            {
+                <a class="hs-health-overview-card"
+                   href="@GetTestDetailRoute(LatestFinalizedTest.Id)">
+                    <span class="hs-overview-label">Latest blood test</span>
+                    <strong>
+                        @LatestFinalizedTest.TestDate.ToString("dd MMM yyyy")
+                    </strong>
+                    <span>
+                        @LatestFinalizedTest.MarkerCount markers
+                    </span>
+                </a>
+            }
+            else
+            {
+                <button type="button"
+                        class="hs-health-overview-card"
+                        @onclick="OpenUpload">
+                    <span class="hs-overview-label">Blood tests</span>
+                    <strong>Add first report</strong>
+                </button>
             }
 
-            <div class="hs-dashboard-card-grid">
-                <div class="hs-kpi-card hs-kpi-card-accent hs-kpi-card-dashboard">
-                    <div class="hs-kpi-label">Recent workouts</div>
-                    <div class="hs-kpi-value">@_summary.RecentWorkoutCount</div>
+            @if (_summary?.LatestAssessmentDate is not null)
+            {
+                <a class="hs-health-overview-card"
+                   href="/health/assessments">
+                    <span class="hs-overview-label">Latest assessment</span>
+                    <strong>
+                        @_summary.LatestAssessmentAverageScore?.ToString("0.0")
+                    </strong>
+                    <span>
+                        @_summary.LatestAssessmentDate.Value.ToString("dd MMM yyyy")
+                    </span>
+                </a>
+            }
+            else
+            {
+                <a class="hs-health-overview-card"
+                   href="/health/assessments">
+                    <span class="hs-overview-label">Assessment</span>
+                    <strong>Record baseline</strong>
+                </a>
+            }
+        </div>
+
+        @if (PriorityMarkers.Count > 0)
+        {
+            <section class="hs-health-panel">
+                <div class="hs-section-heading">
+                    <MudText Typo="Typo.h6">
+                        @(OutOfRangeMarkers.Count > 0
+                            ? "Outside range"
+                            : "Latest biomarkers")
+                    </MudText>
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               OnClick="OpenBiomarkers">
+                        View all
+                    </MudButton>
                 </div>
-                <div class="hs-kpi-card hs-kpi-card-dashboard hs-kpi-card-neutral">
-                    <div class="hs-kpi-label">Blood tests</div>
-                    <div class="hs-kpi-value">@_summary.BloodTestCount</div>
+                <div class="hs-overview-marker-list">
+                    @foreach (var marker in PriorityMarkers)
+                    {
+                        <button type="button"
+                                @onclick="() => OpenMarker(marker)">
+                            <span>
+                                @(marker.DisplayName
+                                    ?? marker.MetricKey)
+                            </span>
+                            <strong>
+                                @FormatMarkerValue(marker)
+                            </strong>
+                            <ClinicalStatusChip Status="@HealthDisplayHelpers.GetMarkerStatusLabel(marker.Status, marker.Value, marker.ReferenceMinValue, marker.ReferenceMaxValue)" />
+                        </button>
+                    }
                 </div>
-                <div class="hs-kpi-card hs-kpi-card-dashboard hs-kpi-card-neutral">
-                    <div class="hs-kpi-label">Latest blood test</div>
-                    <div class="hs-kpi-value">@FormatDate(_summary.LatestBloodTestDate)</div>
-                </div>
-                <div class="hs-kpi-card hs-kpi-card-dashboard hs-kpi-card-neutral">
-                    <div class="hs-kpi-label">Out-of-range markers</div>
-                    <div class="hs-kpi-value">@_summary.OutOfRangeMarkersInLatestBloodTest</div>
-                </div>
-                <div class="hs-kpi-card hs-kpi-card-dashboard hs-kpi-card-neutral">
-                    <div class="hs-kpi-label">Latest assessment</div>
-                    <div class="hs-kpi-value">@FormatDate(_summary.LatestAssessmentDate)</div>
-                </div>
-                <div class="hs-kpi-card hs-kpi-card-dashboard hs-kpi-card-neutral">
-                    <div class="hs-kpi-label">Average assessment score</div>
-                    <div class="hs-kpi-value">@(_summary.LatestAssessmentAverageScore?.ToString("0.0") ?? "-")</div>
-                </div>
-            </div>
+            </section>
         }
-    </div>
-}
+    }
+</PageShell>
 
 @code {
     private GetHealthDashboardSummaryResource? _summary;
-    private readonly List<GetBloodTestResource> _pendingReview = new();
+    private HealthProfileResource? _profile;
+    private readonly List<BloodTestSummaryResource> _bloodTests = [];
+    private readonly List<LatestMarkerSnapshotResource> _markers = [];
     private bool _isLoading = true;
     private string? _errorMessage;
 
+    private List<BloodTestSummaryResource> NeedsAttention
+        => _bloodTests
+            .Where(test =>
+                test.RequiresReview
+                || test.ProcessingStatus
+                    == BloodTestProcessingStatus.ExtractionFailed
+                || IsInterrupted(test))
+            .OrderByDescending(test => test.TestDate)
+            .ToList();
+
+    private BloodTestSummaryResource? LatestFinalizedTest
+        => _bloodTests
+            .Where(test =>
+                test.ProcessingStatus
+                    == BloodTestProcessingStatus.Processed)
+            .OrderByDescending(test => test.TestDate)
+            .FirstOrDefault();
+
+    private List<LatestMarkerSnapshotResource>
+        OutOfRangeMarkers
+        => _markers
+            .Where(marker =>
+                marker.Status is MarkerStatus.High
+                    or MarkerStatus.Low
+                || HealthDisplayHelpers.IsOutOfRange(
+                    marker.Value,
+                    marker.ReferenceMinValue,
+                    marker.ReferenceMaxValue))
+            .OrderByDescending(marker => marker.TestDate)
+            .ToList();
+
+    private List<LatestMarkerSnapshotResource>
+        PriorityMarkers
+        => (OutOfRangeMarkers.Count > 0
+                ? OutOfRangeMarkers
+                : _markers
+                    .OrderByDescending(marker =>
+                        marker.TestDate)
+                    .ToList())
+            .Take(4)
+            .ToList();
+
+    private bool ProfileIncomplete
+        => _profile is null
+           || _profile.BiologicalSex
+               == HealthBiologicalSex.Unknown
+           || !_profile.DateOfBirth.HasValue;
+
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Health Dashboard";
+        TitleService.Title = "Health";
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
         try
         {
-            _summary = await ApiClient.GetDashboardSummaryAsync();
-            _pendingReview.Clear();
-            _pendingReview.AddRange(await ApiClient.GetPendingReviewBloodTestsAsync());
+            var summaryTask =
+                ApiClient.GetDashboardSummaryAsync();
+            var testsTask = ApiClient.GetBloodTestsAsync();
+            var markersTask = ApiClient.GetLatestMarkersAsync();
+            var profileTask = ApiClient.GetHealthProfileAsync();
+            await Task.WhenAll(
+                summaryTask,
+                testsTask,
+                markersTask,
+                profileTask);
+
+            _summary = summaryTask.Result;
+            _profile = profileTask.Result;
+            _bloodTests.Clear();
+            _bloodTests.AddRange(testsTask.Result);
+            _markers.Clear();
+            _markers.AddRange(markersTask.Result);
         }
         catch
         {
-            _errorMessage = "Health summary could not be loaded.";
+            _errorMessage =
+                "Health information could not be loaded.";
         }
         finally
         {
@@ -132,26 +248,49 @@ else
         }
     }
 
-    private void OpenBloodTests() => NavigationManager.NavigateTo("/health/blood-tests");
+    private void OpenUpload()
+        => NavigationManager.NavigateTo(
+            "/health/blood-tests?upload=true");
 
-    private void OpenBloodTestDetail(Guid id) => NavigationManager.NavigateTo($"/health/blood-tests?selectedId={id}");
+    private void OpenBiomarkers()
+        => NavigationManager.NavigateTo(
+            "/health/biomarkers");
 
-    private void OpenReview(Guid id) => NavigationManager.NavigateTo($"/health/blood-tests/{id}/review");
+    private void OpenMarker(
+        LatestMarkerSnapshotResource marker)
+        => NavigationManager.NavigateTo(
+            $"/health/biomarkers?marker={Uri.EscapeDataString(marker.MetricKey ?? string.Empty)}");
 
-    private void OpenNextPendingReview()
-    {
-        var next = _pendingReview.FirstOrDefault();
-        if (next != null)
-        {
-            OpenReview(next.Id);
-            return;
-        }
+    private static string GetTestAction(
+        BloodTestSummaryResource test)
+        => IsInterrupted(test)
+            ? "Upload again"
+            : test.RequiresReview
+                ? "Review blood test"
+                : "Enter results";
 
-        OpenBloodTests();
-    }
+    private static string GetTestActionRoute(
+        BloodTestSummaryResource test)
+        => test.RequiresReview
+           || test.ProcessingStatus
+               == BloodTestProcessingStatus.ExtractionFailed
+            ? $"/health/blood-tests/{test.Id}/review"
+            : GetTestDetailRoute(test.Id);
 
-    private void OpenAssessments() => NavigationManager.NavigateTo("/health/assessments");
+    private static string GetTestDetailRoute(Guid id)
+        => $"/health/blood-tests/{id}";
 
-    private static string FormatDate(DateTime? value)
-        => value?.ToString("dd MMM yyyy") ?? "Not available";
+    private static bool IsInterrupted(
+        BloodTestSummaryResource test)
+        => test.ProcessingStatus
+               == BloodTestProcessingStatus.Processing
+           && test.UpdatedAtUtc != default
+           && DateTime.UtcNow - test.UpdatedAtUtc
+               > TimeSpan.FromMinutes(15);
+
+    private static string FormatMarkerValue(
+        LatestMarkerSnapshotResource marker)
+        => marker.Value.HasValue
+            ? $"{marker.Value:0.##} {marker.Unit}".Trim()
+            : "—";
 }

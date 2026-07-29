@@ -16,14 +16,14 @@ namespace healthspan_fe.tests.Regression;
 public class NavigationFlowTests : BlazorTestBase
 {
     [Fact]
-    public void RootRedirect_Sends_Authorized_User_To_Dashboard()
+    public void RootRedirect_Sends_Authorized_User_To_Training_Insights()
     {
         var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
         navigationManager.NavigateTo("https://localhost/");
 
         RenderComponent<MainLayout>();
 
-        navigationManager.Uri.Should().EndWith("/health/dashboard");
+        navigationManager.Uri.Should().EndWith("/training/insights");
     }
 
     [Fact]

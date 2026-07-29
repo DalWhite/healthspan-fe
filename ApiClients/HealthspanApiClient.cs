@@ -1,4 +1,6 @@
+using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Components.Forms;
 
 public class HealthspanApiClient
@@ -10,18 +12,22 @@ public class HealthspanApiClient
         _httpClient = httpClient;
     }
 
-    public async Task<IReadOnlyList<GetBloodTestResource>> GetBloodTestsAsync(CancellationToken cancellationToken = default)
-          => await _httpClient.GetFromJsonAsync<List<GetBloodTestResource>>(HealthRoutes.BloodTests, cancellationToken)
-              ?? new List<GetBloodTestResource>();
+    public async Task<IReadOnlyList<BloodTestSummaryResource>> GetBloodTestsAsync(CancellationToken cancellationToken = default)
+          => await _httpClient.GetFromJsonAsync<List<BloodTestSummaryResource>>(HealthRoutes.BloodTests, cancellationToken)
+              ?? new List<BloodTestSummaryResource>();
 
     public Task<GetBloodTestResource?> GetBloodTestAsync(Guid bloodTestId, CancellationToken cancellationToken = default)
         => _httpClient.GetFromJsonAsync<GetBloodTestResource>($"{HealthRoutes.BloodTests}/{bloodTestId}", cancellationToken);
 
-    public async Task<IReadOnlyList<GetBloodTestResource>> GetPendingReviewBloodTestsAsync(CancellationToken cancellationToken = default)
-          => await _httpClient.GetFromJsonAsync<List<GetBloodTestResource>>(HealthRoutes.BloodTestsPendingReview, cancellationToken)
-              ?? new List<GetBloodTestResource>();
+    public async Task<IReadOnlyList<BloodTestSummaryResource>> GetPendingReviewBloodTestsAsync(CancellationToken cancellationToken = default)
+          => await _httpClient.GetFromJsonAsync<List<BloodTestSummaryResource>>(HealthRoutes.BloodTestsPendingReview, cancellationToken)
+              ?? new List<BloodTestSummaryResource>();
 
-    public async Task UploadBloodReportAsync(IBrowserFile file, BloodTestUploadRequest request, CancellationToken cancellationToken = default)
+    public async Task<BloodTestUploadResource>
+        UploadBloodReportAsync(
+            IBrowserFile file,
+            BloodTestUploadRequest request,
+            CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();
         await using var stream = file.OpenReadStream(20 * 1024 * 1024, cancellationToken);
@@ -36,19 +42,24 @@ public class HealthspanApiClient
         });
 
         var response = await _httpClient.PostAsync(path, content, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content
+                   .ReadFromJsonAsync<BloodTestUploadResource>(
+                       cancellationToken: cancellationToken)
+               ?? throw new InvalidOperationException(
+                   "The upload response was incomplete.");
     }
 
     public async Task CreateManualBloodTestAsync(AddBloodTestResource request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(HealthRoutes.BloodTestManual, request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
     }
 
     public async Task ReviewBloodTestAsync(Guid bloodTestId, ReviewBloodTestResource request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync($"{HealthRoutes.BloodTests}/{bloodTestId}/review", request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
     }
 
     public async Task DeleteBloodTestAsync(
@@ -58,7 +69,7 @@ public class HealthspanApiClient
         using var response = await _httpClient.DeleteAsync(
             $"{HealthRoutes.BloodTests}/{bloodTestId}",
             cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
     }
 
     public async Task<BloodTestDocumentContent?> GetBloodTestDocumentAsync(
@@ -74,7 +85,7 @@ public class HealthspanApiClient
             return null;
         }
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
         return new BloodTestDocumentContent
         {
             Content = await response.Content.ReadAsByteArrayAsync(
@@ -116,7 +127,7 @@ public class HealthspanApiClient
     public async Task CreateGalpinAssessmentAsync(AddGalpinAssessmentResource request, CancellationToken cancellationToken = default)
     {
         var response = await _httpClient.PostAsJsonAsync(HealthRoutes.GalpinAssessments, request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
     }
 
     public async Task UpdateGalpinAssessmentAsync(
@@ -128,7 +139,7 @@ public class HealthspanApiClient
             $"{HealthRoutes.GalpinAssessments}/{assessmentId}",
             request,
             cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
     }
 
     public async Task DeleteGalpinAssessmentAsync(
@@ -138,7 +149,7 @@ public class HealthspanApiClient
         using var response = await _httpClient.DeleteAsync(
             $"{HealthRoutes.GalpinAssessments}/{assessmentId}",
             cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
     }
 
     public Task<GetHealthDashboardSummaryResource?> GetDashboardSummaryAsync(CancellationToken cancellationToken = default)
@@ -159,7 +170,7 @@ public class HealthspanApiClient
             HealthRoutes.HealthProfile,
             request,
             cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
 
         return await response.Content
                    .ReadFromJsonAsync<HealthProfileResource>(
@@ -176,4 +187,83 @@ public class HealthspanApiClient
 
         return items.Length == 0 ? basePath : $"{basePath}?{string.Join("&", items)}";
     }
+
+    private static async Task EnsureSuccessAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var responseBody = await response.Content
+            .ReadAsStringAsync(cancellationToken);
+        string? code = null;
+        string? title = null;
+        string? detail = null;
+
+        if (!string.IsNullOrWhiteSpace(responseBody))
+        {
+            try
+            {
+                using var json =
+                    JsonDocument.Parse(responseBody);
+                if (json.RootElement.ValueKind
+                    == JsonValueKind.Object)
+                {
+                    code = ReadJsonString(
+                        json.RootElement,
+                        "code");
+                    title = ReadJsonString(
+                        json.RootElement,
+                        "title");
+                    detail = ReadJsonString(
+                        json.RootElement,
+                        "detail");
+                }
+                else if (json.RootElement.ValueKind
+                         == JsonValueKind.String)
+                {
+                    detail =
+                        json.RootElement.GetString();
+                }
+            }
+            catch (JsonException)
+            {
+                detail = responseBody.Trim();
+            }
+        }
+
+        throw new HealthApiException(
+            detail
+            ?? title
+            ?? "The health request could not be completed.",
+            code,
+            response.StatusCode);
+    }
+
+    private static string? ReadJsonString(
+        JsonElement element,
+        string propertyName)
+        => element.TryGetProperty(
+               propertyName,
+               out var property)
+           && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
+}
+
+public sealed class HealthApiException : HttpRequestException
+{
+    public HealthApiException(
+        string message,
+        string? code,
+        HttpStatusCode statusCode)
+        : base(message, null, statusCode)
+    {
+        Code = code;
+    }
+
+    public string? Code { get; }
 }

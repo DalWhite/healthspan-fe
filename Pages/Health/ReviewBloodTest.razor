@@ -1,4 +1,5 @@
 @page "/health/blood-tests/{BloodTestId:guid}/review"
+@using Microsoft.AspNetCore.Components.Routing
 @inject HealthspanApiClient ApiClient
 @inject TitleService TitleService
 @inject NavigationManager NavigationManager
@@ -7,219 +8,391 @@
 
 <PageTitle>@PageHeading</PageTitle>
 
-@if (_isLoading)
-{
-    <PageShell>
-        <PageHeader Title="Review Blood Test" />
-        <LoadingState Message="Loading review workflow..." Size="Size.Large" />
-    </PageShell>
-}
-else if (_bloodTest == null)
-{
-    <PageShell>
-        <PageHeader Title="Review Blood Test" />
-        <EmptyState Icon="@Icons.Material.Filled.FactCheck"
-                    Title="Blood test not found"
-                    Subtitle="The requested blood test could not be loaded for review." />
-    </PageShell>
-}
-else
-{
-    <div class="hs-health-shell">
-        <div class="hs-page-hero hs-health-page-heading">
-            <div>
-                <MudText Typo="Typo.h5">@PageHeading</MudText>
-            </div>
-            <MudChipSet>
-                <MudChip Color="Color.Default" Variant="Variant.Outlined">@_markerRows.Count rows</MudChip>
-                <MudChip Color="@(_bloodTest.RequiresReview ? Color.Warning : Color.Success)" Variant="Variant.Outlined">@(_bloodTest.RequiresReview ? "Pending review" : "Already finalized")</MudChip>
-            </MudChipSet>
-        </div>
+<NavigationLock ConfirmExternalNavigation="@(_isDirty && !_allowNavigation)"
+                OnBeforeInternalNavigation="HandleBeforeNavigation" />
 
+<PageShell>
+    <div class="hs-compact-page-heading">
+        <div>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="BackToDetail">
+                Blood test
+            </MudButton>
+            <MudText Typo="Typo.h5">@PageHeading</MudText>
+        </div>
+        @if (_bloodTest is not null)
+        {
+            <span class="hs-review-progress">
+                @_markerRows.Count rows
+            </span>
+        }
+    </div>
+
+    @if (_isLoading)
+    {
+        <LoadingState Message="Loading results..." />
+    }
+    else if (_bloodTest is null)
+    {
+        <ErrorState Title="Review unavailable"
+                    Message="@(_errorMessage ?? "The blood test could not be loaded.")"
+                    ActionLabel="Retry"
+                    OnAction="LoadAsync" />
+    }
+    else
+    {
         @if (!string.IsNullOrWhiteSpace(_errorMessage))
         {
-            <MudAlert Severity="Severity.Error" Dense="true">@_errorMessage</MudAlert>
+            <MudAlert Severity="Severity.Error" Dense="true">
+                @_errorMessage
+            </MudAlert>
         }
 
         @if (!string.IsNullOrWhiteSpace(_operationMessage))
         {
-            <MudAlert Severity="@_operationSeverity" Dense="true">@_operationMessage</MudAlert>
+            <MudAlert Severity="@_operationSeverity" Dense="true">
+                @_operationMessage
+            </MudAlert>
         }
 
-        <MudGrid Spacing="3">
-            <MudItem xs="12" lg="8">
-                <MudPaper Class="hs-health-panel">
-                    <div class="hs-detail-heading">
-                        <div>
-                            <MudText Typo="Typo.h6">Results</MudText>
-                        </div>
-                        <MudStack Row="true" Class="hs-list-card-actions">
-                            <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="BackToList">Back</MudButton>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_isSubmitting || !CanEdit)" OnClick="SubmitAsync">
-                                @(_isSubmitting ? "Saving..." : SubmitLabel)
-                            </MudButton>
-                        </MudStack>
-                    </div>
+        @if (ValidationIssueCount > 0)
+        {
+            <div class="hs-review-issue-bar">
+                <span>
+                    @ValidationIssueCount
+                    @(ValidationIssueCount == 1 ? "issue" : "issues")
+                    to resolve
+                </span>
+                <MudButton Variant="Variant.Text"
+                           Size="Size.Small"
+                           OnClick="GoToNextIssue">
+                    Next issue
+                </MudButton>
+            </div>
+        }
 
-                    <div class="hs-review-meta-grid mt-3">
-                        <MudDatePicker Label="Test date" @bind-Date="_reviewTestDate" />
-                        <MudTextField @bind-Value="_reviewDraft.LabName" Label="Lab name" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                    </div>
+        <div class="hs-review-layout">
+            <section class="hs-health-panel hs-review-editor"
+                     @oninput="MarkDirty">
+                <div class="hs-review-meta-grid">
+                    <MudDatePicker Label="Test date"
+                                   @bind-Date="_reviewTestDate"
+                                   MaxDate="DateTime.Today"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense" />
+                    <MudTextField @bind-Value="_reviewDraft.LabName"
+                                  Label="Lab"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </div>
 
-                    <MudTable Items="@_markerRows" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Class="hs-review-table mt-4">
+                <div class="hs-review-mobile">
+                    @for (var index = 0; index < _markerRows.Count; index++)
+                    {
+                        var marker = _markerRows[index];
+                        <article id="@GetMarkerId(index)"
+                                 class="hs-review-marker-card @(HasValidationIssue(marker) ? "has-issue" : null)">
+                            <div class="hs-review-marker-heading">
+                                <strong>Marker @(index + 1)</strong>
+                                <div>
+                                    <ClinicalStatusChip Status="@GetStatusLabel(marker)" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                   Color="Color.Error"
+                                                   Size="Size.Small"
+                                                   OnClick="() => RemoveMarker(marker)"
+                                                   aria-label="Remove marker" />
+                                </div>
+                            </div>
+
+                            <MudTextField @bind-Value="marker.Name"
+                                          Label="Name"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+
+                            <div class="hs-review-value-grid">
+                                <MudNumericField T="double?"
+                                                 @bind-Value="marker.Value"
+                                                 Label="Value"
+                                                 Variant="Variant.Outlined"
+                                                 Margin="Margin.Dense" />
+                                <MudTextField @bind-Value="marker.Unit"
+                                              Label="Unit"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense" />
+                            </div>
+
+                            <div class="hs-review-value-grid">
+                                <MudNumericField T="double?"
+                                                 @bind-Value="marker.ReferenceMinValue"
+                                                 Label="Range min"
+                                                 Variant="Variant.Outlined"
+                                                 Margin="Margin.Dense" />
+                                <MudNumericField T="double?"
+                                                 @bind-Value="marker.ReferenceMaxValue"
+                                                 Label="Range max"
+                                                 Variant="Variant.Outlined"
+                                                 Margin="Margin.Dense" />
+                            </div>
+
+                            @if (marker.ReferenceMinValue.HasValue
+                                && marker.ReferenceMaxValue.HasValue
+                                && marker.ReferenceMinValue
+                                    > marker.ReferenceMaxValue)
+                            {
+                                <MudText Typo="Typo.caption"
+                                         Color="Color.Error">
+                                    Minimum must not exceed maximum.
+                                </MudText>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(
+                                marker.RawValueText)
+                                || marker.Confidence.HasValue)
+                            {
+                                <details class="hs-ocr-details">
+                                    <summary>OCR details</summary>
+                                    @if (!string.IsNullOrWhiteSpace(
+                                        marker.RawValueText))
+                                    {
+                                        <div>
+                                            Read as: @marker.RawValueText
+                                        </div>
+                                    }
+                                    @if (marker.Confidence.HasValue)
+                                    {
+                                        <div>
+                                            Confidence:
+                                            @FormatConfidence(marker.Confidence)
+                                        </div>
+                                    }
+                                </details>
+                            }
+                        </article>
+                    }
+                </div>
+
+                <div class="hs-review-desktop">
+                    <MudTable Items="@_markerRows"
+                              Dense="true"
+                              Hover="true"
+                              Class="hs-review-table">
                         <HeaderContent>
                             <MudTh>Name</MudTh>
                             <MudTh>Value</MudTh>
                             <MudTh>Unit</MudTh>
-                            <MudTh>Ref. range</MudTh>
+                            <MudTh>Minimum</MudTh>
+                            <MudTh>Maximum</MudTh>
                             <MudTh>Status</MudTh>
-                            <MudTh>Raw value</MudTh>
-                            <MudTh>Confidence</MudTh>
                             <MudTh></MudTh>
                         </HeaderContent>
                         <RowTemplate>
                             <MudTd DataLabel="Name">
-                                <MudTextField @bind-Value="context.Name" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudTextField @bind-Value="context.Name"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense" />
                             </MudTd>
                             <MudTd DataLabel="Value">
-                                <MudNumericField T="double?" @bind-Value="context.Value" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudNumericField T="double?"
+                                                 @bind-Value="context.Value"
+                                                 Variant="Variant.Outlined"
+                                                 Margin="Margin.Dense" />
                             </MudTd>
                             <MudTd DataLabel="Unit">
-                                <MudTextField @bind-Value="context.Unit" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudTextField @bind-Value="context.Unit"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense" />
                             </MudTd>
-                            <MudTd DataLabel="Ref. range">
-                                <MudText Typo="Typo.body2">@FormatReferenceRange(context.ReferenceMinValue, context.ReferenceMaxValue)</MudText>
+                            <MudTd DataLabel="Minimum">
+                                <MudNumericField T="double?"
+                                                 @bind-Value="context.ReferenceMinValue"
+                                                 Variant="Variant.Outlined"
+                                                 Margin="Margin.Dense" />
+                            </MudTd>
+                            <MudTd DataLabel="Maximum">
+                                <MudNumericField T="double?"
+                                                 @bind-Value="context.ReferenceMaxValue"
+                                                 Variant="Variant.Outlined"
+                                                 Margin="Margin.Dense" />
                             </MudTd>
                             <MudTd DataLabel="Status">
-                                <ClinicalStatusChip Status="@HealthDisplayHelpers.GetMarkerStatusLabel(context.Status, context.Value, context.ReferenceMinValue, context.ReferenceMaxValue)" />
+                                <ClinicalStatusChip Status="@GetStatusLabel(context)" />
                             </MudTd>
-                            <MudTd DataLabel="Raw value">
-                                <MudTextField @bind-Value="context.RawValueText" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                            </MudTd>
-                            <MudTd DataLabel="Confidence">
-                                <MudText Typo="Typo.body2" Color="@GetConfidenceColor(context.Confidence)">@FormatConfidence(context.Confidence)</MudText>
-                            </MudTd>
-                            <MudTd DataLabel="Remove">
-                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveMarker(context)" aria-label="Remove marker" />
+                            <MudTd>
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="() => RemoveMarker(context)"
+                                               aria-label="Remove marker" />
                             </MudTd>
                         </RowTemplate>
                     </MudTable>
+                </div>
 
-                    <MudStack Row="true" Class="mt-3 hs-list-card-actions">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="AddMarker">Add marker row</MudButton>
-                    </MudStack>
-                </MudPaper>
-            </MudItem>
+                <MudButton Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="AddMarker">
+                    Add marker
+                </MudButton>
+            </section>
 
-            <MudItem xs="12" lg="4">
-                <MudPaper Class="hs-health-panel hs-sticky-panel">
-                    <MudText Typo="Typo.h6">Source</MudText>
-                    <div class="hs-table-stack mt-3">
-                        <MudText Typo="Typo.body2"><strong>Source:</strong> @(_bloodTest.SourceFileName ?? "Manual entry")</MudText>
-                        <MudText Typo="Typo.body2"><strong>Status:</strong> @HealthDisplayHelpers.GetProcessingStatusLabel(_bloodTest.ProcessingStatus)</MudText>
+            <aside class="hs-health-panel hs-review-source @(_showDocumentViewer ? "is-open" : null)">
+                <div class="hs-section-heading">
+                    <div>
+                        <MudText Typo="Typo.h6">Original report</MudText>
+                        <MudText Typo="Typo.caption"
+                                 Class="hs-muted-copy">
+                            @(_bloodTest.SourceFileName
+                                ?? "Manual entry")
+                        </MudText>
                     </div>
-
-                    @if (!string.IsNullOrWhiteSpace(_bloodTest.SourceFileName))
+                    @if (!string.IsNullOrWhiteSpace(
+                        _bloodTest.SourceFileName))
                     {
-                        <MudStack Row="true" Class="mt-3 hs-list-card-actions">
+                        <div class="hs-review-source-actions">
                             <MudButton Variant="Variant.Outlined"
-                                       Color="Color.Primary"
-                                       Disabled="@_isLoadingDocument"
-                                       OnClick="LoadDocumentAsync">
-                                @(_isLoadingDocument ? "Loading..." : _documentUrl is null ? "View report" : "Reload report")
+                                       Color="Color.Default"
+                                       Disabled="_isLoadingDocument"
+                                       Loading="_isLoadingDocument"
+                                       OnClick="OpenDocumentAsync">
+                                View
                             </MudButton>
-                            @if (_documentContent is not null)
-                            {
-                                <MudIconButton Icon="@Icons.Material.Filled.Download"
-                                               Color="Color.Default"
-                                               OnClick="DownloadDocumentAsync"
-                                               aria-label="Download original report" />
-                            }
-                        </MudStack>
-                    }
-
-                    @if (!string.IsNullOrWhiteSpace(_documentError))
-                    {
-                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3 hs-soft-alert">@_documentError</MudAlert>
-                    }
-
-                    @if (_documentUrl is not null)
-                    {
-                        <div class="hs-report-preview mt-3">
-                            @if (IsImageDocument)
-                            {
-                                <img src="@_documentUrl" alt="Original blood test report" />
-                            }
-                            else if (IsPdfDocument)
-                            {
-                                <iframe src="@_documentUrl" title="Original blood test report"></iframe>
-                            }
-                            else
-                            {
-                                <MudText Typo="Typo.body2">Preview is not available for this file type. Use download instead.</MudText>
-                            }
+                            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                           Class="hs-review-source-close"
+                                           OnClick="CloseDocumentViewer"
+                                           aria-label="Close original report" />
                         </div>
                     }
+                </div>
 
-                    @if (!string.IsNullOrWhiteSpace(_bloodTest.ProcessingNotes))
-                    {
-                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-3 hs-soft-alert">@_bloodTest.ProcessingNotes</MudAlert>
-                    }
+                @if (!string.IsNullOrWhiteSpace(_documentError))
+                {
+                    <MudAlert Severity="Severity.Warning"
+                              Dense="true"
+                              Class="mt-3">
+                        @_documentError
+                    </MudAlert>
+                }
 
-                    @if (CanEdit)
-                    {
-                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3 hs-soft-alert">Blank rows are ignored.</MudAlert>
-                    }
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
-    </div>
-}
+                @if (_documentUrl is not null)
+                {
+                    <div class="hs-report-preview mt-3">
+                        @if (IsImageDocument)
+                        {
+                            <img src="@_documentUrl"
+                                 alt="Original blood test report" />
+                        }
+                        else if (IsPdfDocument)
+                        {
+                            <iframe src="@_documentUrl"
+                                    title="Original blood test report">
+                            </iframe>
+                        }
+                    </div>
+                }
+            </aside>
+        </div>
+
+        <div class="hs-review-save-bar">
+            <span class="hs-muted-copy">
+                @(_isDirty ? "Unsaved changes" : "Up to date")
+            </span>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Disabled="@(_isSubmitting || ValidationIssueCount > 0 || !CanEdit)"
+                       Loading="_isSubmitting"
+                       OnClick="SubmitAsync">
+                @SubmitLabel
+            </MudButton>
+        </div>
+    }
+</PageShell>
 
 @code {
     [Parameter] public Guid BloodTestId { get; set; }
 
     private GetBloodTestResource? _bloodTest;
-    private ReviewBloodTestResource _reviewDraft = new() { Markers = new() };
+    private ReviewBloodTestResource _reviewDraft =
+        new() { Markers = [] };
     private DateTime? _reviewTestDate;
     private bool _isLoading = true;
     private bool _isSubmitting;
+    private bool _isDirty;
+    private bool _allowNavigation;
+    private bool _isLoadingDocument;
+    private bool _showDocumentViewer;
     private string? _errorMessage;
     private string? _operationMessage;
+    private string? _documentError;
     private Severity _operationSeverity = Severity.Info;
-    private bool _isLoadingDocument;
     private BloodTestDocumentContent? _documentContent;
     private string? _documentUrl;
-    private string? _documentError;
+    private int _issueCursor = -1;
+
+    private List<BloodTestMarkerResource> _markerRows
+        => _reviewDraft.Markers ??= [];
+
+    private bool CanEdit
+        => _bloodTest?.ProcessingStatus
+            != BloodTestProcessingStatus.Processing;
+
+    private string PageHeading
+        => _bloodTest?.ProcessingStatus switch
+        {
+            BloodTestProcessingStatus.ExtractionFailed =>
+                "Enter blood test results",
+            BloodTestProcessingStatus.Processed =>
+                "Edit blood test",
+            _ => "Review blood test"
+        };
+
+    private string SubmitLabel
+        => _bloodTest?.RequiresReview == true
+            ? $"Finalize {_markerRows.Count} markers"
+            : "Save changes";
+
+    private int ValidationIssueCount
+    {
+        get
+        {
+            var meaningful = _markerRows
+                .Where(HasMeaningfulMarkerContent)
+                .ToList();
+            var duplicateNames = meaningful
+                .Where(marker =>
+                    !string.IsNullOrWhiteSpace(marker.Name))
+                .GroupBy(marker =>
+                    NormalizeMarkerName(marker.Name!))
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+                .ToHashSet();
+
+            return meaningful.Count(marker =>
+                string.IsNullOrWhiteSpace(marker.Name)
+                || !marker.Value.HasValue
+                || marker.ReferenceMinValue.HasValue
+                    && marker.ReferenceMaxValue.HasValue
+                    && marker.ReferenceMinValue
+                        > marker.ReferenceMaxValue
+                || !string.IsNullOrWhiteSpace(marker.Name)
+                    && duplicateNames.Contains(
+                        NormalizeMarkerName(marker.Name)));
+        }
+    }
+
     private bool IsPdfDocument
         => string.Equals(
             _documentContent?.ContentType,
             "application/pdf",
             StringComparison.OrdinalIgnoreCase);
+
     private bool IsImageDocument
         => _documentContent?.ContentType.StartsWith(
             "image/",
             StringComparison.OrdinalIgnoreCase) == true;
-    private bool CanEdit
-        => _bloodTest?.ProcessingStatus
-            != BloodTestProcessingStatus.Processing;
-    private string PageHeading
-        => _bloodTest?.ProcessingStatus switch
-        {
-            BloodTestProcessingStatus.ExtractionFailed =>
-                "Add blood test results",
-            BloodTestProcessingStatus.Processed =>
-                "Edit blood test",
-            _ => "Review blood test"
-        };
-    private string SubmitLabel
-        => _bloodTest?.RequiresReview == true
-            ? "Save reviewed markers"
-            : "Save changes";
 
-    private List<BloodTestMarkerResource> _markerRows => _reviewDraft.Markers ??= new List<BloodTestMarkerResource>();
-
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
         TitleService.Title = "Review Blood Test";
         await LoadAsync();
@@ -229,13 +402,12 @@ else
     {
         _isLoading = true;
         _errorMessage = null;
-
         try
         {
-            _bloodTest = await ApiClient.GetBloodTestAsync(BloodTestId);
-            if (_bloodTest == null)
+            _bloodTest = await ApiClient.GetBloodTestAsync(
+                BloodTestId);
+            if (_bloodTest is null)
             {
-                _errorMessage = "Blood test could not be loaded.";
                 return;
             }
 
@@ -243,13 +415,16 @@ else
             {
                 TestDate = _bloodTest.TestDate,
                 LabName = _bloodTest.LabName,
-                Markers = _bloodTest.Markers?.Select(CloneMarker).ToList() ?? new List<BloodTestMarkerResource>()
+                Markers = _bloodTest.Markers?
+                    .Select(CloneMarker)
+                    .ToList() ?? []
             };
-
             _reviewTestDate = _reviewDraft.TestDate;
+            _isDirty = false;
         }
         catch
         {
+            _bloodTest = null;
             _errorMessage = "Blood test could not be loaded.";
         }
         finally
@@ -260,30 +435,34 @@ else
 
     private async Task SubmitAsync()
     {
-        if (_bloodTest == null || !CanEdit)
+        if (_bloodTest is null
+            || !CanEdit
+            || ValidationIssueCount > 0)
         {
             return;
         }
 
         _isSubmitting = true;
         _operationMessage = null;
-        _errorMessage = null;
-
         try
         {
-            _reviewDraft.TestDate = _reviewTestDate ?? _bloodTest.TestDate;
+            _reviewDraft.TestDate =
+                _reviewTestDate ?? _bloodTest.TestDate;
             _reviewDraft.Markers = _markerRows
                 .Where(HasMeaningfulMarkerContent)
                 .Select(CloneMarker)
                 .ToList();
-
-            await ApiClient.ReviewBloodTestAsync(BloodTestId, _reviewDraft);
-            NavigationManager.NavigateTo($"/health/blood-tests?selectedId={BloodTestId}");
+            await ApiClient.ReviewBloodTestAsync(
+                BloodTestId,
+                _reviewDraft);
+            _allowNavigation = true;
+            NavigationManager.NavigateTo(
+                $"/health/blood-tests/{BloodTestId}");
         }
         catch
         {
             _operationSeverity = Severity.Error;
-            _operationMessage = "Review could not be saved.";
+            _operationMessage = "Results could not be saved.";
         }
         finally
         {
@@ -292,28 +471,132 @@ else
     }
 
     private void AddMarker()
-        => _markerRows.Add(new BloodTestMarkerResource());
+    {
+        _markerRows.Add(new BloodTestMarkerResource());
+        _isDirty = true;
+    }
 
     private void RemoveMarker(BloodTestMarkerResource marker)
-        => _markerRows.Remove(marker);
+    {
+        _markerRows.Remove(marker);
+        _isDirty = true;
+    }
 
-    private void BackToList()
-        => NavigationManager.NavigateTo($"/health/blood-tests?selectedId={BloodTestId}");
+    private void MarkDirty(ChangeEventArgs _)
+        => _isDirty = true;
+
+    private async Task HandleBeforeNavigation(
+        LocationChangingContext context)
+    {
+        if (!_isDirty || _allowNavigation)
+        {
+            return;
+        }
+
+        var leave = await JS.InvokeAsync<bool>(
+            "confirm",
+            "Discard unsaved blood-test changes?");
+        if (!leave)
+        {
+            context.PreventNavigation();
+        }
+    }
+
+    private void BackToDetail()
+        => NavigationManager.NavigateTo(
+            $"/health/blood-tests/{BloodTestId}");
+
+    private async Task GoToNextIssue()
+    {
+        var issueIndexes = _markerRows
+            .Select((marker, index) => (marker, index))
+            .Where(item => HasValidationIssue(item.marker))
+            .Select(item => item.index)
+            .ToList();
+        if (issueIndexes.Count == 0)
+        {
+            return;
+        }
+
+        _issueCursor = (_issueCursor + 1)
+            % issueIndexes.Count;
+        await JS.InvokeVoidAsync(
+            "scrollToElement",
+            GetMarkerId(issueIndexes[_issueCursor]));
+    }
+
+    private bool HasValidationIssue(
+        BloodTestMarkerResource marker)
+    {
+        if (!HasMeaningfulMarkerContent(marker))
+        {
+            return false;
+        }
+
+        var normalizedName = NormalizeMarkerName(
+            marker.Name ?? string.Empty);
+        return string.IsNullOrWhiteSpace(marker.Name)
+               || !marker.Value.HasValue
+               || marker.ReferenceMinValue.HasValue
+                   && marker.ReferenceMaxValue.HasValue
+                   && marker.ReferenceMinValue
+                       > marker.ReferenceMaxValue
+               || _markerRows.Count(other =>
+                   HasMeaningfulMarkerContent(other)
+                   && NormalizeMarkerName(
+                       other.Name ?? string.Empty)
+                   == normalizedName) > 1;
+    }
+
+    private static string GetStatusLabel(
+        BloodTestMarkerResource marker)
+    {
+        if (marker.ReferenceMinValue.HasValue
+            && marker.Value < marker.ReferenceMinValue)
+        {
+            return "Low";
+        }
+
+        if (marker.ReferenceMaxValue.HasValue
+            && marker.Value > marker.ReferenceMaxValue)
+        {
+            return "High";
+        }
+
+        return marker.Value.HasValue
+            ? marker.ReferenceMinValue.HasValue
+              || marker.ReferenceMaxValue.HasValue
+                ? "In range"
+                : "No range"
+            : "Check";
+    }
+
+    private async Task OpenDocumentAsync()
+    {
+        _showDocumentViewer = true;
+        if (_documentUrl is null)
+        {
+            await LoadDocumentAsync();
+        }
+    }
+
+    private void CloseDocumentViewer()
+        => _showDocumentViewer = false;
 
     private async Task LoadDocumentAsync()
     {
         _isLoadingDocument = true;
         _documentError = null;
-
         try
         {
             await RevokeDocumentUrlAsync();
             _documentContent =
-                await ApiClient.GetBloodTestDocumentAsync(BloodTestId);
-
+                await ApiClient.GetBloodTestDocumentAsync(
+                    BloodTestId);
             if (_documentContent is null)
             {
-                _documentError = "The original report is no longer available.";
+                _documentError =
+                    "The original report is unavailable.";
                 return;
             }
 
@@ -324,29 +607,13 @@ else
         }
         catch
         {
-            _documentError = "The original report could not be loaded.";
+            _documentError =
+                "The original report could not be loaded.";
         }
         finally
         {
             _isLoadingDocument = false;
         }
-    }
-
-    private async Task DownloadDocumentAsync()
-    {
-        if (_documentContent is null || _bloodTest is null)
-        {
-            return;
-        }
-
-        await using var stream =
-            new MemoryStream(_documentContent.Content);
-        using var streamReference =
-            new DotNetStreamReference(stream);
-        await JS.InvokeVoidAsync(
-            "downloadFileFromStream",
-            _bloodTest.SourceFileName ?? "blood-test-report",
-            streamReference);
     }
 
     private async Task RevokeDocumentUrlAsync()
@@ -373,9 +640,11 @@ else
         }
     }
 
-    private static BloodTestMarkerResource CloneMarker(BloodTestMarkerResource marker)
+    private static BloodTestMarkerResource CloneMarker(
+        BloodTestMarkerResource marker)
         => new()
         {
+            Id = marker.Id,
             Name = marker.Name,
             Value = marker.Value,
             Unit = marker.Unit,
@@ -383,32 +652,33 @@ else
             Confidence = marker.Confidence,
             Status = marker.Status,
             ReferenceMinValue = marker.ReferenceMinValue,
-            ReferenceMaxValue = marker.ReferenceMaxValue
+            ReferenceMaxValue = marker.ReferenceMaxValue,
+            ReferenceRangeFromReport =
+                marker.ReferenceRangeFromReport
         };
 
-    private static bool HasMeaningfulMarkerContent(BloodTestMarkerResource marker)
+    private static bool HasMeaningfulMarkerContent(
+        BloodTestMarkerResource marker)
         => !string.IsNullOrWhiteSpace(marker.Name)
            || marker.Value.HasValue
            || !string.IsNullOrWhiteSpace(marker.Unit)
-           || !string.IsNullOrWhiteSpace(marker.RawValueText);
+           || marker.ReferenceMinValue.HasValue
+           || marker.ReferenceMaxValue.HasValue;
+
+    private static string NormalizeMarkerName(string value)
+        => string.Join(
+            '-',
+            value.Trim()
+                .ToLowerInvariant()
+                .Split(
+                    new[] { ' ', '-', '_', '/', '\\' },
+                    StringSplitOptions.RemoveEmptyEntries));
 
     private static string FormatConfidence(double? confidence)
-        => confidence.HasValue ? confidence.Value.ToString("P0") : "-";
+        => confidence.HasValue
+            ? confidence.Value.ToString("P0")
+            : "—";
 
-    private static Color GetConfidenceColor(double? confidence)
-        => confidence switch
-        {
-            null => Color.Default,
-            < 0.8 => Color.Warning,
-            _ => Color.Default
-        };
-
-    private static string FormatReferenceRange(double? min, double? max)
-        => (min, max) switch
-        {
-            (not null, not null) => $"{min:0.##} – {max:0.##}",
-            (not null, null) => $"≥ {min:0.##}",
-            (null, not null) => $"≤ {max:0.##}",
-            _ => "—"
-        };
+    private static string GetMarkerId(int index)
+        => $"review-marker-{index}";
 }

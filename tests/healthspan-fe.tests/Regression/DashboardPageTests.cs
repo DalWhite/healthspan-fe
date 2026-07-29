@@ -23,15 +23,34 @@ public class DashboardPageTests : BlazorTestBase
                     "latestAssessmentAverageScore": 7.5
                 }
             """);
-        MockHttp.When("/BloodTests/pending-review")
+        MockHttp.When("/BloodTests")
+            .Respond("application/json", """
+                [
+                    {
+                        "id": "00000000-0000-0000-0000-000000000001",
+                        "testDate": "2025-06-01T00:00:00",
+                        "labName": "Test Lab",
+                        "processingStatus": 1,
+                        "markerCount": 3
+                    }
+                ]
+            """);
+        MockHttp.When("/BloodTests/markers/latest")
             .Respond("application/json", "[]");
+        MockHttp.When("/HealthProfile")
+            .Respond("application/json", """
+                {
+                    "dateOfBirth": "1990-01-01",
+                    "biologicalSex": 1
+                }
+            """);
 
         var cut = RenderComponent<Dashboard>();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("5");
-            cut.Markup.Should().Contain("Blood");
+            cut.Markup.Should().Contain("Latest blood test");
+            cut.Markup.Should().Contain("3 markers");
         });
     }
 
@@ -40,20 +59,24 @@ public class DashboardPageTests : BlazorTestBase
     {
         MockHttp.When("/Dashboard/summary")
             .Respond(System.Net.HttpStatusCode.InternalServerError);
-        MockHttp.When("/BloodTests/pending-review")
+        MockHttp.When("/BloodTests")
             .Respond("application/json", "[]");
+        MockHttp.When("/BloodTests/markers/latest")
+            .Respond("application/json", "[]");
+        MockHttp.When("/HealthProfile")
+            .Respond("application/json", "{}");
 
         var cut = RenderComponent<Dashboard>();
 
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain(
-                "Health summary could not be loaded");
+                "Health information could not be loaded");
         });
     }
 
     [Fact]
-    public void Renders_Dashboard_With_Zero_Values()
+    public void Renders_Useful_Actions_With_Zero_Values()
     {
         MockHttp.When("/Dashboard/summary")
             .Respond("application/json", """
@@ -66,14 +89,24 @@ public class DashboardPageTests : BlazorTestBase
                     "latestAssessmentAverageScore": null
                 }
             """);
-        MockHttp.When("/BloodTests/pending-review")
+        MockHttp.When("/BloodTests")
             .Respond("application/json", "[]");
+        MockHttp.When("/BloodTests/markers/latest")
+            .Respond("application/json", "[]");
+        MockHttp.When("/HealthProfile")
+            .Respond("application/json", """
+                {
+                    "dateOfBirth": "1990-01-01",
+                    "biologicalSex": 1
+                }
+            """);
 
         var cut = RenderComponent<Dashboard>();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("0");
+            cut.Markup.Should().Contain("Add first report");
+            cut.Markup.Should().Contain("Record baseline");
         });
     }
 }

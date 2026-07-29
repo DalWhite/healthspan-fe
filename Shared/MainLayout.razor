@@ -102,7 +102,7 @@
         if (authState.User.Identity?.IsAuthenticated == true)
         {
             if (isRoot)
-                NavigationManager.NavigateTo("/health/dashboard");
+                NavigationManager.NavigateTo("/training/insights");
         }
         else
             NavigationManager.NavigateTo("/login");

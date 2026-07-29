@@ -2,383 +2,543 @@
 @inject HealthspanApiClient ApiClient
 @inject TitleService TitleService
 
-<PageTitle>Galpin Assessments</PageTitle>
+<PageTitle>Assessments</PageTitle>
 
-@if (_isLoading)
-{
-    <PageShell>
-        <PageHeader Title="Galpin Assessments" />
-        <LoadingState Message="Loading Galpin assessments..." Size="Size.Large" />
-    </PageShell>
-}
-else
-{
-    <div class="hs-health-shell">
-        <div class="hs-page-hero hs-health-page-heading">
-            <MudText Typo="Typo.h5">Assessments</MudText>
-            <MudChipSet>
-                <MudChip Color="Color.Default" Variant="Variant.Outlined">@_catalog.Count adaptations</MudChip>
-                <MudChip Color="Color.Secondary" Variant="Variant.Outlined">@_history.Count assessments</MudChip>
-            </MudChipSet>
-        </div>
+<PageShell>
+    <div class="hs-compact-page-heading">
+        <MudText Typo="Typo.h5">Assessments</MudText>
+    </div>
 
-        @if (!string.IsNullOrWhiteSpace(_errorMessage))
-        {
-            <MudAlert Severity="Severity.Error" Dense="true">@_errorMessage</MudAlert>
-        }
-
+    @if (_isLoading)
+    {
+        <LoadingState Message="Loading assessments..." />
+    }
+    else if (!string.IsNullOrWhiteSpace(_errorMessage)
+             && _catalog.Count == 0)
+    {
+        <ErrorState Title="Assessments unavailable"
+                    Message="@_errorMessage"
+                    ActionLabel="Retry"
+                    OnAction="LoadAsync" />
+    }
+    else
+    {
         @if (!string.IsNullOrWhiteSpace(_operationMessage))
         {
-            <MudAlert Severity="@_operationSeverity" Dense="true">@_operationMessage</MudAlert>
+            <MudAlert Severity="@_operationSeverity"
+                      Dense="true">
+                @_operationMessage
+            </MudAlert>
         }
 
-        <MudGrid Spacing="3">
-            <MudItem xs="12" lg="7">
-                <MudPaper Class="hs-health-panel">
-                    <div class="hs-detail-heading">
-                        <div>
-                            <MudText Typo="Typo.h6">@(_editingAssessmentId.HasValue ? "Edit assessment" : "New assessment")</MudText>
-                        </div>
-                        <MudStack Row="true" Class="hs-list-card-actions">
-                            @if (_editingAssessmentId.HasValue)
-                            {
-                                <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isSubmitting" OnClick="CancelEditing">Cancel</MudButton>
-                            }
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_isSubmitting" OnClick="SubmitAsync">
-                                @(_isSubmitting ? "Saving..." : _editingAssessmentId.HasValue ? "Save changes" : "Save assessment")
-                            </MudButton>
-                        </MudStack>
+        <div class="hs-assessment-layout">
+            <section class="hs-health-panel">
+                <div class="hs-section-heading">
+                    <div>
+                        <MudText Typo="Typo.h6">
+                            @(_editingAssessmentId.HasValue
+                                ? "Edit assessment"
+                                : "New assessment")
+                        </MudText>
+                        <MudText Typo="Typo.caption"
+                                 Class="hs-muted-copy">
+                            Scores use a 0–10 scale.
+                        </MudText>
                     </div>
-
-                    <MudDatePicker Label="Assessed on" @bind-Date="_draftAssessedOn" Class="hs-assessment-field" />
-                    <MudTextField @bind-Value="_draft.Notes" Label="Assessment notes" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" Class="hs-assessment-field" />
-
-                    <div class="hs-assessment-grid mt-3">
-                        @foreach (var adaptation in _catalog)
-                        {
-                            var score = GetDraftScore(adaptation.Adaptation);
-                            <MudPaper Class="hs-subpanel">
-                                <div class="hs-biomarker-header">
-                                    <div>
-                                        <div class="hs-biomarker-name">@(adaptation.DisplayName ?? HealthDisplayHelpers.ResolveAdaptationLabel(adaptation.Adaptation))</div>
-                                    </div>
-                                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="() => SelectAdaptationAsync(adaptation)">Trend</MudButton>
-                                </div>
-                                <MudNumericField T="double?" @bind-Value="score.Score" Label="Score" Min="0" Max="10" Step="0.1" Variant="Variant.Outlined" Margin="Margin.Dense" Class="hs-assessment-field" />
-                                <MudTextField @bind-Value="score.EvidenceNotes" Label="Evidence notes" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" Class="hs-assessment-field" />
-                            </MudPaper>
-                        }
-                    </div>
-                </MudPaper>
-            </MudItem>
-
-            <MudItem xs="12" lg="5">
-                <MudPaper Class="hs-health-panel mb-3">
-                    <MudText Typo="Typo.h6">Latest assessment</MudText>
-                    @if (_latest == null)
+                    @if (_editingAssessmentId.HasValue)
                     {
-                        <EmptyState Icon="@Icons.Material.Filled.Assessment"
-                                    Title="No assessments yet"
-                                    Subtitle="Complete the first Galpin assessment to establish a baseline." />
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Default"
+                                   Disabled="_isSubmitting"
+                                   OnClick="CancelEditing">
+                            Cancel
+                        </MudButton>
+                    }
+                </div>
+
+                <div class="hs-assessment-meta">
+                    <MudDatePicker Label="Assessed on"
+                                   @bind-Date="_draftAssessedOn"
+                                   MaxDate="DateTime.Today"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense"
+                                   Class="hs-assessment-field" />
+                    <MudTextField @bind-Value="_draft.Notes"
+                                  Label="Notes (optional)"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Lines="2"
+                                  Class="hs-assessment-field" />
+                </div>
+
+                <div class="hs-assessment-accordion">
+                    @foreach (var adaptation in _catalog)
+                    {
+                        var score = GetDraftScore(
+                            adaptation.Adaptation);
+                        var previous = GetLatestScore(
+                            adaptation.Adaptation);
+                        <details>
+                            <summary>
+                                <span>
+                                    @(adaptation.DisplayName
+                                        ?? HealthDisplayHelpers.ResolveAdaptationLabel(adaptation.Adaptation))
+                                </span>
+                                <span>
+                                    @(score.Score?.ToString("0.#")
+                                        ?? "—")
+                                    @if (previous.HasValue
+                                        && score.Score.HasValue)
+                                    {
+                                        <small>
+                                            @FormatScoreChange(
+                                                score.Score.Value,
+                                                previous.Value)
+                                        </small>
+                                    }
+                                </span>
+                            </summary>
+                            <div class="hs-assessment-entry">
+                                <MudNumericField T="double?"
+                                                 @bind-Value="score.Score"
+                                                 Label="Score"
+                                                 Min="0"
+                                                 Max="10"
+                                                 Step="0.1"
+                                                 Variant="Variant.Outlined"
+                                                 Margin="Margin.Dense"
+                                                 Class="hs-assessment-field" />
+
+                                @if (_notesExpanded.Contains(
+                                    adaptation.Adaptation)
+                                    || !string.IsNullOrWhiteSpace(
+                                        score.EvidenceNotes))
+                                {
+                                    <MudTextField @bind-Value="score.EvidenceNotes"
+                                                  Label="Evidence (optional)"
+                                                  Variant="Variant.Outlined"
+                                                  Margin="Margin.Dense"
+                                                  Lines="2"
+                                                  Class="hs-assessment-field" />
+                                }
+                                else
+                                {
+                                    <MudButton Variant="Variant.Text"
+                                               Size="Size.Small"
+                                               OnClick="() => ExpandEvidence(adaptation.Adaptation)">
+                                        Add evidence note
+                                    </MudButton>
+                                }
+                            </div>
+                        </details>
+                    }
+                </div>
+
+                <div class="hs-panel-primary-action">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               Disabled="_isSubmitting"
+                               Loading="_isSubmitting"
+                               OnClick="SubmitAsync">
+                        @(_editingAssessmentId.HasValue
+                            ? "Save changes"
+                            : "Save assessment")
+                    </MudButton>
+                </div>
+            </section>
+
+            <div class="hs-assessment-context">
+                @if (_latest is not null)
+                {
+                    <section class="hs-health-panel hs-assessment-latest">
+                        <span>Latest</span>
+                        <strong>
+                            @AverageScore(_latest).ToString("0.0")
+                        </strong>
+                        <small>
+                            @_latest.AssessedOnUtc.ToString("dd MMM yyyy")
+                        </small>
+                    </section>
+                }
+
+                @if (_catalog.Count > 0)
+                {
+                    <section class="hs-health-panel">
+                        <div class="hs-section-heading">
+                            <MudText Typo="Typo.h6">Trend</MudText>
+                            <MudSelect T="GalpinAdaptationType"
+                                       Value="@(_selectedAdaptation?.Adaptation ?? _catalog[0].Adaptation)"
+                                       ValueChanged="OnTrendAdaptationChanged"
+                                       Variant="Variant.Outlined"
+                                       Margin="Margin.Dense">
+                                @foreach (var item in _catalog)
+                                {
+                                    <MudSelectItem Value="@item.Adaptation">
+                                        @(item.DisplayName
+                                            ?? HealthDisplayHelpers.ResolveAdaptationLabel(item.Adaptation))
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+                        </div>
+                        @if (_isTrendLoading)
+                        {
+                            <LoadingState Message="Loading trend..." />
+                        }
+                        else if (_selectedTrend?.Points.Count >= 2)
+                        {
+                            <TrendChart Series="new[] { _selectedTrend }"
+                                        YAxisTitle="Score"
+                                        Height="240" />
+                        }
+                        else
+                        {
+                            <div class="hs-inline-empty">
+                                Add another assessment to see a trend.
+                            </div>
+                        }
+                    </section>
+                }
+
+                <section class="hs-health-panel">
+                    <MudText Typo="Typo.h6">History</MudText>
+                    @if (_history.Count == 0)
+                    {
+                        <div class="hs-inline-empty">
+                            No assessments yet.
+                        </div>
                     }
                     else
                     {
-                        <div class="hs-kpi-card hs-kpi-card-accent mt-3">
-                            <div class="hs-kpi-label">Assessed on</div>
-                            <div class="hs-kpi-value">@_latest.AssessedOnUtc.ToString("dd MMM yyyy")</div>
-                            <div class="hs-kpi-subtitle">Average score: @AverageScore(_latest).ToString("0.0")</div>
-                            @if (!string.IsNullOrWhiteSpace(_latest.Notes))
+                        <div class="hs-assessment-history">
+                            @foreach (var item in _history
+                                .OrderByDescending(
+                                    assessment =>
+                                        assessment.AssessedOnUtc))
                             {
-                                <div class="hs-kpi-trend">@_latest.Notes</div>
+                                <div>
+                                    <div class="hs-assessment-history-summary">
+                                        <span>
+                                            @item.AssessedOnUtc.ToString("dd MMM yyyy")
+                                        </span>
+                                        <strong>
+                                            @AverageScore(item).ToString("0.0")
+                                        </strong>
+                                    </div>
+                                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                             Size="Size.Small"
+                                             Color="Color.Default"
+                                             Variant="Variant.Text"
+                                             aria-label="Assessment options">
+                                        <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                     OnClick="() => BeginEditing(item)">
+                                            Edit
+                                        </MudMenuItem>
+                                        <MudMenuItem Icon="@Icons.Material.Filled.DeleteOutline"
+                                                     OnClick="() => _deleteAssessmentId = item.Id">
+                                            Delete
+                                        </MudMenuItem>
+                                    </MudMenu>
+                                </div>
+                                @if (_deleteAssessmentId == item.Id)
+                                {
+                                    <div class="hs-delete-confirmation"
+                                         role="alertdialog"
+                                         aria-label="Delete assessment confirmation">
+                                        <span>Delete this assessment?</span>
+                                        <div>
+                                            <MudButton Variant="Variant.Text"
+                                                       Disabled="_isDeleting"
+                                                       OnClick="() => _deleteAssessmentId = null">
+                                                Cancel
+                                            </MudButton>
+                                            <MudButton Variant="Variant.Filled"
+                                                       Color="Color.Error"
+                                                       Disabled="_isDeleting"
+                                                       Loading="_isDeleting"
+                                                       OnClick="() => DeleteAssessmentAsync(item.Id)">
+                                                Delete
+                                            </MudButton>
+                                        </div>
+                                    </div>
+                                }
                             }
-                         </div>
-                     }
-                 </MudPaper>
+                        </div>
+                    }
+                </section>
+            </div>
+        </div>
+    }
+</PageShell>
 
-                 <MudPaper Class="hs-health-panel mb-3">
-                     <MudText Typo="Typo.h6">Adaptation trend</MudText>
-                     @if (_selectedAdaptation == null)
-                     {
-                         <EmptyState Icon="@Icons.Material.Filled.Timeline"
-                                     Title="Select an adaptation"
-                                     Subtitle="Trend data appears once an adaptation module is selected." />
-                     }
-                     else if (_isTrendLoading)
-                     {
-                         <LoadingState Message="Loading adaptation trend..." />
-                     }
-                     else if (_selectedTrend == null || _selectedTrend.Points.Count == 0)
-                     {
-                         <EmptyState Icon="@Icons.Material.Filled.QueryStats"
-                                     Title="No trend points"
-                                     Subtitle="No stored observations were returned for that adaptation yet." />
-                     }
-                     else
-                     {
-                         <TrendChart Series="new[] { _selectedTrend }" YAxisTitle="Score" Height="300" />
-                     }
-                 </MudPaper>
+@code {
+    private readonly List<GalpinAdaptationCatalogItemResource>
+        _catalog = [];
+    private readonly List<GetGalpinAssessmentResource> _history = [];
+    private readonly HashSet<GalpinAdaptationType>
+        _notesExpanded = [];
+    private AddGalpinAssessmentResource _draft =
+        new()
+        {
+            AssessedOnUtc = DateTime.UtcNow,
+            Scores = []
+        };
+    private DateTime? _draftAssessedOn = DateTime.Today;
+    private GetGalpinAssessmentResource? _latest;
+    private GalpinAdaptationCatalogItemResource?
+        _selectedAdaptation;
+    private TrendSeriesResource? _selectedTrend;
+    private bool _isLoading = true;
+    private bool _isSubmitting;
+    private bool _isDeleting;
+    private bool _isTrendLoading;
+    private Guid? _editingAssessmentId;
+    private Guid? _deleteAssessmentId;
+    private string? _errorMessage;
+    private string? _operationMessage;
+    private Severity _operationSeverity = Severity.Info;
 
-                 <MudPaper Class="hs-health-panel">
-                     <MudText Typo="Typo.h6">History</MudText>
-                     @if (_history.Count == 0)
-                     {
-                         <EmptyState Icon="@Icons.Material.Filled.History"
-                                     Title="No history yet"
-                                     Subtitle="Saved assessments will appear here." />
-                     }
-                     else
-                     {
-                         @foreach (var item in _history.OrderByDescending(x => x.AssessedOnUtc))
-                         {
-                             <div class="hs-history-item hs-adaptation-row">
-                                 <div>
-                                     <div class="hs-list-card-title">@item.AssessedOnUtc.ToString("dd MMM yyyy")</div>
-                                     <div class="hs-muted-copy">Average score @AverageScore(item).ToString("0.0")</div>
-                                 </div>
-                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                     <MudChip Color="Color.Secondary" Variant="Variant.Outlined">@(item.Scores?.Count ?? 0) scores</MudChip>
-                                     <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                                    Size="Size.Small"
-                                                    Color="Color.Primary"
-                                                    OnClick="() => BeginEditing(item)"
-                                                    aria-label="Edit assessment" />
-                                     <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
-                                                    Size="Size.Small"
-                                                    Color="Color.Error"
-                                                    OnClick="() => _deleteAssessmentId = item.Id"
-                                                    aria-label="Delete assessment" />
-                                 </MudStack>
-                             </div>
-                             @if (_deleteAssessmentId == item.Id)
-                             {
-                                 <div class="hs-delete-confirmation"
-                                      role="alertdialog"
-                                      aria-label="Delete assessment confirmation">
-                                     <MudText Typo="Typo.body2">Delete this assessment?</MudText>
-                                     <MudStack Row="true" Class="hs-list-card-actions">
-                                         <MudButton Variant="Variant.Text"
-                                                    Color="Color.Default"
-                                                    Disabled="_isDeleting"
-                                                    OnClick="() => _deleteAssessmentId = null">
-                                             Cancel
-                                         </MudButton>
-                                         <MudButton Variant="Variant.Filled"
-                                                    Color="Color.Error"
-                                                    Disabled="_isDeleting"
-                                                    OnClick="() => DeleteAssessmentAsync(item.Id)">
-                                             @(_isDeleting ? "Deleting..." : "Delete")
-                                         </MudButton>
-                                     </MudStack>
-                                 </div>
-                             }
-                         }
-                     }
-                 </MudPaper>
-             </MudItem>
-         </MudGrid>
-     </div>
- }
+    protected override async Task OnInitializedAsync()
+    {
+        TitleService.Title = "Assessments";
+        await LoadAsync();
+    }
 
- @code {
-     private readonly List<GalpinAdaptationCatalogItemResource> _catalog = new();
-     private readonly List<GetGalpinAssessmentResource> _history = new();
-     private AddGalpinAssessmentResource _draft = new() { AssessedOnUtc = DateTime.UtcNow, Scores = new() };
-    private DateTime? _draftAssessedOn = DateTime.UtcNow;
-     private GetGalpinAssessmentResource? _latest;
-     private GalpinAdaptationCatalogItemResource? _selectedAdaptation;
-     private TrendSeriesResource? _selectedTrend;
-     private bool _isLoading = true;
-     private bool _isSubmitting;
-     private bool _isDeleting;
-     private bool _isTrendLoading;
-     private Guid? _editingAssessmentId;
-     private Guid? _deleteAssessmentId;
-     private string? _errorMessage;
-     private string? _operationMessage;
-     private Severity _operationSeverity = Severity.Info;
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            var catalogTask =
+                ApiClient.GetGalpinCatalogAsync();
+            var historyTask =
+                ApiClient.GetGalpinAssessmentsAsync();
+            await Task.WhenAll(catalogTask, historyTask);
 
-     protected override async Task OnInitializedAsync()
-     {
-         TitleService.Title = "Assessments";
-         await LoadAsync();
-     }
+            _catalog.Clear();
+            _catalog.AddRange(catalogTask.Result);
+            _history.Clear();
+            _history.AddRange(historyTask.Result);
+            _latest = _history
+                .OrderByDescending(item =>
+                    item.AssessedOnUtc)
+                .FirstOrDefault();
+            _editingAssessmentId = null;
+            _deleteAssessmentId = null;
+            _notesExpanded.Clear();
+            SetDraftFrom(null, DateTime.Today);
 
-     private async Task LoadAsync()
-     {
-         _isLoading = true;
-         _errorMessage = null;
+            if (_catalog.Count > 0)
+            {
+                await SelectAdaptationAsync(_catalog[0]);
+            }
+        }
+        catch
+        {
+            _errorMessage =
+                "Assessments could not be loaded.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
 
-         try
-         {
-             _catalog.Clear();
-             _catalog.AddRange(await ApiClient.GetGalpinCatalogAsync());
-             _history.Clear();
-             _history.AddRange(await ApiClient.GetGalpinAssessmentsAsync());
-             _latest = _history
-                 .OrderByDescending(item => item.AssessedOnUtc)
-                 .FirstOrDefault();
+    private async Task SubmitAsync()
+    {
+        _isSubmitting = true;
+        _operationMessage = null;
+        try
+        {
+            _draft.AssessedOnUtc =
+                _draftAssessedOn ?? DateTime.Today;
+            _draft.Scores = _draft.Scores?
+                .Where(score => score.Score.HasValue)
+                .ToList();
 
-             _editingAssessmentId = null;
-             _deleteAssessmentId = null;
-             SetDraftFrom(_latest, DateTime.UtcNow);
+            if (_editingAssessmentId.HasValue)
+            {
+                await ApiClient.UpdateGalpinAssessmentAsync(
+                    _editingAssessmentId.Value,
+                    _draft);
+            }
+            else
+            {
+                await ApiClient.CreateGalpinAssessmentAsync(
+                    _draft);
+            }
 
-             if (_catalog.Count > 0)
-             {
-                 await SelectAdaptationAsync(_catalog[0]);
-             }
-         }
-         catch
-         {
-             _errorMessage = "Assessments could not be loaded.";
-         }
-         finally
-         {
-             _isLoading = false;
-         }
-     }
+            _operationSeverity = Severity.Success;
+            _operationMessage =
+                _editingAssessmentId.HasValue
+                    ? "Assessment updated."
+                    : "Assessment saved.";
+            await LoadAsync();
+        }
+        catch
+        {
+            _operationSeverity = Severity.Error;
+            _operationMessage =
+                "Assessment could not be saved.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
 
-     private async Task SubmitAsync()
-     {
-         _isSubmitting = true;
-         _operationMessage = null;
-         _errorMessage = null;
+    private async Task OnTrendAdaptationChanged(
+        GalpinAdaptationType adaptation)
+    {
+        var item = _catalog.First(catalogItem =>
+            catalogItem.Adaptation == adaptation);
+        await SelectAdaptationAsync(item);
+    }
 
-         try
-         {
-             _draft.AssessedOnUtc = _draftAssessedOn ?? DateTime.UtcNow;
-             _draft.Scores = _draft.Scores?
-                 .Where(x => x.Score.HasValue)
-                 .ToList();
+    private async Task SelectAdaptationAsync(
+        GalpinAdaptationCatalogItemResource adaptation)
+    {
+        _selectedAdaptation = adaptation;
+        _isTrendLoading = true;
+        try
+        {
+            var trend = await ApiClient.GetGalpinTrendAsync(
+                adaptation.Adaptation);
+            _selectedTrend = trend is null
+                ? null
+                : new TrendSeriesResource
+                {
+                    Key = ((int)adaptation.Adaptation)
+                        .ToString(),
+                    Label = adaptation.DisplayName
+                            ?? HealthDisplayHelpers.ResolveAdaptationLabel(adaptation.Adaptation),
+                    Color = "#0f5f67",
+                    Points = trend.Points?
+                        .Select(point =>
+                            new TrendPointResource
+                            {
+                                Date = point.Time,
+                                Value = (decimal)point.Score
+                            })
+                        .ToList() ?? []
+                };
+        }
+        catch
+        {
+            _selectedTrend = null;
+        }
+        finally
+        {
+            _isTrendLoading = false;
+        }
+    }
 
-             if (_editingAssessmentId.HasValue)
-             {
-                 await ApiClient.UpdateGalpinAssessmentAsync(
-                     _editingAssessmentId.Value,
-                     _draft);
-             }
-             else
-             {
-                 await ApiClient.CreateGalpinAssessmentAsync(_draft);
-             }
+    private GalpinAssessmentScoreResource GetDraftScore(
+        GalpinAdaptationType adaptation)
+        => _draft.Scores!.First(score =>
+            score.Adaptation == adaptation);
 
-             _operationSeverity = Severity.Success;
-             _operationMessage = _editingAssessmentId.HasValue
-                 ? "Assessment updated."
-                 : "Assessment saved.";
-             await LoadAsync();
-         }
-         catch
-         {
-             _operationSeverity = Severity.Error;
-             _operationMessage = "Assessment could not be saved.";
-         }
-         finally
-         {
-             _isSubmitting = false;
-         }
-     }
+    private double? GetLatestScore(
+        GalpinAdaptationType adaptation)
+        => _latest?.Scores?
+            .FirstOrDefault(score =>
+                score.Adaptation == adaptation)
+            ?.Score;
 
-     private async Task SelectAdaptationAsync(GalpinAdaptationCatalogItemResource adaptation)
-     {
-         _selectedAdaptation = adaptation;
-         _isTrendLoading = true;
+    private void ExpandEvidence(
+        GalpinAdaptationType adaptation)
+        => _notesExpanded.Add(adaptation);
 
-         try
-         {
-             var trend = await ApiClient.GetGalpinTrendAsync(adaptation.Adaptation);
-             _selectedTrend = trend == null
-                 ? null
-                 : new TrendSeriesResource
-                 {
-                     Key = ((int)adaptation.Adaptation).ToString(),
-                     Label = adaptation.DisplayName ?? HealthDisplayHelpers.ResolveAdaptationLabel(adaptation.Adaptation),
-                     Color = "#0f5f67",
-                     Points = trend.Points?.Select(point => new TrendPointResource
-                     {
-                         Date = point.Time,
-                         Value = (decimal)point.Score
-                     }).ToList() ?? new List<TrendPointResource>()
-                 };
-         }
-         catch
-         {
-             _errorMessage = "This trend could not be loaded.";
-             _selectedTrend = null;
-         }
-         finally
-         {
-             _isTrendLoading = false;
-         }
-     }
+    private void BeginEditing(
+        GetGalpinAssessmentResource assessment)
+    {
+        _editingAssessmentId = assessment.Id;
+        _deleteAssessmentId = null;
+        _notesExpanded.Clear();
+        foreach (var score in assessment.Scores ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(
+                score.EvidenceNotes))
+            {
+                _notesExpanded.Add(score.Adaptation);
+            }
+        }
+        SetDraftFrom(
+            assessment,
+            assessment.AssessedOnUtc);
+    }
 
-     private GalpinAssessmentScoreResource GetDraftScore(GalpinAdaptationType adaptation)
-         => _draft.Scores!.First(x => x.Adaptation == adaptation);
+    private void CancelEditing()
+    {
+        _editingAssessmentId = null;
+        _notesExpanded.Clear();
+        SetDraftFrom(null, DateTime.Today);
+    }
 
-     private void BeginEditing(
-         GetGalpinAssessmentResource assessment)
-     {
-         _editingAssessmentId = assessment.Id;
-         _deleteAssessmentId = null;
-         SetDraftFrom(assessment, assessment.AssessedOnUtc);
-     }
+    private void SetDraftFrom(
+        GetGalpinAssessmentResource? source,
+        DateTime assessedOn)
+    {
+        _draft = new AddGalpinAssessmentResource
+        {
+            AssessedOnUtc = assessedOn,
+            Notes = source?.Notes,
+            Scores = _catalog.Select(item =>
+            {
+                var existing = source?.Scores?
+                    .FirstOrDefault(score =>
+                        score.Adaptation
+                        == item.Adaptation);
+                return new GalpinAssessmentScoreResource
+                {
+                    Adaptation = item.Adaptation,
+                    Score = existing?.Score,
+                    EvidenceNotes =
+                        existing?.EvidenceNotes
+                };
+            }).ToList()
+        };
+        _draftAssessedOn = assessedOn;
+    }
 
-     private void CancelEditing()
-     {
-         _editingAssessmentId = null;
-         SetDraftFrom(_latest, DateTime.UtcNow);
-     }
+    private async Task DeleteAssessmentAsync(Guid id)
+    {
+        _isDeleting = true;
+        try
+        {
+            await ApiClient.DeleteGalpinAssessmentAsync(id);
+            _operationSeverity = Severity.Success;
+            _operationMessage = "Assessment deleted.";
+            await LoadAsync();
+        }
+        catch
+        {
+            _operationSeverity = Severity.Error;
+            _operationMessage =
+                "Assessment could not be deleted.";
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+    }
 
-     private void SetDraftFrom(
-         GetGalpinAssessmentResource? source,
-         DateTime assessedOn)
-     {
-         _draft = new AddGalpinAssessmentResource
-         {
-             AssessedOnUtc = assessedOn,
-             Notes = source?.Notes,
-             Scores = _catalog.Select(item =>
-             {
-                 var existing = source?.Scores?.FirstOrDefault(
-                     score => score.Adaptation == item.Adaptation);
-                 return new GalpinAssessmentScoreResource
-                 {
-                     Adaptation = item.Adaptation,
-                     Score = existing?.Score,
-                     EvidenceNotes = existing?.EvidenceNotes
-                 };
-             }).ToList()
-         };
-         _draftAssessedOn = assessedOn;
-     }
+    private static string FormatScoreChange(
+        double current,
+        double previous)
+    {
+        var change = current - previous;
+        return change == 0
+            ? "same"
+            : $"{(change > 0 ? "+" : string.Empty)}{change:0.#}";
+    }
 
-     private async Task DeleteAssessmentAsync(Guid assessmentId)
-     {
-         _isDeleting = true;
-         _operationMessage = null;
-
-         try
-         {
-             await ApiClient.DeleteGalpinAssessmentAsync(
-                 assessmentId);
-             _operationSeverity = Severity.Success;
-             _operationMessage = "Assessment deleted.";
-             await LoadAsync();
-         }
-         catch
-         {
-             _operationSeverity = Severity.Error;
-             _operationMessage =
-                 "Assessment could not be deleted.";
-         }
-         finally
-         {
-             _isDeleting = false;
-         }
-     }
-
-     private static double AverageScore(GetGalpinAssessmentResource assessment)
-         => assessment.Scores == null || assessment.Scores.Count == 0
-             ? 0
-             : assessment.Scores.Where(x => x.Score.HasValue).Select(x => x.Score!.Value).DefaultIfEmpty().Average();
- }
+    private static double AverageScore(
+        GetGalpinAssessmentResource assessment)
+        => assessment.Scores?
+            .Where(score => score.Score.HasValue)
+            .Select(score => score.Score!.Value)
+            .DefaultIfEmpty()
+            .Average() ?? 0;
+}

@@ -10,7 +10,7 @@
         <div>
             <MudText Typo="Typo.h5">Personal profile</MudText>
             <MudText Typo="Typo.caption" Class="hs-muted-copy">
-                Used for health ranges and bodyweight exercises.
+                Date of birth and biological sex adjust health ranges.
             </MudText>
         </div>
     </div>
@@ -90,6 +90,8 @@
     private HealthBiologicalSex _biologicalSex;
     private int? _heightCm;
     private int? _weightKg;
+    private DateOnly? _loadedDateOfBirth;
+    private HealthBiologicalSex _loadedBiologicalSex;
     private bool _isLoading = true;
     private bool _isSaving;
     private string? _errorMessage;
@@ -109,6 +111,8 @@
             _dateOfBirth = profile.DateOfBirth?.ToDateTime(
                 TimeOnly.MinValue);
             _biologicalSex = profile.BiologicalSex;
+            _loadedDateOfBirth = profile.DateOfBirth;
+            _loadedBiologicalSex = profile.BiologicalSex;
             _heightCm = profile.HeightCm;
             _weightKg = profile.WeightKg;
         }
@@ -132,13 +136,18 @@
 
         try
         {
+            DateOnly? submittedDate = _dateOfBirth.HasValue
+                ? DateOnly.FromDateTime(_dateOfBirth.Value)
+                : null;
+            var rangeInputsChanged =
+                submittedDate != _loadedDateOfBirth
+                || _biologicalSex
+                    != _loadedBiologicalSex;
             var saved = await ApiClient.UpdateHealthProfileAsync(
                 new UpdateHealthProfileResource
                 {
                     Name = _name,
-                    DateOfBirth = _dateOfBirth.HasValue
-                        ? DateOnly.FromDateTime(_dateOfBirth.Value)
-                        : null,
+                    DateOfBirth = submittedDate,
                     BiologicalSex = _biologicalSex,
                     HeightCm = _heightCm,
                     WeightKg = _weightKg
@@ -150,7 +159,13 @@
             _biologicalSex = saved.BiologicalSex;
             _heightCm = saved.HeightCm;
             _weightKg = saved.WeightKg;
-            Snackbar.Add("Profile saved.", Severity.Success);
+            _loadedDateOfBirth = saved.DateOfBirth;
+            _loadedBiologicalSex = saved.BiologicalSex;
+            Snackbar.Add(
+                rangeInputsChanged
+                    ? "Profile saved. Blood test ranges refreshed."
+                    : "Profile saved.",
+                Severity.Success);
         }
         catch
         {
