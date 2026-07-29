@@ -11,7 +11,7 @@
 <NavigationLock ConfirmExternalNavigation="@(_isDirty && !_allowNavigation)"
                 OnBeforeInternalNavigation="HandleBeforeNavigation" />
 
-<PageShell>
+<PageShell Class="hs-review-page">
     <div class="hs-compact-page-heading">
         <div>
             <MudButton Variant="Variant.Text"
@@ -24,9 +24,23 @@
         </div>
         @if (_bloodTest is not null)
         {
-            <span class="hs-review-progress">
-                @_markerRows.Count rows
-            </span>
+            <div class="hs-review-heading-actions">
+                @if (!string.IsNullOrWhiteSpace(
+                    _bloodTest.SourceFileName))
+                {
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                               Disabled="_isLoadingDocument"
+                               Loading="_isLoadingDocument"
+                               OnClick="OpenDocumentAsync">
+                        Report
+                    </MudButton>
+                }
+                <span class="hs-review-progress">
+                    @_markerRows.Count markers
+                </span>
+            </div>
         }
     </div>
 
@@ -73,7 +87,7 @@
             </div>
         }
 
-        <div class="hs-review-layout">
+        <div class="hs-review-layout @(_showDocumentViewer ? "has-source" : null)">
             <section class="hs-health-panel hs-review-editor"
                      @oninput="MarkDirty">
                 <div class="hs-review-meta-grid">
@@ -174,60 +188,66 @@
                 </div>
 
                 <div class="hs-review-desktop">
-                    <MudTable Items="@_markerRows"
-                              Dense="true"
-                              Hover="true"
-                              Class="hs-review-table">
-                        <HeaderContent>
-                            <MudTh>Name</MudTh>
-                            <MudTh>Value</MudTh>
-                            <MudTh>Unit</MudTh>
-                            <MudTh>Minimum</MudTh>
-                            <MudTh>Maximum</MudTh>
-                            <MudTh>Status</MudTh>
-                            <MudTh></MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd DataLabel="Name">
-                                <MudTextField @bind-Value="context.Name"
+                    <div class="hs-review-grid"
+                         role="table"
+                         aria-label="Blood test markers">
+                        <div class="hs-review-grid-header"
+                             role="row">
+                            <span>Name</span>
+                            <span>Result</span>
+                            <span>
+                                Reference range
+                                <small>Minimum / maximum</small>
+                            </span>
+                            <span>Status</span>
+                            <span></span>
+                        </div>
+                        @foreach (var marker in _markerRows)
+                        {
+                            <div class="hs-review-grid-row @(HasValidationIssue(marker) ? "has-issue" : null)"
+                                 role="row">
+                                <MudTextField @bind-Value="marker.Name"
+                                              Placeholder="Marker name"
                                               Variant="Variant.Outlined"
-                                              Margin="Margin.Dense" />
-                            </MudTd>
-                            <MudTd DataLabel="Value">
-                                <MudNumericField T="double?"
-                                                 @bind-Value="context.Value"
-                                                 Variant="Variant.Outlined"
-                                                 Margin="Margin.Dense" />
-                            </MudTd>
-                            <MudTd DataLabel="Unit">
-                                <MudTextField @bind-Value="context.Unit"
-                                              Variant="Variant.Outlined"
-                                              Margin="Margin.Dense" />
-                            </MudTd>
-                            <MudTd DataLabel="Minimum">
-                                <MudNumericField T="double?"
-                                                 @bind-Value="context.ReferenceMinValue"
-                                                 Variant="Variant.Outlined"
-                                                 Margin="Margin.Dense" />
-                            </MudTd>
-                            <MudTd DataLabel="Maximum">
-                                <MudNumericField T="double?"
-                                                 @bind-Value="context.ReferenceMaxValue"
-                                                 Variant="Variant.Outlined"
-                                                 Margin="Margin.Dense" />
-                            </MudTd>
-                            <MudTd DataLabel="Status">
-                                <ClinicalStatusChip Status="@GetStatusLabel(context)" />
-                            </MudTd>
-                            <MudTd>
+                                              Margin="Margin.Dense"
+                                              aria-label="Marker name" />
+                                <div class="hs-review-result-fields">
+                                    <MudNumericField T="double?"
+                                                     @bind-Value="marker.Value"
+                                                     Placeholder="Value"
+                                                     Variant="Variant.Outlined"
+                                                     Margin="Margin.Dense"
+                                                     aria-label="@($"{marker.Name} value")" />
+                                    <MudTextField @bind-Value="marker.Unit"
+                                                  Placeholder="Unit"
+                                                  Variant="Variant.Outlined"
+                                                  Margin="Margin.Dense"
+                                                  aria-label="@($"{marker.Name} unit")" />
+                                </div>
+                                <div class="hs-review-range-fields">
+                                    <MudNumericField T="double?"
+                                                     @bind-Value="marker.ReferenceMinValue"
+                                                     Placeholder="Min"
+                                                     Variant="Variant.Outlined"
+                                                     Margin="Margin.Dense"
+                                                     aria-label="@($"{marker.Name} reference minimum")" />
+                                    <span aria-hidden="true">–</span>
+                                    <MudNumericField T="double?"
+                                                     @bind-Value="marker.ReferenceMaxValue"
+                                                     Placeholder="Max"
+                                                     Variant="Variant.Outlined"
+                                                     Margin="Margin.Dense"
+                                                     aria-label="@($"{marker.Name} reference maximum")" />
+                                </div>
+                                <ClinicalStatusChip Status="@GetStatusLabel(marker)" />
                                 <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
                                                Color="Color.Error"
                                                Size="Size.Small"
-                                               OnClick="() => RemoveMarker(context)"
+                                               OnClick="() => RemoveMarker(marker)"
                                                aria-label="Remove marker" />
-                            </MudTd>
-                        </RowTemplate>
-                    </MudTable>
+                            </div>
+                        }
+                    </div>
                 </div>
 
                 <MudButton Variant="Variant.Text"
@@ -237,7 +257,9 @@
                 </MudButton>
             </section>
 
-            <aside class="hs-health-panel hs-review-source @(_showDocumentViewer ? "is-open" : null)">
+            @if (_showDocumentViewer)
+            {
+            <aside class="hs-health-panel hs-review-source is-open">
                 <div class="hs-section-heading">
                     <div>
                         <MudText Typo="Typo.h6">Original report</MudText>
@@ -251,13 +273,10 @@
                         _bloodTest.SourceFileName))
                     {
                         <div class="hs-review-source-actions">
-                            <MudButton Variant="Variant.Outlined"
-                                       Color="Color.Default"
-                                       Disabled="_isLoadingDocument"
-                                       Loading="_isLoadingDocument"
-                                       OnClick="OpenDocumentAsync">
-                                View
-                            </MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                           Disabled="_isLoadingDocument"
+                                           OnClick="LoadDocumentAsync"
+                                           aria-label="Reload original report" />
                             <MudIconButton Icon="@Icons.Material.Filled.Close"
                                            Class="hs-review-source-close"
                                            OnClick="CloseDocumentViewer"
@@ -292,6 +311,7 @@
                     </div>
                 }
             </aside>
+            }
         </div>
 
         <div class="hs-review-save-bar">

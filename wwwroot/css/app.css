@@ -4179,11 +4179,26 @@ button.hs-health-overview-card {
   border-bottom: 0;
 }
 
+.hs-page-shell.hs-review-page {
+  width: 100%;
+  max-width: 1560px;
+}
+
+.hs-review-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-2);
+}
+
 .hs-review-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(280px, .9fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--hs-space-3);
   align-items: start;
+}
+
+.hs-review-layout.has-source {
+  grid-template-columns: minmax(700px, 1fr) minmax(360px, 440px);
 }
 
 .hs-review-editor {
@@ -4202,7 +4217,7 @@ button.hs-health-overview-card {
 }
 
 .hs-review-source-close {
-  display: none;
+  display: inline-flex;
 }
 
 .hs-review-mobile {
@@ -4212,6 +4227,95 @@ button.hs-health-overview-card {
 .hs-review-desktop {
   margin-top: var(--hs-space-3);
   overflow-x: auto;
+}
+
+.hs-review-grid {
+  min-width: 760px;
+  overflow: hidden;
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-md);
+  background: var(--hs-color-surface);
+}
+
+.hs-review-grid-header,
+.hs-review-grid-row {
+  display: grid;
+  grid-template-columns:
+    minmax(150px, 1.25fr)
+    minmax(190px, 1.05fr)
+    minmax(230px, 1.2fr)
+    minmax(88px, .55fr)
+    40px;
+  gap: var(--hs-space-2);
+  align-items: center;
+}
+
+.hs-review-grid-header {
+  min-height: 46px;
+  padding: 0 var(--hs-space-2);
+  border-bottom: 1px solid var(--hs-color-border);
+  background: var(--hs-color-background-grey);
+  color: var(--hs-color-muted);
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+
+.hs-review-grid-header small {
+  display: block;
+  margin-top: 1px;
+  font-size: .62rem;
+  font-weight: 600;
+}
+
+.hs-review-grid-row {
+  min-height: 62px;
+  padding: 7px var(--hs-space-2);
+  border-bottom: 1px solid var(--hs-color-border);
+}
+
+.hs-review-grid-row:last-child {
+  border-bottom: 0;
+}
+
+.hs-review-grid-row:hover {
+  background: color-mix(
+    in srgb,
+    var(--hs-color-primary) 3%,
+    var(--hs-color-surface));
+}
+
+.hs-review-grid-row.has-issue {
+  background: color-mix(
+    in srgb,
+    var(--hs-color-warning) 8%,
+    var(--hs-color-surface));
+}
+
+.hs-review-result-fields,
+.hs-review-range-fields {
+  display: grid;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.hs-review-result-fields {
+  grid-template-columns: minmax(82px, 1fr) minmax(76px, .85fr);
+}
+
+.hs-review-range-fields {
+  grid-template-columns: minmax(84px, 1fr) auto minmax(84px, 1fr);
+}
+
+.hs-review-range-fields > span {
+  color: var(--hs-color-muted);
+}
+
+.hs-review-grid-row .mud-input-control,
+.hs-review-grid-row .mud-input,
+.hs-review-grid-row .mud-input-slot {
+  min-width: 0;
 }
 
 .hs-review-issue-bar,
@@ -4502,6 +4606,7 @@ button.hs-health-overview-card {
 
 @media (max-width: 959px) {
   .hs-review-layout,
+  .hs-review-layout.has-source,
   .hs-biomarker-layout,
   .hs-assessment-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -4516,6 +4621,24 @@ button.hs-health-overview-card {
     grid-template-areas:
       "detail"
       "list";
+  }
+
+  .hs-review-source.is-open {
+    position: fixed;
+    z-index: 1400;
+    inset: 0;
+    overflow-y: auto;
+    padding: calc(var(--hs-space-3) + env(safe-area-inset-top))
+      var(--hs-space-3)
+      calc(var(--hs-space-3) + env(safe-area-inset-bottom));
+    border-radius: 0;
+    background: var(--hs-color-surface);
+  }
+
+  .hs-review-source.is-open .hs-report-preview img,
+  .hs-review-source.is-open .hs-report-preview iframe {
+    min-height: calc(100dvh - 110px);
+    object-fit: contain;
   }
 }
 
@@ -4549,28 +4672,6 @@ button.hs-health-overview-card {
 
   .hs-review-source {
     order: -1;
-  }
-
-  .hs-review-source.is-open {
-    position: fixed;
-    z-index: 1400;
-    inset: 0;
-    overflow-y: auto;
-    padding: calc(var(--hs-space-3) + env(safe-area-inset-top))
-      var(--hs-space-3)
-      calc(var(--hs-space-3) + env(safe-area-inset-bottom));
-    border-radius: 0;
-    background: var(--hs-color-surface);
-  }
-
-  .hs-review-source.is-open .hs-review-source-close {
-    display: inline-flex;
-  }
-
-  .hs-review-source.is-open .hs-report-preview img,
-  .hs-review-source.is-open .hs-report-preview iframe {
-    min-height: calc(100dvh - 110px);
-    object-fit: contain;
   }
 
   .hs-review-save-bar {
