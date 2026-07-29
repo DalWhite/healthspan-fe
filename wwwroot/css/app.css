@@ -3833,21 +3833,52 @@ a.hs-exercise-history-row:hover {
   font-weight: 700;
 }
 
-.hs-training-activity-grid {
+.hs-training-activity-months {
   display: grid;
-  grid-template-rows: repeat(7, 13px);
-  grid-auto-flow: column;
-  grid-auto-columns: 13px;
-  gap: 4px;
-  width: max-content;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  justify-content: center;
+  gap: clamp(10px, 3vw, 24px);
   max-width: 100%;
   margin: var(--hs-space-3) auto;
-  overflow-x: auto;
+}
+
+.hs-training-activity-month {
+  min-width: 0;
+}
+
+.hs-training-activity-month-name {
+  display: block;
+  margin-bottom: var(--hs-space-2);
+  color: var(--hs-color-text);
+  font-size: .82rem;
+  text-align: center;
+}
+
+.hs-training-activity-weekdays,
+.hs-training-activity-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.hs-training-activity-weekdays {
+  margin-bottom: 5px;
+  color: var(--hs-color-muted);
+  font-size: .66rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.hs-training-activity-calendar {
+  grid-template-rows: repeat(6, auto);
 }
 
 .hs-training-activity-day {
-  width: 13px;
-  height: 13px;
+  display: block;
+  width: 100%;
+  max-width: 22px;
+  aspect-ratio: 1;
+  justify-self: center;
   border-radius: 3px;
   background: rgba(15, 95, 103, .08);
 }
@@ -3872,10 +3903,41 @@ a.hs-exercise-history-row:hover {
   visibility: hidden;
 }
 
-.hs-training-activity-range {
+.hs-training-activity-day.is-future {
+  background: transparent;
+  border: 1px solid rgba(15, 95, 103, .1);
+}
+
+.hs-training-activity-legend {
   display: flex;
-  justify-content: space-between;
-  gap: var(--hs-space-2);
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   color: var(--hs-color-muted);
-  font-size: .72rem;
+  font-size: .68rem;
+}
+
+.hs-training-activity-legend .hs-training-activity-day {
+  width: 10px;
+  height: 10px;
+  aspect-ratio: auto;
+}
+
+.hs-training-activity-legend > span:first-child {
+  margin-right: 3px;
+}
+
+.hs-training-activity-legend > span:last-child {
+  margin-left: 3px;
+}
+
+@media (max-width: 380px) {
+  .hs-training-activity-months {
+    gap: 8px;
+  }
+
+  .hs-training-activity-weekdays,
+  .hs-training-activity-calendar {
+    gap: 3px;
+  }
 }

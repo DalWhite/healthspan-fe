@@ -9,29 +9,54 @@
         </span>
     </div>
 
-    <div class="hs-training-activity-grid"
-         role="img"
-         aria-label="@($"{ActiveDayCount} training days in the last 35 days")">
-        @foreach (var cell in Cells)
+    <div class="hs-training-activity-months">
+        @foreach (var month in Months)
         {
-            if (cell.Date is null)
-            {
-                <span class="hs-training-activity-day is-spacer"
-                      aria-hidden="true"></span>
-            }
-            else
-            {
-                <span class="hs-training-activity-day level-@GetLevel(cell)"
-                      title="@GetTitle(cell)"
-                      aria-hidden="true"></span>
-            }
+            <section class="hs-training-activity-month"
+                     aria-label="@month.ToString("MMMM yyyy")">
+                <strong class="hs-training-activity-month-name">
+                    @month.ToString("MMM yyyy")
+                </strong>
+
+                <div class="hs-training-activity-weekdays"
+                     aria-hidden="true">
+                    @foreach (var weekday in Weekdays)
+                    {
+                        <span title="@weekday.Name">@weekday.Label</span>
+                    }
+                </div>
+
+                <div class="hs-training-activity-calendar"
+                     role="grid"
+                     aria-label="@($"{month:MMMM yyyy} training activity")">
+                    @foreach (var cell in BuildMonthCells(month))
+                    {
+                        if (cell.Date is null)
+                        {
+                            <span class="hs-training-activity-day is-spacer"
+                                  aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <span class="@GetCellClass(cell)"
+                                  role="gridcell"
+                                  title="@GetTitle(cell)"
+                                  aria-label="@GetTitle(cell)"></span>
+                        }
+                    }
+                </div>
+            </section>
         }
     </div>
 
-    <div class="hs-training-activity-range">
-        <span>@StartDate.ToString("d MMM")</span>
-        <span>Last 35 days</span>
-        <span>@EndDate.ToString("d MMM")</span>
+    <div class="hs-training-activity-legend" aria-hidden="true">
+        <span>No training</span>
+        <span class="hs-training-activity-day level-0"></span>
+        <span class="hs-training-activity-day level-1"></span>
+        <span class="hs-training-activity-day level-2"></span>
+        <span class="hs-training-activity-day level-3"></span>
+        <span class="hs-training-activity-day level-4"></span>
+        <span>More activity</span>
     </div>
 </section>
 
@@ -43,53 +68,81 @@
         set;
     } = Array.Empty<TrainingDayActivityResource>();
 
-    private DateTime EndDate => DateTime.Today;
-    private DateTime StartDate => EndDate.AddDays(-34);
+    private static readonly IReadOnlyList<Weekday> Weekdays =
+    [
+        new("M", "Monday"),
+        new("T", "Tuesday"),
+        new("W", "Wednesday"),
+        new("T", "Thursday"),
+        new("F", "Friday"),
+        new("S", "Saturday"),
+        new("S", "Sunday")
+    ];
+
+    private DateTime CurrentMonthStart
+        => new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime PreviousMonthStart
+        => CurrentMonthStart.AddMonths(-1);
+    private IReadOnlyList<DateTime> Months
+        => [PreviousMonthStart, CurrentMonthStart];
     private int ActiveDayCount
         => ActivityDays.Count(day =>
-            day.Date.Date >= StartDate
-            && day.Date.Date <= EndDate
+            day.Date.Date >= PreviousMonthStart
+            && day.Date.Date <= DateTime.Today
             && day.WorkoutCount > 0);
 
-    private IReadOnlyList<ActivityCell> Cells
+    private IReadOnlyList<ActivityCell> BuildMonthCells(
+        DateTime monthStart)
     {
-        get
+        var activityByDate = ActivityDays
+            .GroupBy(day => day.Date.Date)
+            .ToDictionary(
+                group => group.Key,
+                group => new TrainingDayActivityResource
+                {
+                    Date = group.Key,
+                    WorkoutCount = group.Sum(day =>
+                        day.WorkoutCount),
+                    ExerciseCount = group.Sum(day =>
+                        day.ExerciseCount)
+                });
+        var leadingSpacers =
+            (7 + (monthStart.DayOfWeek - DayOfWeek.Monday))
+            % 7;
+        var cells = new List<ActivityCell>(42);
+
+        for (var index = 0; index < leadingSpacers; index++)
         {
-            var activityByDate = ActivityDays
-                .GroupBy(day => day.Date.Date)
-                .ToDictionary(
-                    group => group.Key,
-                    group => new TrainingDayActivityResource
-                    {
-                        Date = group.Key,
-                        WorkoutCount = group.Sum(day =>
-                            day.WorkoutCount),
-                        ExerciseCount = group.Sum(day =>
-                            day.ExerciseCount)
-                    });
-            var leadingSpacers =
-                (7 + (StartDate.DayOfWeek - DayOfWeek.Monday))
-                % 7;
-            var cells = new List<ActivityCell>();
-
-            for (var index = 0; index < leadingSpacers; index++)
-            {
-                cells.Add(new ActivityCell(null, 0, 0));
-            }
-
-            for (var offset = 0; offset < 35; offset++)
-            {
-                var date = StartDate.AddDays(offset);
-                activityByDate.TryGetValue(date, out var activity);
-                cells.Add(new ActivityCell(
-                    date,
-                    activity?.WorkoutCount ?? 0,
-                    activity?.ExerciseCount ?? 0));
-            }
-
-            return cells;
+            cells.Add(new ActivityCell(null, 0, 0));
         }
+
+        var daysInMonth = DateTime.DaysInMonth(
+            monthStart.Year,
+            monthStart.Month);
+        for (var day = 1; day <= daysInMonth; day++)
+        {
+            var date = new DateTime(
+                monthStart.Year,
+                monthStart.Month,
+                day);
+            activityByDate.TryGetValue(date, out var activity);
+            cells.Add(new ActivityCell(
+                date,
+                activity?.WorkoutCount ?? 0,
+                activity?.ExerciseCount ?? 0));
+        }
+
+        while (cells.Count < 42)
+        {
+            cells.Add(new ActivityCell(null, 0, 0));
+        }
+
+        return cells;
     }
+
+    private static string GetCellClass(ActivityCell cell)
+        => $"hs-training-activity-day level-{GetLevel(cell)}"
+           + (cell.Date > DateTime.Today ? " is-future" : string.Empty);
 
     private static int GetLevel(ActivityCell cell)
         => cell.WorkoutCount <= 0
@@ -109,6 +162,11 @@
             return string.Empty;
         }
 
+        if (cell.Date > DateTime.Today)
+        {
+            return $"{cell.Date:dddd, d MMMM}: upcoming";
+        }
+
         var sessions = cell.WorkoutCount == 1
             ? "1 session"
             : $"{cell.WorkoutCount} sessions";
@@ -121,4 +179,6 @@
         DateTime? Date,
         int WorkoutCount,
         int ExerciseCount);
+
+    private sealed record Weekday(string Label, string Name);
 }
