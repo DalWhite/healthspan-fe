@@ -710,6 +710,33 @@ html {
   margin-top: var(--hs-space-5);
 }
 
+.hs-workout-duplicate-exercises {
+  display: grid;
+  gap: var(--hs-space-2);
+  margin-top: var(--hs-space-4);
+}
+
+.hs-workout-duplicate-all,
+.hs-workout-duplicate-exercise {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-3);
+  min-height: var(--hs-touch-target);
+  padding: var(--hs-space-2) var(--hs-space-3);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-sm);
+  font-size: var(--hs-font-size-sm);
+}
+
+.hs-workout-duplicate-all {
+  font-weight: 650;
+}
+
+.hs-workout-duplicate-exercise .hs-workout-exercise-prescription {
+  margin-left: auto;
+  color: var(--hs-color-muted);
+}
+
 .hs-workout-sheet-button {
   min-height: var(--hs-touch-target);
   padding: 0 var(--hs-space-3);

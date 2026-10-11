@@ -243,6 +243,11 @@
                                         Edit workout
                                     </button>
                                     <button type="button"
+                                            class="hs-workout-action"
+                                            @onclick="() => OpenDuplicate(detail)">
+                                        Duplicate
+                                    </button>
+                                    <button type="button"
                                             class="hs-workout-action is-danger"
                                             @onclick="() => OpenDelete(detail)">
                                         Delete
@@ -363,6 +368,80 @@
     </div>
 }
 
+@if (_duplicateCandidate is not null)
+{
+    <div class="hs-workout-sheet-backdrop" @onclick="CloseDuplicate">
+        <section class="hs-workout-sheet"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="duplicate-workout-title"
+                 @onclick:stopPropagation="true">
+            <div class="hs-workout-sheet-handle" aria-hidden="true"></div>
+            <h2 id="duplicate-workout-title">Duplicate workout</h2>
+            <p class="hs-workout-sheet-copy">
+                Copies @FormatLoggedExerciseRecords(_duplicateCandidate.ExerciseCount)
+                to another date. Pick the exercises you want to copy.
+            </p>
+
+            <div class="hs-workout-sheet-fields">
+                <label for="duplicate-workout-date">New date</label>
+                <InputDate id="duplicate-workout-date"
+                           class="hs-workout-sheet-input"
+                           @bind-Value="_duplicateDate" />
+
+                <label for="duplicate-workout-type">Name</label>
+                <InputText id="duplicate-workout-type"
+                           class="hs-workout-sheet-input"
+                           maxlength="100"
+                           @bind-Value="_duplicateType" />
+            </div>
+
+            <div class="hs-workout-duplicate-exercises"
+                 role="group"
+                 aria-label="Exercises to copy">
+                <label class="hs-workout-duplicate-all">
+                    <input type="checkbox"
+                           checked="@(_duplicateSelected.Count == _duplicateCandidate.Exercises.Count)"
+                           @onchange="ToggleAllDuplicateExercises" />
+                    All exercises
+                </label>
+                @foreach (var exercise in _duplicateCandidate.Exercises)
+                {
+                    <label class="hs-workout-duplicate-exercise">
+                        <input type="checkbox"
+                               checked="@_duplicateSelected.Contains(exercise.Id)"
+                               @onchange="(e) => ToggleDuplicateExercise(exercise.Id, e)" />
+                        <span>@(exercise.Name ?? "Exercise")</span>
+                        <span class="hs-workout-exercise-prescription">
+                            @FormatExercisePrescription(exercise)
+                        </span>
+                    </label>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_dialogError))
+            {
+                <p class="hs-workout-sheet-error" role="alert">@_dialogError</p>
+            }
+
+            <div class="hs-workout-sheet-actions">
+                <button type="button"
+                        class="hs-workout-sheet-button"
+                        disabled="@_isSaving"
+                        @onclick="CloseDuplicate">
+                    Cancel
+                </button>
+                <button type="button"
+                        class="hs-workout-sheet-button is-primary"
+                        disabled="@(_isSaving || _duplicateSelected.Count == 0)"
+                        @onclick="DuplicateWorkoutAsync">
+                    @(_isSaving ? "Duplicating..." : "Duplicate")
+                </button>
+            </div>
+        </section>
+    </div>
+}
+
 @code {
     private const int PageSize = 20;
 
@@ -378,6 +457,10 @@
     private string? _statusMessage;
     private WorkoutEditModel? _editModel;
     private GetWorkoutResource? _deleteCandidate;
+    private GetWorkoutResource? _duplicateCandidate;
+    private DateTime _duplicateDate = DateTime.Today;
+    private string _duplicateType = string.Empty;
+    private readonly HashSet<Guid> _duplicateSelected = new();
     private bool _isLoading = true;
     private bool _isLoadingMore;
     private bool _isSaving;
@@ -696,6 +779,134 @@
         _dialogError = null;
         _statusMessage = null;
         _deleteCandidate = workout;
+    }
+
+    private void OpenDuplicate(GetWorkoutResource workout)
+    {
+        _dialogError = null;
+        _statusMessage = null;
+        _duplicateCandidate = workout;
+        _duplicateDate = workout.Date?.Date ?? DateTime.Today;
+        _duplicateType = string.IsNullOrWhiteSpace(workout.Type)
+            ? "Workout"
+            : workout.Type;
+        _duplicateSelected.Clear();
+        foreach (var exercise in workout.Exercises)
+        {
+            _duplicateSelected.Add(exercise.Id);
+        }
+    }
+
+    private void CloseDuplicate()
+    {
+        if (_isSaving)
+        {
+            return;
+        }
+
+        _duplicateCandidate = null;
+        _duplicateSelected.Clear();
+        _dialogError = null;
+    }
+
+    private void ToggleAllDuplicateExercises(ChangeEventArgs changeEventArgs)
+    {
+        if (_duplicateCandidate is null)
+        {
+            return;
+        }
+
+        _duplicateSelected.Clear();
+        if (Convert.ToBoolean(changeEventArgs.Value))
+        {
+            foreach (var exercise in _duplicateCandidate.Exercises)
+            {
+                _duplicateSelected.Add(exercise.Id);
+            }
+        }
+    }
+
+    private void ToggleDuplicateExercise(Guid exerciseId, ChangeEventArgs changeEventArgs)
+    {
+        if (Convert.ToBoolean(changeEventArgs.Value))
+        {
+            _duplicateSelected.Add(exerciseId);
+        }
+        else
+        {
+            _duplicateSelected.Remove(exerciseId);
+        }
+    }
+
+    private async Task DuplicateWorkoutAsync()
+    {
+        if (_duplicateCandidate is null || _workouts is null)
+        {
+            return;
+        }
+
+        var sourceWorkoutId = _duplicateCandidate.Id;
+        _isSaving = true;
+        _dialogError = null;
+
+        try
+        {
+            using var response = await Http.PostAsJsonAsync(
+                $"workouts/{sourceWorkoutId}/duplicate",
+                new
+                {
+                    Date = _duplicateDate.ToString("yyyy-MM-dd"),
+                    Type = _duplicateType.Trim(),
+                    ExerciseIds = _duplicateSelected.ToList()
+                });
+            if (!response.IsSuccessStatusCode)
+            {
+                _dialogError = await ReadProblemTitleAsync(
+                    response,
+                    "Couldn't duplicate this workout.");
+                return;
+            }
+
+            var result = await response.Content
+                .ReadFromJsonAsync<DuplicatedWorkoutResource>();
+            if (result is null)
+            {
+                throw new InvalidOperationException("The workout response was empty.");
+            }
+
+            _duplicateCandidate = null;
+            _duplicateSelected.Clear();
+            _statusMessage = "Workout duplicated.";
+            InsertWorkout(result.Workout);
+        }
+        catch (Exception)
+        {
+            _dialogError = "Couldn't duplicate this workout.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void InsertWorkout(GetWorkoutResource workout)
+    {
+        if (_workouts is null)
+        {
+            return;
+        }
+
+        if (_workouts.All(existing => existing.Id != workout.Id))
+        {
+            _workouts.Add(workout);
+            _totalCount = Math.Max(_totalCount + 1, _workouts.Count);
+        }
+
+        _details[workout.Id] = workout;
+        _workouts = _workouts
+            .OrderByDescending(item => item.Date)
+            .ThenByDescending(item => item.Id)
+            .ToList();
     }
 
     private void CloseDelete()
