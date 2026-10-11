@@ -1,0 +1,16 @@
+﻿@page "/training/trained"
+@inject TitleService TitleService
+
+<PageTitle>Trained Exercises</PageTitle>
+
+<PageShell>
+    <PageHeader Title="Trained Exercises" />
+
+    <ExerciseTypeGrid TrainedOnly="true" ShowSearch="true" />
+</PageShell>
+
+@code {
+    protected override void OnInitialized()
+        => TitleService.Title = "Trained Exercises";
+
+}

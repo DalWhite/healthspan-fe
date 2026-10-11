@@ -1,11 +1,13 @@
 using Bunit;
 using Bunit.TestDoubles;
 using FluentAssertions;
+using System.Linq;
 using System.Net;
 using healthspan_fe.tests.Infrastructure;
 using healthspan_fe_wasm_pwa.Components;
 using healthspan_fe_wasm_pwa.Pages.ExerciseTypes;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using RichardSzalay.MockHttp;
 using Xunit;
 
@@ -108,6 +110,80 @@ public class ExerciseTypesPageTests : BlazorTestBase
                     "input[placeholder='Search exercises, variations, or tags...']")
                 .GetAttribute("value")
                 .Should().Be("Romanian"));
+    }
+
+    [Fact]
+    public void TrainedExerciseTypes_Page_Requests_TrainedEndpoint_And_Renders_Only_Trained()
+    {
+        ConfigureCatalogResponses();
+        MockHttp.When("/ExerciseTypes/trained")
+            .Respond("application/json", """
+                [
+                    {
+                      "id": 1,
+                      "name": "Sit Up",
+                      "description": "Base sit-up pattern",
+                      "muscleAssignments": [
+                        { "muscleId": 11, "role": "Primary", "sortOrder": 1 }
+                      ],
+                      "isFavourite": false,
+                      "parentExerciseTypeId": null,
+                      "tags": [
+                        { "name": "bodyweight", "category": "equipment" }
+                      ]
+                    }
+                ]
+            """);
+
+        var cut = RenderComponent<TrainedExerciseTypes>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Sit Up");
+            cut.Markup.Should().NotContain("Romanian Sit Up");
+            cut.FindAll(".exercise-card").Should().HaveCount(1);
+        }, timeout: TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
+    public void CreateExerciseType_Shows_Backend_ValidationError()
+    {
+        ConfigureCatalogResponses();
+
+        MockHttp.Expect(HttpMethod.Post, "/ExerciseTypes")
+            .Respond(HttpStatusCode.BadRequest, "application/problem+json",
+                """
+                { "title": "An exercise type named 'Sit Up' already exists.", "status": 400 }
+                """);
+
+        var renderer = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<healthspan_fe_wasm_pwa.Pages.ExerciseTypes.CreateExerciseTypes>(1);
+            builder.CloseComponent();
+        });
+
+        var nameInput = renderer.WaitForElement("input.mud-input-root");
+        nameInput.Input("Sit Up");
+
+        var primarySelect = renderer.FindAll("div.mud-input-control.mud-select")[1];
+        primarySelect.Click();
+
+        renderer.WaitForAssertion(() =>
+        {
+            var absOption = renderer.FindAll(".mud-list-item")
+                .First(item => item.TextContent.Trim() == "Abs");
+            absOption.Click();
+        }, timeout: TimeSpan.FromSeconds(3));
+
+        renderer.FindAll("button").First(button => button.TextContent.Contains("Save Form")).Click();
+
+        renderer.WaitForAssertion(() =>
+        {
+            renderer.Markup.Should().Contain("already exists");
+            MockHttp.VerifyNoOutstandingExpectation();
+        }, timeout: TimeSpan.FromSeconds(3));
     }
 
     private void ConfigureCatalogResponses()

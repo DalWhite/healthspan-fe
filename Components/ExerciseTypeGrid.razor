@@ -272,6 +272,7 @@ else
 @code {
     [Parameter] public string? TraineeId { get; set; }
     [Parameter] public bool FavouritesOnly { get; set; }
+    [Parameter] public bool TrainedOnly { get; set; }
     [Parameter] public bool ShowSearch { get; set; } = true;
     [Parameter] public EventCallback<GetExerciseTypeResource> OnCardClicked { get; set; }
 
@@ -312,7 +313,8 @@ else
         try
         {
             var userQuery = TraineeId is null ? string.Empty : $"?userId={TraineeId}";
-            _all = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>($"/ExerciseTypes{userQuery}")
+            var endpoint = TrainedOnly ? "/ExerciseTypes/trained" : "/ExerciseTypes";
+            _all = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>($"{endpoint}{userQuery}")
                 ?? Array.Empty<GetExerciseTypeResource>();
         }
         catch
