@@ -294,6 +294,76 @@ public class ExerciseTypesPageTests : BlazorTestBase
         }, timeout: TimeSpan.FromSeconds(45));
     }
 
+    [Fact]
+    public void CreateExerciseType_PrimaryMuscleBlur_EmptySelection_ShowsInlineErrorNotAlert()
+    {
+        ConfigureCatalogResponses();
+
+        var renderer = RenderCreatePage();
+
+        // NN/g rule 5: the required-muscle error must be inline next to the field on blur,
+        // never a snackbar/card-level alert.
+        BlurPrimaryMuscleSelect(renderer);
+
+        renderer.WaitForAssertion(() =>
+        {
+            renderer.Markup.Should().Contain("Select at least one primary muscle.");
+            // The error must sit on the field control itself (inline), not in a card/snackbar alert.
+            renderer.FindAll("div.mud-input-control.mud-input-error")
+                .Should().Contain(e => e.TextContent.Contains("Select at least one primary muscle."));
+            renderer.FindAll(".mud-alert").Should().BeEmpty();
+        }, timeout: TimeSpan.FromSeconds(20));
+    }
+
+    [Fact]
+    public void CreateExerciseType_SaveWithoutPrimaryMuscle_ShowsInlineErrorAndBlocksSubmit()
+    {
+        ConfigureCatalogResponses();
+
+        var renderer = RenderCreatePage();
+
+        // Leave the muscles empty and leave the field: the inline error must appear on blur.
+        BlurPrimaryMuscleSelect(renderer);
+        renderer.WaitForAssertion(() =>
+            renderer.Markup.Should().Contain("Select at least one primary muscle."),
+            timeout: TimeSpan.FromSeconds(20));
+
+        // Make the name valid, then attempt to save.
+        var nameInput = renderer.WaitForElement("input.mud-input-slot", timeout: TimeSpan.FromSeconds(20));
+        nameInput.Change("Burpee");
+        nameInput.Blur();
+        ClickSaveForm(renderer);
+
+        renderer.WaitForAssertion(() =>
+        {
+            renderer.Markup.Should().Contain("Select at least one primary muscle.");
+            renderer.FindAll("div.mud-input-control.mud-input-error")
+                .Should().Contain(e => e.TextContent.Contains("Select at least one primary muscle."));
+            renderer.FindAll(".mud-alert").Should().BeEmpty();
+        }, timeout: TimeSpan.FromSeconds(20));
+
+        // Submit must be blocked: no POST reaches the backend.
+        MockHttp.VerifyNoOutstandingRequest();
+    }
+
+    [Fact]
+    public void CreateExerciseType_PrimaryMuscleBlur_WithSelection_ShowsNoError()
+    {
+        ConfigureCatalogResponses();
+
+        var renderer = RenderCreatePage();
+
+        // Select a muscle first, then leave the field (close the popover = blur).
+        // A valid selection must NOT raise the inline error (NN/g: only flag the real problem).
+        SelectPrimaryMuscle(renderer, "Abs");
+
+        renderer.WaitForAssertion(() =>
+        {
+            renderer.FindAll("div.mud-input-control.mud-input-error")
+                .Should().NotContain(e => e.TextContent.Contains("Select at least one primary muscle."));
+        }, timeout: TimeSpan.FromSeconds(20));
+    }
+
     private IRenderedFragment RenderCreatePage()
         => Render(builder =>
         {
@@ -314,17 +384,18 @@ public class ExerciseTypesPageTests : BlazorTestBase
         }, timeout: TimeSpan.FromSeconds(10));
         primarySelect.Click();
 
-        // Click the option and confirm the selection actually registered (the popover
-        // re-render can swallow a single click on slow CI boxes). Retry until selected.
+        // Open the popover, then click the option directly (a click issued inside a
+        // WaitForAssertion retry loop can be swallowed by MudSelect's popover re-render).
+        renderer.WaitForAssertion(
+            () => renderer.FindAll(".mud-list-item").Should().NotBeEmpty(),
+            timeout: TimeSpan.FromSeconds(15));
+        renderer.FindAll(".mud-list-item")
+            .First(item => item.TextContent.Trim() == muscleName).Click();
+
+        // Confirm the selection actually registered before closing.
         renderer.WaitForAssertion(() =>
         {
             var option = renderer.FindAll(".mud-list-item")
-                .First(item => item.TextContent.Trim() == muscleName);
-            if (!option.ClassList.Contains("mud-selected-item"))
-            {
-                option.Click();
-            }
-            option = renderer.FindAll(".mud-list-item")
                 .First(item => item.TextContent.Trim() == muscleName);
             option.ClassList.Contains("mud-selected-item").Should().BeTrue();
         }, timeout: TimeSpan.FromSeconds(15));
@@ -332,6 +403,29 @@ public class ExerciseTypesPageTests : BlazorTestBase
         // Close the multi-select popover and confirm it is gone before submitting.
         // An open popover makes the Save click race MudSelect's focus-out re-render,
         // which intermittently deadlocks the submit chain on the bUnit sync context.
+        primarySelect.Click();
+        renderer.WaitForAssertion(
+            () => renderer.FindAll(".mud-list-item").Should().BeEmpty(),
+            timeout: TimeSpan.FromSeconds(10));
+    }
+
+    private static void BlurPrimaryMuscleSelect(IRenderedFragment renderer)
+    {
+        // MudSelect only raises OnBlur when its dropdown closes (CloseMenu -> OnBlur), not on a
+        // raw input blur (its inner input is readonly). Open then close the dropdown without
+        // selecting anything: that is the user "leaving the field" and must surface the inline error.
+        IElement primarySelect = null;
+        renderer.WaitForAssertion(() =>
+        {
+            var selects = renderer.FindAll("div.mud-input-control.mud-select");
+            selects.Count.Should().BeGreaterThan(1);
+            primarySelect = selects[1];
+        }, timeout: TimeSpan.FromSeconds(10));
+
+        primarySelect.Click();
+        renderer.WaitForAssertion(
+            () => renderer.FindAll(".mud-list-item").Should().NotBeEmpty(),
+            timeout: TimeSpan.FromSeconds(10));
         primarySelect.Click();
         renderer.WaitForAssertion(
             () => renderer.FindAll(".mud-list-item").Should().BeEmpty(),

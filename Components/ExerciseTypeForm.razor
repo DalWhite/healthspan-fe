@@ -62,17 +62,15 @@
                 <MudCardContent>
                     <MudText Typo="Typo.h6" Class="mb-4 hs-text-primary">Muscles And Variation</MudText>
 
-                    @if (!string.IsNullOrWhiteSpace(_assignmentError))
-                    {
-                        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_assignmentError</MudAlert>
-                    }
-
                     <MudSelect T="int"
                                MultiSelection="true"
                                SelectedValues="_selectedPrimaryMuscleIds"
                                SelectedValuesChanged="OnPrimaryMusclesChanged"
                                Label="Primary muscles"
                                HelperText="Choose one or more main target muscles."
+                               Error="@(_primaryMusclesError is not null)"
+                               ErrorText="@_primaryMusclesError"
+                               OnBlur="OnPrimaryMusclesBlur"
                                Variant="Variant.Outlined"
                                Class="mb-3">
                         @foreach (var muscle in Muscles)
@@ -213,7 +211,6 @@
     private HashSet<string> _selectedTypeTags = new(StringComparer.OrdinalIgnoreCase);
     private List<int> _selectedPrimaryMuscleIds = new();
     private List<int> _selectedSecondaryMuscleIds = new();
-    private string? _assignmentError;
 
     // Inline per-field validation (NN/g rule 5): errors appear on blur, never while typing.
     private const int NameUniquenessDebounceMs = 400;
@@ -221,6 +218,7 @@
     private bool _nameIsUniqueConfirmed;
     private CancellationTokenSource? _nameCheckCts;
     private string? _parentError;
+    private string? _primaryMusclesError;
 
     private IEnumerable<GetExerciseTypeResource> ParentExerciseOptions
         => _exerciseTypes
@@ -341,7 +339,9 @@
 
     private void SyncAssignmentsToModel()
     {
-        _assignmentError = null;
+        // Selecting or clearing muscles is the user interacting with the field: drop any
+        // stale inline feedback so it only reappears on blur/submit (NN/g: never while typing).
+        _primaryMusclesError = null;
         Model.MuscleAssignments = _selectedPrimaryMuscleIds
             .Select((muscleId, index) => new ExerciseTypeMuscleAssignmentResource
             {
@@ -465,6 +465,18 @@
         }
     }
 
+    private void OnPrimaryMusclesBlur()
+    {
+        ValidatePrimaryMusclesInline();
+    }
+
+    private void ValidatePrimaryMusclesInline()
+    {
+        _primaryMusclesError = _selectedPrimaryMuscleIds.Count == 0
+            ? "Select at least one primary muscle."
+            : null;
+    }
+
     private async Task TriggerSubmit()
     {
         await form.Validate();
@@ -472,15 +484,10 @@
         // Surface per-field inline errors for the same rules the backend enforces.
         var nameOk = ValidateNameInline();
         OnParentBlur();
+        ValidatePrimaryMusclesInline();
 
-        if (!success || !nameOk || _parentError is not null || !OnSubmit.HasDelegate)
+        if (!success || !nameOk || _parentError is not null || _primaryMusclesError is not null || !OnSubmit.HasDelegate)
         {
-            return;
-        }
-
-        if (_selectedPrimaryMuscleIds.Count == 0)
-        {
-            _assignmentError = "At least one primary muscle is required.";
             return;
         }
 
