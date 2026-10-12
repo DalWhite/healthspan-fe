@@ -221,7 +221,7 @@ public class ExerciseTypesPageTests : BlazorTestBase
     {
         ConfigureCatalogResponses();
 
-        MockHttp.Expect(HttpMethod.Post, "/ExerciseTypes")
+        var postCall = MockHttp.Expect(HttpMethod.Post, "/ExerciseTypes")
             .Respond(HttpStatusCode.Conflict, "application/problem+json",
                 """
                 { "title": "An exercise type named 'Burpee' already exists.", "status": 409 }
@@ -235,7 +235,7 @@ public class ExerciseTypesPageTests : BlazorTestBase
 
         // Drain the debounced inline uniqueness check before submitting: the name is
         // unique in the catalog so the client-side check passes, and the inline GET is
-        // not left racing the submit POST on the shared MockHttp handler (flaky deadlock).
+        // not left racing the submit POST on the shared MockHttp handler.
         renderer.WaitForAssertion(() =>
         {
             renderer.FindAll(".mud-input-helper-text.mud-input-error").Should().BeEmpty();
@@ -243,13 +243,17 @@ public class ExerciseTypesPageTests : BlazorTestBase
         }, timeout: TimeSpan.FromSeconds(10));
 
         SelectPrimaryMuscle(renderer, "Abs");
+        WaitForSaveFormEnabled(renderer);
         ClickSaveForm(renderer);
 
+        // Explicit conditions, not wall-clock: the submit POST actually reached the
+        // backend, then the backend error surfaced. WaitForSaveFormEnabled already gated
+        // on the Save button being enabled, so the POST firing is the real precondition.
         renderer.WaitForAssertion(() =>
         {
-            MockHttp.VerifyNoOutstandingExpectation();
+            MockHttp.GetMatchCount(postCall).Should().Be(1);
             renderer.Markup.Should().Contain("already exists");
-        }, timeout: TimeSpan.FromSeconds(45));
+        }, timeout: TimeSpan.FromSeconds(30));
 
         // NN/g: never reset the form after a failed submit.
         renderer.Find("input.mud-input-slot").GetAttribute("value").Should().Be("Burpee");
@@ -260,7 +264,7 @@ public class ExerciseTypesPageTests : BlazorTestBase
     {
         ConfigureCatalogResponses();
 
-        MockHttp.Expect(HttpMethod.Post, "/ExerciseTypes")
+        var postCall = MockHttp.Expect(HttpMethod.Post, "/ExerciseTypes")
             .Respond(HttpStatusCode.BadRequest, "application/problem+json",
                 """
                 { "title": "An exercise type named 'Burpee' already exists.", "status": 400 }
@@ -274,7 +278,7 @@ public class ExerciseTypesPageTests : BlazorTestBase
 
         // The name is unique in the catalog, so the inline check passes and the submit
         // reaches the backend. Draining the debounced inline GET first keeps it from
-        // racing the submit POST on the shared MockHttp handler (flaky deadlock).
+        // racing the submit POST on the shared MockHttp handler.
         renderer.WaitForAssertion(() =>
         {
             renderer.FindAll(".mud-input-helper-text.mud-input-error").Should().BeEmpty();
@@ -282,16 +286,17 @@ public class ExerciseTypesPageTests : BlazorTestBase
         }, timeout: TimeSpan.FromSeconds(10));
 
         SelectPrimaryMuscle(renderer, "Abs");
+        WaitForSaveFormEnabled(renderer);
         ClickSaveForm(renderer);
 
-        // WaitForAssertion polls on a timer that can be starved under full-suite load on
-        // low-power CI boxes; the generous timeout plus the popover-close/drain steps
-        // above keep the submit chain from deadlocking.
+        // Explicit conditions, not wall-clock: the submit POST actually reached the
+        // backend, then the backend validation error surfaced. WaitForSaveFormEnabled
+        // already gated on the Save button being enabled, so the POST firing is the real precondition.
         renderer.WaitForAssertion(() =>
         {
+            MockHttp.GetMatchCount(postCall).Should().Be(1);
             renderer.Markup.Should().Contain("already exists");
-            MockHttp.VerifyNoOutstandingExpectation();
-        }, timeout: TimeSpan.FromSeconds(45));
+        }, timeout: TimeSpan.FromSeconds(30));
     }
 
     [Fact]
@@ -442,6 +447,19 @@ public class ExerciseTypesPageTests : BlazorTestBase
         }, timeout: TimeSpan.FromSeconds(10));
         saveButton.Click();
     }
+
+    // The Save button is Disabled="@(!success)", where success mirrors MudForm.IsValid.
+    // That enabled-state render lags the field/uniqueness renders, so under full-suite
+    // load the button can still be disabled when the click lands: clicking a disabled
+    // MudButton is a silent no-op, the submit POST never fires, and the downstream
+    // WaitForAssertion burns its whole timeout. Tests that expect a real submit must
+    // gate on this explicit precondition instead of incidental timing.
+    private static void WaitForSaveFormEnabled(IRenderedFragment renderer)
+        => renderer.WaitForAssertion(
+            () => renderer.FindAll("button")
+                .First(button => button.TextContent.Contains("Save Form"))
+                .HasAttribute("disabled").Should().BeFalse(),
+            timeout: TimeSpan.FromSeconds(15));
 
     private void ConfigureCatalogResponses()
     {
