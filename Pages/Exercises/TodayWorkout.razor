@@ -43,36 +43,26 @@
             Retry
         </MudButton>
     }
-    else if (_session is null)
+    else if (_session is null && _lastWorkout is not null)
     {
         <MudPaper Class="hs-surface hs-today-start" Elevation="0">
             <MudIcon Icon="@Icons.Material.Filled.FitnessCenter"
                      Color="MudBlazor.Color.Primary"
                      Size="MudBlazor.Size.Large" />
-            <MudButton Variant="Variant.Filled"
+            <MudButton Variant="Variant.Outlined"
                        Color="MudBlazor.Color.Primary"
                        FullWidth="true"
-                       Loading="@_isStarting"
-                       Disabled="@_isStarting"
-                       OnClick="StartWorkout">
-                Start workout
+                       StartIcon="@Icons.Material.Filled.Replay"
+                       Loading="@_isRepeating"
+                       Disabled="@_isRepeating"
+                       OnClick="RepeatLastWorkout">
+                Repeat last workout
             </MudButton>
-            @if (_lastWorkout is not null)
-            {
-                <MudButton Variant="Variant.Outlined"
-                           Color="MudBlazor.Color.Primary"
-                           FullWidth="true"
-                           StartIcon="@Icons.Material.Filled.Replay"
-                           Loading="@_isRepeating"
-                           Disabled="@_isRepeating"
-                           OnClick="RepeatLastWorkout">
-                    Repeat last workout
-                </MudButton>
-                <MudText Typo="Typo.caption" Class="hs-muted-copy">@LastWorkoutLabel</MudText>
-            }
+            <MudText Typo="Typo.caption" Class="hs-muted-copy">@LastWorkoutLabel</MudText>
         </MudPaper>
     }
-    else
+
+    @if (_session is not null)
     {
         @if (_sessions.Count > 1)
         {
@@ -133,20 +123,22 @@
                 </div>
             }
         </section>
-
-        <MudPaper Class="hs-surface hs-today-add" Elevation="0">
-            <MudText Typo="Typo.h6" Class="hs-today-add-title">Add exercise</MudText>
-            <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
-                                  CurrentUserBodyWeight="@_currentUserBodyWeight"
-                                  WorkoutId="@_session.Id"
-                                  ShowDatePicker="false"
-                                  ShowQuickPicks="true"
-                                  UseWorkoutSessionEndpoint="true"
-                                  SubmitLabel="Add exercise"
-                                  RecentExerciseTypeIds="@_session.RecentExerciseTypeIds"
-                                  OnSessionUpdated="HandleSessionUpdated" />
-        </MudPaper>
     }
+
+    <MudPaper Class="hs-surface hs-today-add" Elevation="0">
+        <MudText Typo="Typo.h6" Class="hs-today-add-title">Add exercise</MudText>
+        <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
+                              CurrentUserBodyWeight="@_currentUserBodyWeight"
+                              WorkoutId="@(_session?.Id ?? Guid.Empty)"
+                              ShowDatePicker="false"
+                              ShowQuickPicks="true"
+                              UseWorkoutSessionEndpoint="true"
+                              SubmitLabel="Add exercise"
+                              RecentExerciseTypeIds="@(_session?.RecentExerciseTypeIds ?? (IReadOnlyCollection<int>)Array.Empty<int>())"
+                              PrescriptionHints="@_session?.Exercises"
+                              WorkoutIdResolver="@(() => EnsureTodaySessionAsync())"
+                              OnSessionUpdated="HandleSessionUpdated" />
+    </MudPaper>
 </PageShell>
 
 @code {
@@ -396,6 +388,37 @@
         }
     }
 
+    private async Task<Guid> EnsureTodaySessionAsync()
+    {
+        if (_session is not null)
+        {
+            return _session.Id;
+        }
+
+        // Today never asks the user to "start" a session first: the session is
+        // created at the moment the first exercise is actually logged, so an
+        // empty day never appears in the history.
+        using var response = await Http.PostAsJsonAsync(
+            "/Workouts/today",
+            new StartWorkoutSessionResource
+            {
+                Date = _today,
+                CreateNew = false
+            });
+        response.EnsureSuccessStatusCode();
+
+        var session = await response.Content
+            .ReadFromJsonAsync<WorkoutSessionResource>();
+        if (session is null)
+        {
+            return Guid.Empty;
+        }
+
+        _session = session;
+        _sessions.Add(session);
+        return session.Id;
+    }
+
     private Task HandleSessionUpdated(WorkoutSessionResource session)
     {
         _session = session;
@@ -426,6 +449,13 @@
     private static string FormatExerciseLoad(
         WorkoutSessionExerciseResource exercise)
     {
+        // Sets/reps are optional: an entry logged without them invites the
+        // detail instead of showing a fake "0 x 0".
+        if (exercise.Series is null && exercise.Repetitions is null)
+        {
+            return "Add sets and reps";
+        }
+
         var sets = exercise.Series ?? 0;
         var repetitions = exercise.Repetitions ?? 0;
         var load = exercise.BodyWeight.GetValueOrDefault() > 0

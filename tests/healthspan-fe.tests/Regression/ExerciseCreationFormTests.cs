@@ -234,6 +234,12 @@ public class ExerciseCreationFormTests : BlazorTestBase
             .Add(component => component.InitialExerciseTypeId, 21)
             .Add(component => component.OnExerciseAdded, exercise => submitted = exercise));
 
+        // Tags live behind an explicit affordance: the fast path hides them so
+        // the common add stays short.
+        cut.FindAll("button")
+            .Single(button => button.TextContent.Contains("Add tags"))
+            .Click();
+
         cut.Find("input[placeholder='Bilbo']")
             .Input("Bilbo, Tempo");
         cut.Find("form").Submit();
@@ -244,4 +250,169 @@ public class ExerciseCreationFormTests : BlazorTestBase
             submitted!.Tags.Should().Equal("Bilbo", "Tempo");
         });
     }
+
+    [Fact]
+    public void Sets_And_Reps_Are_Prefilled_When_An_Exercise_Is_Chosen()
+    {
+        var cut = RenderComponent<ExerciseCreationForm>(parameters => parameters
+            .Add(component => component.ExerciseTypes, new[]
+            {
+                new GetExerciseTypeResource
+                {
+                    Id = 21,
+                    Name = "Bench Press",
+                    WeightType = ExerciseWeightType.Standard
+                }
+            })
+            .Add(component => component.InitialExerciseTypeId, 21)
+            .Add(component => component.InitialDate, DateTime.Today)
+            .Add(component => component.WorkoutId, Guid.NewGuid()));
+
+        // The fast path never asks for numbers first: they arrive prefilled and
+        // stay editable.
+        cut.WaitForAssertion(() =>
+        {
+            NumericInput(cut, 0)
+                .GetAttribute("value").Should().Be("3");
+            NumericInput(cut, 1)
+                .GetAttribute("value").Should().Be("10");
+        });
+    }
+
+    [Fact]
+    public void Sets_And_Reps_Default_To_What_Was_Logged_For_The_Same_Exercise()
+    {
+        var cut = RenderComponent<ExerciseCreationForm>(parameters => parameters
+            .Add(component => component.ExerciseTypes, new[]
+            {
+                new GetExerciseTypeResource
+                {
+                    Id = 21,
+                    Name = "Bench Press",
+                    WeightType = ExerciseWeightType.Standard
+                }
+            })
+            .Add(component => component.InitialExerciseTypeId, 21)
+            .Add(component => component.InitialDate, DateTime.Today)
+            .Add(component => component.WorkoutId, Guid.NewGuid())
+            .Add(component => component.PrescriptionHints, new[]
+            {
+                new WorkoutSessionExerciseResource
+                {
+                    Id = Guid.NewGuid(),
+                    TypeId = 21,
+                    Name = "Bench Press",
+                    Series = 4,
+                    Repetitions = 8
+                }
+            }));
+
+        cut.WaitForAssertion(() =>
+        {
+            NumericInput(cut, 0)
+                .GetAttribute("value").Should().Be("4");
+            NumericInput(cut, 1)
+                .GetAttribute("value").Should().Be("8");
+        });
+    }
+
+    [Fact]
+    public void Edited_Sets_Are_Not_Overwritten_By_The_Default()
+    {
+        var cut = RenderComponent<ExerciseCreationForm>(parameters => parameters
+            .Add(component => component.ExerciseTypes, new[]
+            {
+                new GetExerciseTypeResource
+                {
+                    Id = 21,
+                    Name = "Bench Press",
+                    IsFavourite = true,
+                    WeightType = ExerciseWeightType.Standard
+                }
+            })
+            .Add(component => component.ShowQuickPicks, true)
+            .Add(component => component.InitialExerciseTypeId, 21)
+            .Add(component => component.InitialDate, DateTime.Today)
+            .Add(component => component.WorkoutId, Guid.NewGuid())
+            .Add(component => component.PrescriptionHints, new[]
+            {
+                new WorkoutSessionExerciseResource
+                {
+                    Id = Guid.NewGuid(),
+                    TypeId = 21,
+                    Name = "Bench Press",
+                    Series = 4,
+                    Repetitions = 8
+                }
+            }));
+
+        cut.WaitForAssertion(() => NumericInput(cut, 0)
+            .GetAttribute("value").Should().Be("4"));
+
+        NumericInput(cut, 0).Change("6");
+
+        // Re-picking the same exercise must not wipe what the user just typed.
+        cut.FindAll("button")
+            .Single(button => button.TextContent.Contains("Bench Press"))
+            .Click();
+
+        cut.WaitForAssertion(() => NumericInput(cut, 0)
+            .GetAttribute("value").Should().Be("6"));
+    }
+
+    [Fact]
+    public void Logged_Sets_Become_The_Default_For_The_Next_Entry()
+    {
+        var workoutId = Guid.NewGuid();
+        var submissions = new List<AddExerciseResource>();
+
+        MockHttp.When(HttpMethod.Post, "/Exercises")
+            .Respond(HttpStatusCode.Created, "application/json", "{}");
+
+        var cut = RenderComponent<ExerciseCreationForm>(parameters => parameters
+            .Add(component => component.ExerciseTypes, new[]
+            {
+                new GetExerciseTypeResource
+                {
+                    Id = 21,
+                    Name = "Bench Press",
+                    WeightType = ExerciseWeightType.Standard
+                }
+            })
+            .Add(component => component.InitialExerciseTypeId, 21)
+            .Add(component => component.InitialDate, DateTime.Today)
+            .Add(component => component.WorkoutId, workoutId)
+            .Add(component => component.OnExerciseAdded,
+                (Action<AddExerciseResource>)(exercise => submissions.Add(exercise))));
+
+        cut.WaitForAssertion(() => NumericInput(cut, 0)
+            .GetAttribute("value").Should().Be("3"));
+
+        NumericInput(cut, 0).Change("5");
+        cut.Find("form").Submit();
+
+        cut.WaitForAssertion(() =>
+        {
+            submissions.Should().HaveCount(1);
+            submissions[0].Series.Should().Be(5);
+        });
+
+        // The form lands back ready for the next entry, carrying the numbers
+        // the user just logged.
+        cut.Find("form").Submit();
+
+        cut.WaitForAssertion(() =>
+        {
+            submissions.Should().HaveCount(2);
+            submissions[1].Series.Should().Be(5);
+            submissions[1].Repetitions.Should().Be(10);
+        });
+    }
+
+    // MudBlazor gives these inputs unstable ids, so the prescription grid is
+    // addressed by position: Sets, Reps, Weight.
+    private static AngleSharp.Dom.IElement NumericInput(
+        Bunit.IRenderedFragment cut,
+        int index)
+        => cut.FindAll("input[inputmode='numeric']")[index];
 }

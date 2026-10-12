@@ -15,17 +15,29 @@ namespace healthspan_fe.tests.Regression;
 public class TodayWorkoutTests : BlazorTestBase
 {
     [Fact]
-    public void Starts_A_New_Workout_Without_Leaving_Today()
+    public void Today_Logs_The_First_Exercise_Without_A_Start_Session_Tap()
     {
         var workoutId = Guid.NewGuid();
+        var exerciseId = Guid.NewGuid();
 
         MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
-            .Respond("application/json", "[]");
+            .Respond("application/json", """
+                [
+                    {
+                        "id": 1,
+                        "name": "Bench Press",
+                        "isFavourite": true,
+                        "weightType": 0
+                    }
+                ]
+                """);
         MockHttp.When(
                 HttpMethod.Get,
                 $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
             .Respond("application/json", "[]");
-        MockHttp.When(HttpMethod.Post, "/Workouts/today")
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=10")
+            .Respond("application/json", "[]");
+        var startCall = MockHttp.When(HttpMethod.Post, "/Workouts/today")
             .Respond(HttpStatusCode.Created, "application/json", $$"""
                 {
                     "id": "{{workoutId}}",
@@ -35,20 +47,63 @@ public class TodayWorkoutTests : BlazorTestBase
                     "recentExerciseTypeIds": []
                 }
                 """);
+        var addCall = MockHttp.When(HttpMethod.Post, $"/Workouts/{workoutId}/exercises")
+            .Respond(HttpStatusCode.OK, "application/json", $$"""
+                {
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [
+                        {
+                            "id": "{{exerciseId}}",
+                            "typeId": 1,
+                            "name": "Bench Press",
+                            "series": 3,
+                            "repetitions": 10,
+                            "weight": 0
+                        }
+                    ],
+                    "recentExerciseTypeIds": [1]
+                }
+                """);
 
         var cut = RenderComponent<TodayWorkout>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Start workout"));
+        // Rule 1 (ux-ui-good-apps): the activation action is on the page before
+        // any decision is asked. No "Start workout" gate, no session needed.
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Add exercise");
+            cut.FindAll("button")
+                .Should().NotContain(button =>
+                    button.TextContent.Contains("Start workout"));
+        });
+
+        // Tap 1: pick the exercise. Tap 2: Add exercise. Sets/reps arrive prefilled.
+        cut.WaitForAssertion(() =>
+            cut.FindAll("button")
+                .Should().Contain(button => button.TextContent.Contains("Bench Press")));
+
         cut.FindAll("button")
-            .Single(button => button.TextContent.Contains("Start workout"))
+            .Single(button => button.TextContent.Contains("Bench Press"))
+            .Click();
+        cut.FindAll("button")
+            .Single(button => button.TextContent.Trim() == "Add exercise")
             .Click();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("No exercises yet.");
-            cut.Markup.Should().Contain("Add exercise");
-            cut.Markup.Should().Contain("Finish");
-        });
+            // The session appears only because the user actually logged something.
+            MockHttp.GetMatchCount(startCall).Should().Be(1);
+            MockHttp.GetMatchCount(addCall).Should().Be(1);
+
+            cut.Markup.Should().Contain("Bench Press");
+            cut.Markup.Should().Contain("3 × 10");
+
+            Services.GetRequiredService<ISnackbar>()
+                .ShownSnackbars
+                .Should().Contain(snackbar => snackbar.Message == "Exercise added.");
+        }, TimeSpan.FromSeconds(10));
     }
 
     [Fact]
@@ -150,20 +205,22 @@ public class TodayWorkoutTests : BlazorTestBase
     [Fact]
     public void StartWorkout_Malformed_Response_Shows_One_Error()
     {
+        var existingWorkoutId = Guid.NewGuid();
+
         MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
             .Respond("application/json", "[]");
         MockHttp.When(
                 HttpMethod.Get,
                 $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond("application/json", "[]");
+            .Respond("application/json", TodaySessionJson(existingWorkoutId, Guid.NewGuid()));
         MockHttp.When(HttpMethod.Post, "/Workouts/today")
             .Respond(HttpStatusCode.Created, "application/json", "{not-json}");
 
         var cut = RenderComponent<TodayWorkout>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Start workout"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("New session"));
         cut.FindAll("button")
-            .Single(button => button.TextContent.Contains("Start workout"))
+            .Single(button => button.TextContent.Contains("New session"))
             .Click();
 
         cut.WaitForAssertion(() =>
@@ -176,20 +233,22 @@ public class TodayWorkoutTests : BlazorTestBase
     [Fact]
     public void StartWorkout_Timeout_Shows_One_Error()
     {
+        var existingWorkoutId = Guid.NewGuid();
+
         MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
             .Respond("application/json", "[]");
         MockHttp.When(
                 HttpMethod.Get,
                 $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond("application/json", "[]");
+            .Respond("application/json", TodaySessionJson(existingWorkoutId, Guid.NewGuid()));
         MockHttp.When(HttpMethod.Post, "/Workouts/today")
             .Respond(_ => throw new TaskCanceledException());
 
         var cut = RenderComponent<TodayWorkout>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Start workout"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("New session"));
         cut.FindAll("button")
-            .Single(button => button.TextContent.Contains("Start workout"))
+            .Single(button => button.TextContent.Contains("New session"))
             .Click();
 
         cut.WaitForAssertion(() =>
@@ -389,6 +448,47 @@ public class TodayWorkoutTests : BlazorTestBase
             navigationManager.Uri.Should().EndWith("/training/today");
             cut.Markup.Should().Contain("could not be repeated");
         }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void Entry_Without_Sets_And_Reps_Invites_The_Detail_Instead_Of_Zero()
+    {
+        var workoutId = Guid.NewGuid();
+        var exerciseId = Guid.NewGuid();
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", $$"""
+                [{
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [
+                        {
+                            "id": "{{exerciseId}}",
+                            "typeId": 1,
+                            "name": "Bench Press",
+                            "series": null,
+                            "repetitions": null,
+                            "weight": null
+                        }
+                    ],
+                    "recentExerciseTypeIds": [1]
+                }]
+                """);
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() =>
+        {
+            // A logged entry without numbers never reads as a fake "0 x 0".
+            cut.Markup.Should().Contain("Add sets and reps");
+            cut.Markup.Should().NotContain("0 × 0");
+            cut.Find("a[aria-label='Edit Bench Press entry']");
+        });
     }
 
     private static string TodaySessionJson(Guid workoutId, Guid exerciseId)

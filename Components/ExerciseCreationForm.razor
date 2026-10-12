@@ -72,13 +72,17 @@
                          Clearable="true" />
 
         <div class="hs-exercise-prescription-grid">
-            <MudNumericField @bind-Value="_exercise.Series"
+            <MudNumericField T="int"
+                             Value="_exercise.Series"
+                             ValueChanged="@(value => { _exercise.Series = value; _prescriptionTouched = true; })"
                              Label="Sets"
                              Variant="Variant.Outlined"
                              Margin="Margin.Dense"
                              InputType="InputType.Number" />
 
-            <MudNumericField @bind-Value="_exercise.Repetitions"
+            <MudNumericField T="int"
+                             Value="_exercise.Repetitions"
+                             ValueChanged="@(value => { _exercise.Repetitions = value; _prescriptionTouched = true; })"
                              Label="Reps"
                              Variant="Variant.Outlined"
                              Margin="Margin.Dense"
@@ -118,7 +122,20 @@
             </span>
         }
 
-        <ExerciseTagEditor @bind-Tags="_exercise.Tags" />
+        @if (_showTags)
+        {
+            <ExerciseTagEditor @bind-Tags="_exercise.Tags" />
+        }
+        else
+        {
+            <MudButton Variant="Variant.Text"
+                       Color="MudBlazor.Color.Primary"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.LocalOffer"
+                       OnClick="@(() => _showTags = true)">
+                Add tags
+            </MudButton>
+        }
 
         <div class="hs-exercise-entry-submit">
             <MudButton OnClick="OnSaveClick"
@@ -144,6 +161,10 @@
     [Parameter] public bool UseWorkoutSessionEndpoint { get; set; }
     [Parameter] public string SubmitLabel { get; set; } = "Save exercise";
     [Parameter] public IReadOnlyCollection<int> RecentExerciseTypeIds { get; set; } = Array.Empty<int>();
+    [Parameter] public IReadOnlyList<WorkoutSessionExerciseResource>? PrescriptionHints { get; set; }
+    [Parameter] public Func<Task<Guid>>? WorkoutIdResolver { get; set; }
+    [Parameter] public int DefaultSets { get; set; } = 3;
+    [Parameter] public int DefaultReps { get; set; } = 10;
     [Parameter] public EventCallback<AddExerciseResource> OnExerciseAdded { get; set; }
     [Parameter] public EventCallback<WorkoutSessionResource> OnSessionUpdated { get; set; }
 
@@ -155,6 +176,18 @@
     private DateTime? _appliedInitialDate;
     private string? _submissionError;
     private bool _isSaving;
+    private bool _showTags;
+
+    // Fast logging first, detail after: sets/reps arrive prefilled so the user
+    // never has to touch them to save. They stay editable in place, and the
+    // values come from what the user actually logged before when we have it.
+    private bool _prescriptionTouched;
+    private readonly List<PrescriptionHint> _localPrescriptionHints = [];
+
+    private readonly record struct PrescriptionHint(
+        int TypeId,
+        int? Series,
+        int? Repetitions);
 
     private List<GetExerciseTypeResource> FavouriteQuickPicks
         => (ExerciseTypes ?? Array.Empty<GetExerciseTypeResource>())
@@ -180,7 +213,10 @@
         }
     }
 
-    protected override void OnInitialized() => _editContext = new EditContext(_exercise);
+    protected override void OnInitialized() => CreateEditContext();
+
+    private void CreateEditContext()
+        => _editContext = new EditContext(_exercise);
 
     protected override void OnParametersSet()
     {
@@ -228,6 +264,37 @@
             _exercise.BodyWeight = null;
             _exercise.AddedWeight = null;
         }
+
+        ApplyPrescriptionDefaults();
+    }
+
+    private void ApplyPrescriptionDefaults()
+    {
+        if (_prescriptionTouched || _exercise.TypeId is not { } typeId)
+        {
+            return;
+        }
+
+        int? sets;
+        int? repetitions;
+
+        if (_localPrescriptionHints.Any(hint => hint.TypeId == typeId))
+        {
+            var logged = _localPrescriptionHints
+                .LastOrDefault(hint => hint.TypeId == typeId);
+            sets = logged.Series;
+            repetitions = logged.Repetitions;
+        }
+        else
+        {
+            var hint = PrescriptionHints?
+                .LastOrDefault(candidate => candidate.TypeId == typeId);
+            sets = hint?.Series;
+            repetitions = hint?.Repetitions;
+        }
+
+        _exercise.Series = sets ?? DefaultSets;
+        _exercise.Repetitions = repetitions ?? DefaultReps;
     }
 
     private void ApplyInitialDate()
@@ -293,10 +360,16 @@
             // Resolve or create workout for the selected date
             var workoutId = WorkoutId != Guid.Empty
                 ? WorkoutId
-                : await ResolveWorkoutIdAsync(_workout.Date);
+                : WorkoutIdResolver is not null
+                    ? await WorkoutIdResolver()
+                    : await ResolveWorkoutIdAsync(_workout.Date);
 
             if (workoutId == Guid.Empty)
+            {
+                _submissionError ??=
+                    "We couldn't prepare today's workout. Please try again.";
                 return;
+            }
 
             _exercise.WorkoutId = workoutId;
             _exercise.TypeId = _selectedType.Id;
@@ -331,6 +404,17 @@
             }
 
             var addedExercise = CloneExercise(_exercise);
+
+            // The values just logged become the default for the next entry of
+            // the same exercise, so repeat sets need no taps at all.
+            if (_exercise.TypeId is { } addedTypeId)
+            {
+                _localPrescriptionHints.Add(new PrescriptionHint(
+                    addedTypeId,
+                    _exercise.Series,
+                    _exercise.Repetitions));
+            }
+
             ResetForm();
 
             if (updatedSession is not null)
@@ -391,8 +475,10 @@
         _exercise = new();
         _selectedType = null;
         _workout = new WorkoutPostResource();
-        _editContext = new EditContext(_exercise);
+        CreateEditContext();
         _submissionError = null;
+        _prescriptionTouched = false;
+        _showTags = false;
         ApplyInitialDate();
         ApplyInitialType();
         SyncTypeToModel();
