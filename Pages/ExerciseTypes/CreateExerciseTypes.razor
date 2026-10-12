@@ -7,10 +7,10 @@
 @inject AppStateService AppState
 @inject TitleService TitleService
 
-<PageTitle>Add Exercise Type</PageTitle>
+<PageTitle>Add Exercise</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="hs-page-shell">
-    <PageHeader Title="Add Exercise Type" />
+    <PageHeader Title="Add Exercise" />
 
     <ExerciseTypeForm Model="_model"
                       OnSubmit="HandleSubmit"
@@ -28,7 +28,7 @@
     private string? _actionError;
 
     protected override void OnInitialized()
-        => TitleService.Title = "Add Exercise Type";
+        => TitleService.Title = "Add Exercise";
 
     private async Task HandleSubmit(UpdateExerciseTypeResource model)
     {
@@ -54,14 +54,14 @@
         if (response.IsSuccessStatusCode)
         {
             AppState.InvalidateExerciseTypes();
-            Snackbar.Add("Exercise type created successfully!", Severity.Success);
+            Snackbar.Add("Exercise added.", Severity.Success);
             NavigationManager.NavigateTo("/training/library");
         }
         else
         {
             _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
                 response,
-                "Couldn't create this exercise type.");
+                "Couldn't create this exercise.");
         }
     }
 

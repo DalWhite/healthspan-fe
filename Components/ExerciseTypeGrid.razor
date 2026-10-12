@@ -255,7 +255,7 @@ else
                                              Class="hs-et-card-menu">
                                         <MudMenuItem Icon="@Icons.Material.Filled.Edit"
                                                      OnClick="@(() => GoToEditExerciseType(exercise))">
-                                            Edit exercise type
+                                            Edit exercise
                                         </MudMenuItem>
                                     </MudMenu>
                                 </span>
@@ -298,8 +298,8 @@ else
     private bool HasActiveFilters => ActiveFilterCount > 0;
     private bool HasQueryOrFilters => HasActiveFilters || !string.IsNullOrWhiteSpace(_search);
     private string EmptyStateTitle => HasQueryOrFilters ? "No matching exercises" : "No exercises yet";
-    private string EmptyStateSubtitle => HasQueryOrFilters ? "Change or clear the current filters." : "Create the first exercise type in the library.";
-    private string EmptyStateActionLabel => HasQueryOrFilters ? "Clear filters" : "Add exercise type";
+    private string EmptyStateSubtitle => HasQueryOrFilters ? "Change or clear the current filters." : "Add your first exercise to the library.";
+    private string EmptyStateActionLabel => HasQueryOrFilters ? "Clear filters" : "Add exercise";
     private bool ShouldPersistLibraryState
         => TraineeId is null && !FavouritesOnly;
 
@@ -320,7 +320,7 @@ else
         catch
         {
             _all = Array.Empty<GetExerciseTypeResource>();
-            Snackbar.Add("Failed to load exercise types.", Severity.Error);
+            Snackbar.Add("Couldn't load your exercises.", Severity.Error);
         }
 
         BuildFilterOptions();

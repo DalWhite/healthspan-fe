@@ -7,18 +7,18 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
-<PageTitle>Edit Exercise Type</PageTitle>
+<PageTitle>Edit Exercise</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="hs-page-shell">
-    <PageHeader Title="@(_et?.Name is { Length: > 0 } ? $"Edit {_et.Name}" : "Edit Exercise Type")" />
+    <PageHeader Title="@(_et?.Name is { Length: > 0 } ? $"Edit {_et.Name}" : "Edit Exercise")" />
 
     @if (_isLoading)
     {
-        <LoadingState Message="Loading exercise type..." />
+        <LoadingState Message="Loading exercise..." />
     }
     else if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <ErrorState Title="Exercise type could not be loaded"
+        <ErrorState Title="Couldn't load this exercise"
                     Message="@_errorMessage"
                     ActionLabel="Back"
                     OnAction="GoBack" />
@@ -38,12 +38,12 @@
                           
         <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Error" OnClick="ConfirmDeleteAsync"
                    StartIcon="@Icons.Material.Filled.Delete" Class="mt-4">
-            Delete Exercise Type
+            Delete Exercise
         </MudButton>
     }
     else
     {
-        <MudAlert Severity="Severity.Warning">Exercise type not found.</MudAlert>
+        <MudAlert Severity="Severity.Warning">This exercise no longer exists.</MudAlert>
     }
 </MudContainer>
 
@@ -96,7 +96,7 @@
         }
         catch (Exception ex)
         {
-            _errorMessage = $"Error loading exercise type: {ex.Message}";
+            _errorMessage = $"Couldn't load this exercise: {ex.Message}";
         }
         finally
         {
@@ -114,26 +114,26 @@
             if (response.IsSuccessStatusCode)
             {
                 AppState.InvalidateExerciseTypes();
-                Snackbar.Add("Exercise type saved successfully!", Severity.Success);
+                Snackbar.Add("Exercise saved.", Severity.Success);
                 GoBack();
             }
             else
             {
                 _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
                     response,
-                    "Couldn't save this exercise type.");
+                    "Couldn't save this exercise.");
             }
         }
         catch
         {
-            _actionError = "Couldn't save this exercise type.";
+            _actionError = "Couldn't save this exercise.";
         }
     }
 
     private async Task ConfirmDeleteAsync()
     {
         var confirmed = await DialogService.ShowMessageBox(
-            "Delete Exercise Type",
+            "Delete Exercise",
             $"Permanently delete '{_et?.Name}'? This action cannot be undone.",
             yesText: "Delete",
             cancelText: "Cancel");
@@ -152,7 +152,7 @@
             if (response.IsSuccessStatusCode)
             {
                 AppState.InvalidateExerciseTypes();
-                Snackbar.Add("Exercise type deleted.", Severity.Warning);
+                Snackbar.Add("Exercise deleted.", Severity.Warning);
                 GoBack();
             }
             else

@@ -246,7 +246,7 @@ public class ExercisesPageTests : BlazorTestBase
         {
             MockHttp.GetMatchCount(deleteRequest).Should().Be(0);
             cut.Markup.Should().Contain("Delete this entry?");
-            cut.Markup.Should().Contain("The workout and exercise type stay available.");
+            cut.Markup.Should().Contain("Your workout and exercise library stay intact.");
         });
         cut.FindAll("button")
             .Single(button => button.TextContent.Contains("Delete entry"))

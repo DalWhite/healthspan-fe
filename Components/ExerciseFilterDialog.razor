@@ -3,14 +3,14 @@
 <MudDialog>
     <DialogContent>
         <MudContainer Class="mt-4">
-            <MudText Typo="Typo.h6" Class="mb-3">Filter By Exercise Type</MudText>
+            <MudText Typo="Typo.h6" Class="mb-3">Filter by exercise</MudText>
             <MudAutocomplete T="ExerciseTypeFilterOption"
                          @bind-Value="selectedExerciseType"
                          SearchFunc="@SearchExerciseTypes"
                          ToStringFunc="@(option => option?.Label ?? string.Empty)"
                          ResetValueOnEmptyText="true"
                          CoerceText="false"
-                         Placeholder="Select an exercise type..."
+                         Placeholder="Select an exercise..."
                          Adornment="Adornment.Start"
                          AdornmentIcon="@Icons.Material.Filled.FitnessCenter"
                          IconSize="MudBlazor.Size.Small"
