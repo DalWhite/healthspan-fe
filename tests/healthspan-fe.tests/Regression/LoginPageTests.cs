@@ -64,4 +64,26 @@ public class LoginPageTests : BlazorTestBase
 
         navigationManager.Uri.Should().EndWith("/training/insights");
     }
+
+    [Fact]
+    public async Task Email_Login_Lands_Back_In_Origin_Context()
+    {
+        var account = Substitute.For<IAccountManagement>();
+        account.LoginAsync("test@healthspan.dev", "correct-horse")
+            .Returns(new FormResult { Succeeded = true });
+        Services.AddSingleton(account);
+
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo(
+            navigationManager.GetUriWithQueryParameter("returnUrl", "/training/today"));
+        var cut = RenderComponent<Login>();
+
+        var inputs = cut.FindAll("input");
+        inputs[0].Input("test@healthspan.dev");
+        inputs[1].Input("correct-horse");
+
+        await cut.InvokeAsync(() => cut.Instance.DoLoginAsync());
+
+        navigationManager.Uri.Should().EndWith("/training/today");
+    }
 }

@@ -50,6 +50,58 @@ public class NavigationFlowTests : BlazorTestBase
     }
 
     [Fact]
+    public void MainLayout_Unauthorized_From_Training_Today_Preserves_ReturnUrl()
+    {
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        AuthContext.SetNotAuthorized();
+        navigationManager.NavigateTo("https://localhost/training/today");
+
+        RenderComponent<MainLayout>();
+
+        navigationManager.Uri.Should().EndWith("/login?returnUrl=%2Ftraining%2Ftoday");
+    }
+
+    [Fact]
+    public void MainLayout_Unauthorized_Preserves_Query_String_In_ReturnUrl()
+    {
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        AuthContext.SetNotAuthorized();
+        navigationManager.NavigateTo("https://localhost/health/profile?tab=overview");
+
+        RenderComponent<MainLayout>();
+
+        navigationManager.Uri.Should().EndWith("/login?returnUrl=%2Fhealth%2Fprofile%3Ftab%3Doverview");
+    }
+
+    [Fact]
+    public void MainLayout_Unauthorized_On_Login_Route_Does_Not_Redirect()
+    {
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        AuthContext.SetNotAuthorized();
+        navigationManager.NavigateTo("https://localhost/login");
+
+        RenderComponent<MainLayout>();
+
+        navigationManager.Uri.Should().EndWith("/login");
+    }
+
+    [Fact]
+    public void MainLayout_And_RedirectToLogin_Agree_On_ReturnUrl()
+    {
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        AuthContext.SetNotAuthorized();
+        navigationManager.NavigateTo("https://localhost/training/today");
+
+        RenderComponent<MainLayout>();
+        var mainLayoutTarget = navigationManager.Uri;
+
+        navigationManager.NavigateTo("https://localhost/training/today");
+        RenderComponent<RedirectToLogin>();
+
+        navigationManager.Uri.Should().Be(mainLayoutTarget);
+    }
+
+    [Fact]
     public void Navigation_Uses_Task_Based_Health_And_Training_Groups()
     {
         var cut = RenderComponent<NavMenu>();

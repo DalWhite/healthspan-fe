@@ -104,9 +104,26 @@
             if (isRoot)
                 NavigationManager.NavigateTo("/training/insights");
         }
-        else
-            NavigationManager.NavigateTo("/login");
+        else if (!IsAnonymousRoute(relativePath))
+        {
+            // Land back in context after login (ux-ui-good-apps rule 2):
+            // preserve the page the user was trying to reach as returnUrl,
+            // matching RedirectToLogin so the two redirects agree.
+            if (isRoot)
+            {
+                NavigationManager.NavigateTo("/login");
+            }
+            else
+            {
+                var returnUrl = "/" + relativePath.TrimStart('/');
+                NavigationManager.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+            }
+        }
     }
+
+    private static bool IsAnonymousRoute(string relativePath) =>
+        relativePath.StartsWith("login", StringComparison.OrdinalIgnoreCase) ||
+        relativePath.StartsWith("register", StringComparison.OrdinalIgnoreCase);
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
     private void GoToToday() => NavigationManager.NavigateTo("/training/today");
