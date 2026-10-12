@@ -1,6 +1,10 @@
 <header class="@HeaderClass">
     <div class="hs-page-header-copy">
         <h1 class="hs-page-title">@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <MudText Typo="Typo.caption" Class="hs-muted-copy hs-page-subtitle">@Subtitle</MudText>
+        }
     </div>
 
     @if (Actions is not null)
@@ -13,6 +17,7 @@
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
 
     private string HeaderClass

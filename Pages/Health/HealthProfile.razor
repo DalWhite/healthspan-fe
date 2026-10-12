@@ -6,14 +6,8 @@
 <PageTitle>Personal profile</PageTitle>
 
 <PageShell Narrow="true" Class="hs-personal-profile-page">
-    <div class="hs-compact-page-heading">
-        <div>
-            <MudText Typo="Typo.h5">Personal profile</MudText>
-            <MudText Typo="Typo.caption" Class="hs-muted-copy">
-                Date of birth and biological sex adjust health ranges.
-            </MudText>
-        </div>
-    </div>
+    <PageHeader Title="Personal profile"
+                Subtitle="Date of birth and biological sex adjust health ranges." />
 
     @if (_isLoading)
     {

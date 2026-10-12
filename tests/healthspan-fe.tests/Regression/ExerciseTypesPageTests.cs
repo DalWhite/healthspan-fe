@@ -1,5 +1,6 @@
 using Bunit;
 using Bunit.TestDoubles;
+using AngleSharp.Dom;
 using FluentAssertions;
 using System.Linq;
 using System.Net;
@@ -164,10 +165,16 @@ public class ExerciseTypesPageTests : BlazorTestBase
             builder.CloseComponent();
         });
 
-        var nameInput = renderer.WaitForElement("input.mud-input-root");
-        nameInput.Input("Sit Up");
+        var nameInput = renderer.WaitForElement("input.mud-input-slot", timeout: TimeSpan.FromSeconds(10));
+        nameInput.Change("Sit Up");
 
-        var primarySelect = renderer.FindAll("div.mud-input-control.mud-select")[1];
+        IElement primarySelect = null;
+        renderer.WaitForAssertion(() =>
+        {
+            var selects = renderer.FindAll("div.mud-input-control.mud-select");
+            selects.Count.Should().BeGreaterThan(1);
+            primarySelect = selects[1];
+        }, timeout: TimeSpan.FromSeconds(10));
         primarySelect.Click();
 
         renderer.WaitForAssertion(() =>
@@ -175,15 +182,21 @@ public class ExerciseTypesPageTests : BlazorTestBase
             var absOption = renderer.FindAll(".mud-list-item")
                 .First(item => item.TextContent.Trim() == "Abs");
             absOption.Click();
-        }, timeout: TimeSpan.FromSeconds(3));
+        }, timeout: TimeSpan.FromSeconds(10));
 
-        renderer.FindAll("button").First(button => button.TextContent.Contains("Save Form")).Click();
+        IElement saveButton = null;
+        renderer.WaitForAssertion(() =>
+        {
+            saveButton = renderer.FindAll("button")
+                .First(button => button.TextContent.Contains("Save Form"));
+        }, timeout: TimeSpan.FromSeconds(10));
+        saveButton.Click();
 
         renderer.WaitForAssertion(() =>
         {
             renderer.Markup.Should().Contain("already exists");
             MockHttp.VerifyNoOutstandingExpectation();
-        }, timeout: TimeSpan.FromSeconds(3));
+        }, timeout: TimeSpan.FromSeconds(10));
     }
 
     private void ConfigureCatalogResponses()

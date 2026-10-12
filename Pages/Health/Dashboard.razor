@@ -7,15 +7,16 @@
 <PageTitle>Health</PageTitle>
 
 <PageShell>
-    <div class="hs-compact-page-heading">
-        <MudText Typo="Typo.h5">Health</MudText>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.UploadFile"
-                   OnClick="OpenUpload">
-            Upload report
-        </MudButton>
-    </div>
+    <PageHeader Title="Health">
+        <Actions>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.UploadFile"
+                       OnClick="OpenUpload">
+                Upload report
+            </MudButton>
+        </Actions>
+    </PageHeader>
 
     @if (_isLoading)
     {

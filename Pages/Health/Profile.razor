@@ -9,33 +9,28 @@
 <PageTitle>Training insights</PageTitle>
 
 <PageShell Class="hs-insights-page">
-    <div class="hs-insights-header">
-        <div>
-            <MudText Typo="Typo.h5">Insights</MudText>
-            <MudText Typo="Typo.caption" Class="hs-muted-copy">
-                @SelectedWeekRangeLabel
-            </MudText>
-        </div>
-
-        @if (_weeklySnapshots.Count > 0)
-        {
-            <MudSelect T="DateTime"
-                       Value="_selectedWeekStart"
-                       ValueChanged="OnWeekChanged"
-                       Label="Week"
-                       Dense="true"
-                       Variant="Variant.Outlined"
-                       Class="hs-insights-week-select">
-                @foreach (var snapshot in _weeklySnapshots)
-                {
-                    <MudSelectItem T="DateTime"
-                                   Value="@snapshot.WeekStart">
-                        @FormatWeekRange(snapshot.WeekStart)
-                    </MudSelectItem>
-                }
-            </MudSelect>
-        }
-    </div>
+    <PageHeader Title="Insights" Subtitle="@SelectedWeekRangeLabel">
+        <Actions>
+            @if (_weeklySnapshots.Count > 0)
+            {
+                <MudSelect T="DateTime"
+                           Value="_selectedWeekStart"
+                           ValueChanged="OnWeekChanged"
+                           Label="Week"
+                           Dense="true"
+                           Variant="Variant.Outlined"
+                           Class="hs-insights-week-select">
+                    @foreach (var snapshot in _weeklySnapshots)
+                    {
+                        <MudSelectItem T="DateTime"
+                                       Value="@snapshot.WeekStart">
+                            @FormatWeekRange(snapshot.WeekStart)
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            }
+        </Actions>
+    </PageHeader>
 
     @if (_isLoading)
     {

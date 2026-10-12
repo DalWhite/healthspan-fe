@@ -1,4 +1,5 @@
 @inject AppStateService AppState
+@inject HttpClient Http
 
 <MudForm @ref="form" @bind-IsValid="@success">
     <MudGrid>
@@ -7,10 +8,19 @@
                 <MudCardContent>
                     <MudText Typo="Typo.h6" Class="mb-4 hs-text-primary">Basic Info</MudText>
 
-                    <MudTextField @bind-Value="Model.Name"
+                    <MudTextField Value="Model.Name"
+                                  ValueChanged="OnNameChanged"
                                   Label="Exercise Name"
                                   Required="true"
-                                  RequiredError="Name is required!"
+                                  RequiredError="Name is required."
+                                  MaxLength="100"
+                                  HelperText="2-100 characters. Names must be unique."
+                                  Error="@(_nameError is not null)"
+                                  ErrorText="@_nameError"
+                                  Adornment="@(_nameIsUniqueConfirmed ? Adornment.End : Adornment.None)"
+                                  AdornmentIcon="@(_nameIsUniqueConfirmed ? Icons.Material.Filled.CheckCircle : "")"
+                                  AdornmentColor="Color.Success"
+                                  OnBlur="OnNameBlur"
                                   Variant="Variant.Outlined"
                                   Class="mb-3" />
 

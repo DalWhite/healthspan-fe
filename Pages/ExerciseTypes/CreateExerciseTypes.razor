@@ -15,9 +15,17 @@
     <ExerciseTypeForm Model="_model"
                       OnSubmit="HandleSubmit"
                       OnCancel="NavigateBack" />
+
+    @if (!string.IsNullOrWhiteSpace(_actionError))
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-3" role="alert">
+            @_actionError
+        </MudAlert>
+    }
 </MudContainer>
 @code {
     private UpdateExerciseTypeResource _model = new();
+    private string? _actionError;
 
     protected override void OnInitialized()
         => TitleService.Title = "Add Exercise Type";
@@ -51,7 +59,9 @@
         }
         else
         {
-            Snackbar.Add("Failed to create exercise type. Please try again.", Severity.Error);
+            _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
+                response,
+                "Couldn't create this exercise type.");
         }
     }
 

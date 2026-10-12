@@ -6,15 +6,16 @@
 <PageTitle>Trainee Training</PageTitle>
 
 <PageShell>
-    <div class="hs-compact-page-heading">
-        <MudText Typo="Typo.h5">Trainee training</MudText>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="GoToCreate">
-            Log exercise
-        </MudButton>
-    </div>
+    <PageHeader Title="Trainee training">
+        <Actions>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="GoToCreate">
+                Log exercise
+            </MudButton>
+        </Actions>
+    </PageHeader>
 
     @if (_isLoading)
     {

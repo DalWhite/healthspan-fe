@@ -12,37 +12,36 @@
                 OnBeforeInternalNavigation="HandleBeforeNavigation" />
 
 <PageShell Class="hs-review-page">
-    <div class="hs-compact-page-heading">
-        <div>
+    <PageHeader Title="@PageHeading">
+        <Actions>
             <MudButton Variant="Variant.Text"
                        Color="Color.Default"
                        StartIcon="@Icons.Material.Filled.ArrowBack"
                        OnClick="BackToDetail">
                 Blood test
             </MudButton>
-            <MudText Typo="Typo.h5">@PageHeading</MudText>
-        </div>
-        @if (_bloodTest is not null)
-        {
-            <div class="hs-review-heading-actions">
-                @if (!string.IsNullOrWhiteSpace(
-                    _bloodTest.SourceFileName))
-                {
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Default"
-                               StartIcon="@Icons.Material.Filled.PictureAsPdf"
-                               Disabled="_isLoadingDocument"
-                               Loading="_isLoadingDocument"
-                               OnClick="OpenDocumentAsync">
-                        Report
-                    </MudButton>
-                }
-                <span class="hs-review-progress">
-                    @_markerRows.Count markers
-                </span>
-            </div>
-        }
-    </div>
+            @if (_bloodTest is not null)
+            {
+                <div class="hs-review-heading-actions">
+                    @if (!string.IsNullOrWhiteSpace(
+                        _bloodTest.SourceFileName))
+                    {
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                   Disabled="_isLoadingDocument"
+                                   Loading="_isLoadingDocument"
+                                   OnClick="OpenDocumentAsync">
+                            Report
+                        </MudButton>
+                    }
+                    <span class="hs-review-progress">
+                        @_markerRows.Count markers
+                    </span>
+                </div>
+            }
+        </Actions>
+    </PageHeader>
 
     @if (_isLoading)
     {

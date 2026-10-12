@@ -10,15 +10,10 @@
 <PageTitle>Train</PageTitle>
 
 <PageShell Narrow="true" Class="hs-today-page">
-    <div class="hs-today-heading">
-        <div>
-            <MudText Typo="Typo.h5">Training</MudText>
-            <MudText Typo="Typo.caption" Class="hs-muted-copy">@DateLabel</MudText>
-        </div>
-
-        @if (_session is not null)
-        {
-            <MudStack Row="true" Spacing="1">
+    <PageHeader Title="Training" Subtitle="@DateLabel">
+        <Actions>
+            @if (_session is not null)
+            {
                 <MudButton Variant="Variant.Outlined"
                            Color="MudBlazor.Color.Primary"
                            Disabled="@_isStarting"
@@ -30,9 +25,9 @@
                            OnClick="FinishWorkout">
                     Finish
                 </MudButton>
-            </MudStack>
-        }
-    </div>
+            }
+        </Actions>
+    </PageHeader>
 
     @if (_isLoading)
     {

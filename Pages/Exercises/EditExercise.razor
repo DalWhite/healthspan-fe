@@ -8,16 +8,14 @@
 <PageTitle>@_title</PageTitle>
 
 <PageShell Narrow="true" Class="hs-exercise-edit-page">
-    <div class="hs-exercise-edit-heading">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
-                       Size="MudBlazor.Size.Small"
-                       OnClick="GoBack"
-                       aria-label="Back" />
-        <div>
-            <MudText Typo="Typo.h5">@ExerciseName</MudText>
-            <MudText Typo="Typo.caption" Class="hs-muted-copy">Edit entry</MudText>
-        </div>
-    </div>
+    <PageHeader Title="@ExerciseName" Subtitle="Edit entry">
+        <Actions>
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                           Size="MudBlazor.Size.Small"
+                           OnClick="GoBack"
+                           aria-label="Back" />
+        </Actions>
+    </PageHeader>
 
     @if (_isLoading)
     {

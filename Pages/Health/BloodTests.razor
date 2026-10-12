@@ -7,9 +7,8 @@
 <PageTitle>Blood Tests</PageTitle>
 
 <PageShell>
-    <div class="hs-compact-page-heading hs-health-list-heading">
-        <MudText Typo="Typo.h5">Blood tests</MudText>
-        <div class="hs-health-heading-actions">
+    <PageHeader Title="Blood tests">
+        <Actions>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.CloudUpload"
@@ -21,8 +20,8 @@
                        OnClick="ToggleManualEntry">
                 Enter manually
             </MudButton>
-        </div>
-    </div>
+        </Actions>
+    </PageHeader>
 
     @if (!string.IsNullOrWhiteSpace(_errorMessage))
     {

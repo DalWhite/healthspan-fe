@@ -8,8 +8,9 @@
 <PageTitle>Blood Test</PageTitle>
 
 <PageShell>
-    <div class="hs-compact-page-heading">
-        <div>
+    <PageHeader Title="@(_bloodTest is not null ? _bloodTest.TestDate.ToString("dd MMM yyyy") : "Blood test")"
+                Subtitle="@(_bloodTest?.LabName ?? "Unknown lab")">
+        <Actions>
             <MudButton Variant="Variant.Text"
                        Color="Color.Default"
                        StartIcon="@Icons.Material.Filled.ArrowBack"
@@ -18,21 +19,10 @@
             </MudButton>
             @if (_bloodTest is not null)
             {
-                <MudText Typo="Typo.h5">
-                    @_bloodTest.TestDate.ToString("dd MMM yyyy")
-                </MudText>
-                <MudText Typo="Typo.caption"
-                         Class="hs-muted-copy">
-                    @(_bloodTest.LabName ?? "Unknown lab")
-                </MudText>
+                <ClinicalStatusChip Status="@StatusLabel" />
             }
-        </div>
-
-        @if (_bloodTest is not null)
-        {
-            <ClinicalStatusChip Status="@StatusLabel" />
-        }
-    </div>
+        </Actions>
+    </PageHeader>
 
     @if (_isLoading)
     {
