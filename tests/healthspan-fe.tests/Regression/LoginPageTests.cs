@@ -79,8 +79,8 @@ public class LoginPageTests : BlazorTestBase
         var cut = RenderComponent<Login>();
 
         var inputs = cut.FindAll("input");
-        inputs[0].Input("test@healthspan.dev");
-        inputs[1].Input("correct-horse");
+        inputs[0].Change("test@healthspan.dev");
+        inputs[1].Change("correct-horse");
 
         await cut.InvokeAsync(() => cut.Instance.DoLoginAsync());
 
