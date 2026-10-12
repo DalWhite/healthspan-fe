@@ -57,6 +57,19 @@
                        OnClick="StartWorkout">
                 Start workout
             </MudButton>
+            @if (_lastWorkout is not null)
+            {
+                <MudButton Variant="Variant.Outlined"
+                           Color="MudBlazor.Color.Primary"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Replay"
+                           Loading="@_isRepeating"
+                           Disabled="@_isRepeating"
+                           OnClick="RepeatLastWorkout">
+                    Repeat last workout
+                </MudButton>
+                <MudText Typo="Typo.caption" Class="hs-muted-copy">@LastWorkoutLabel</MudText>
+            }
         </MudPaper>
     }
     else
@@ -141,13 +154,37 @@
     private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
     private readonly List<WorkoutSessionResource> _sessions = [];
     private WorkoutSessionResource? _session;
+    private GetWorkoutResource? _lastWorkout;
     private decimal? _currentUserBodyWeight;
     private string? _error;
     private bool _isLoading = true;
     private bool _isStarting;
+    private bool _isRepeating;
 
     private string DateLabel
         => _today.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMMM");
+
+    private string LastWorkoutLabel
+    {
+        get
+        {
+            if (_lastWorkout?.Date is not { } date)
+            {
+                return string.Empty;
+            }
+
+            var workoutDate = date.Date;
+            var days = (DateTime.Today - workoutDate).Days;
+            var when = days switch
+            {
+                0 => "today",
+                1 => "yesterday",
+                _ => $"{days} days ago"
+            };
+            var exerciseCount = _lastWorkout.ExerciseCount;
+            return $"From {workoutDate:ddd, d MMM} · {exerciseCount} {(exerciseCount == 1 ? "exercise" : "exercises")}";
+        }
+    }
 
     private string ExerciseSummary
     {
@@ -185,6 +222,13 @@
             _sessions.AddRange(sessionsTask.Result);
             _session = _sessions.LastOrDefault();
             _currentUserBodyWeight = profileWeightTask.Result;
+
+            // "Repeat last workout" is the activation shortcut: only relevant when
+            // there is no session for today yet.
+            if (_session is null)
+            {
+                _lastWorkout = await LoadLastWorkoutAsync();
+            }
         }
         catch (HttpRequestException)
         {
@@ -212,6 +256,69 @@
         return await response.Content
                    .ReadFromJsonAsync<List<WorkoutSessionResource>>()
                ?? [];
+    }
+
+    private async Task<GetWorkoutResource?> LoadLastWorkoutAsync()
+    {
+        try
+        {
+            // Most recent workout that actually has logged exercises; empty
+            // placeholder days are not worth repeating.
+            using var response = await Http.GetAsync("/workouts?page=1&pageSize=10");
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var page = await response.Content
+                .ReadFromJsonAsync<List<GetWorkoutResource>>();
+            return page?.FirstOrDefault(workout => workout.ExerciseCount > 0);
+        }
+        catch (Exception)
+        {
+            // The shortcut is optional; never block Today for it.
+            return null;
+        }
+    }
+
+    private async Task RepeatLastWorkout()
+    {
+        if (_isRepeating || _lastWorkout is null)
+        {
+            return;
+        }
+
+        _isRepeating = true;
+        _error = null;
+
+        try
+        {
+            using var response = await Http.PostAsJsonAsync(
+                $"/Workouts/{_lastWorkout.Id}/duplicate",
+                new { Date = _today.ToString("yyyy-MM-dd") });
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = "The workout could not be repeated.";
+                return;
+            }
+
+            // Land in context: reload Today so the copy is already there,
+            // exercises ready to edit.
+            await LoadPageAsync();
+            Snackbar.Add("Last workout copied to today.", Severity.Success);
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The workout could not be repeated.";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "Repeating took too long. Please try again.";
+        }
+        finally
+        {
+            _isRepeating = false;
+        }
     }
 
     private async Task<decimal?> LoadProfileWeightAsync()

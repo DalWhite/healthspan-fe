@@ -5,6 +5,8 @@
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject TitleService TitleService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <PageTitle>Training History</PageTitle>
 
@@ -119,8 +121,9 @@
             {
                 var isExpanded = _expandedWorkoutId == workout.Id;
                 var detailsId = $"workout-details-{workout.Id:N}";
+                var cardId = $"workout-card-{workout.Id:N}";
 
-                <article class="hs-workout-session-card hs-surface @(isExpanded ? "is-expanded" : null)">
+                <article id="@cardId" class="hs-workout-session-card hs-surface @(isExpanded ? "is-expanded" : null)">
                     <button type="button"
                             class="hs-workout-session-toggle"
                             aria-expanded="@isExpanded.ToString().ToLowerInvariant()"
@@ -380,7 +383,7 @@
             <h2 id="duplicate-workout-title">Duplicate workout</h2>
             <p class="hs-workout-sheet-copy">
                 Copies @FormatLoggedExerciseRecords(_duplicateCandidate.ExerciseCount)
-                to another date. Pick the exercises you want to copy.
+                to another date — today by default. Pick the exercises you want to copy.
             </p>
 
             <div class="hs-workout-sheet-fields">
@@ -786,7 +789,8 @@
         _dialogError = null;
         _statusMessage = null;
         _duplicateCandidate = workout;
-        _duplicateDate = workout.Date?.Date ?? DateTime.Today;
+        // The intuitive default is "repeat this workout today"; the user can move it to another date.
+        _duplicateDate = DateTime.Today;
         _duplicateType = string.IsNullOrWhiteSpace(workout.Type)
             ? "Workout"
             : workout.Type;
@@ -846,6 +850,7 @@
         }
 
         var sourceWorkoutId = _duplicateCandidate.Id;
+        var targetDate = _duplicateDate.Date;
         _isSaving = true;
         _dialogError = null;
 
@@ -855,7 +860,7 @@
                 $"workouts/{sourceWorkoutId}/duplicate",
                 new
                 {
-                    Date = _duplicateDate.ToString("yyyy-MM-dd"),
+                    Date = targetDate.ToString("yyyy-MM-dd"),
                     Type = _duplicateType.Trim(),
                     ExerciseIds = _duplicateSelected.ToList()
                 });
@@ -876,8 +881,19 @@
 
             _duplicateCandidate = null;
             _duplicateSelected.Clear();
-            _statusMessage = "Workout duplicated.";
+
+            // Rule 2 (ux-ui-good-apps): after the action the user lands in their
+            // context — the editable copy — not back in the history catalog.
+            if (targetDate == DateTime.Today)
+            {
+                Snackbar.Add("Workout copied to today.", Severity.Success);
+                NavigationManager.NavigateTo("/training/today");
+                return;
+            }
+
             InsertWorkout(result.Workout);
+            _statusMessage = "Workout duplicated.";
+            await FocusDuplicatedWorkoutAsync(result.Workout.Id);
         }
         catch (Exception)
         {
@@ -886,6 +902,26 @@
         finally
         {
             _isSaving = false;
+        }
+    }
+
+    private async Task FocusDuplicatedWorkoutAsync(Guid workoutId)
+    {
+        _expandedWorkoutId = workoutId;
+        if (!_details.TryGetValue(workoutId, out var detail))
+        {
+            await LoadWorkoutDetailsAsync(workoutId);
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync(
+                "scrollToElement",
+                $"workout-card-{workoutId:N}");
+        }
+        catch (Exception)
+        {
+            // Scrolling is a nicety; the duplicated card is already in place.
         }
     }
 

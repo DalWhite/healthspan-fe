@@ -1,9 +1,12 @@
 using System.Net;
 using System.Text;
 using Bunit;
+using Bunit.TestDoubles;
 using FluentAssertions;
 using healthspan_fe.tests.Infrastructure;
 using healthspan_fe_wasm_pwa.Pages;
+using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using RichardSzalay.MockHttp;
 using Xunit;
 
@@ -304,9 +307,127 @@ public class WorkoutsPageTests : BlazorTestBase
 
     private static void ExpandPushWorkout(IRenderedComponent<Workouts> cut)
     {
-        cut.WaitForAssertion(() =>
-            cut.Find("button[aria-label='Show Push workout details']")
-                .Should().NotBeNull());
+        cut.WaitForAssertion(
+            () => cut.Find("button[aria-label='Show Push workout details']")
+                .Should().NotBeNull(),
+            TimeSpan.FromSeconds(10));
         cut.Find("button[aria-label='Show Push workout details']").Click();
     }
+
+    private static readonly Guid DuplicatedWorkoutId =
+        Guid.Parse("00000000-0000-0000-0000-000000000099");
+
+    [Fact]
+    public void Duplicating_To_Today_Lands_On_Today_Instead_Of_Back_In_History()
+    {
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo("https://localhost:7278/training/history");
+
+        MockHistoryPage(SummaryJson(includePull: false), totalCount: 1);
+        MockHttp.When(HttpMethod.Get, $"/workouts/{PushWorkoutId}")
+            .Respond("application/json", DetailJson());
+        var duplicateCall = MockHttp.When(
+                HttpMethod.Post,
+                $"/workouts/{PushWorkoutId}/duplicate")
+            .Respond(
+                HttpStatusCode.Created,
+                "application/json",
+                DuplicatedJson(DateTime.Today.ToString("yyyy-MM-dd")));
+
+        var cut = RenderComponent<Workouts>();
+
+        cut.WaitForAssertion(() => ExpandPushWorkout(cut), TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(() =>
+            cut.FindAll(".hs-workout-action")
+                .Single(button => button.TextContent.Trim() == "Duplicate")
+                .Click(), TimeSpan.FromSeconds(10));
+
+        cut.WaitForAssertion(
+            () => cut.Find(".hs-workout-sheet-actions .is-primary").Click(),
+            TimeSpan.FromSeconds(10));
+
+        cut.WaitForAssertion(() =>
+        {
+            MockHttp.GetMatchCount(duplicateCall).Should().Be(1);
+
+            // Rule 2 (ux-ui-good-apps): land in the user's context, not the catalog.
+            navigationManager.Uri.Should().EndWith("/training/today");
+            Services.GetRequiredService<ISnackbar>()
+                .ShownSnackbars
+                .Should().Contain(snackbar => snackbar.Message == "Workout copied to today.");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void Duplicating_To_Another_Date_Stays_In_History_With_The_Copy_Expanded()
+    {
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo("https://localhost:7278/training/history");
+
+        MockHistoryPage(SummaryJson(includePull: false), totalCount: 1);
+        MockHttp.When(HttpMethod.Get, $"/workouts/{PushWorkoutId}")
+            .Respond("application/json", DetailJson());
+        var duplicateCall = MockHttp.When(
+                HttpMethod.Post,
+                $"/workouts/{PushWorkoutId}/duplicate")
+            .Respond(
+                HttpStatusCode.Created,
+                "application/json",
+                DuplicatedJson("2025-06-10"));
+
+        var cut = RenderComponent<Workouts>();
+
+        cut.WaitForAssertion(() => ExpandPushWorkout(cut), TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(() =>
+            cut.FindAll(".hs-workout-action")
+                .Single(button => button.TextContent.Trim() == "Duplicate")
+                .Click(), TimeSpan.FromSeconds(10));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find("#duplicate-workout-date").Change("2025-06-10");
+            cut.Find(".hs-workout-sheet-actions .is-primary").Click();
+        }, TimeSpan.FromSeconds(10));
+
+        cut.WaitForAssertion(() =>
+        {
+            MockHttp.GetMatchCount(duplicateCall).Should().Be(1);
+
+            // The sheet is closed and the user stays on their copy, not on a list.
+            navigationManager.Uri.Should().EndWith("/training/history");
+            cut.FindAll(".hs-workout-sheet").Should().BeEmpty();
+            cut.Markup.Should().Contain("Workout duplicated.");
+
+            var copyCard = cut.Find(
+                $"[id='workout-card-{DuplicatedWorkoutId:N}']");
+            copyCard.ClassList.Should().Contain("is-expanded");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    private static string DuplicatedJson(string date)
+        => $$"""
+            {
+              "sourceWorkoutId": "{{PushWorkoutId}}",
+              "workout": {
+                "id": "{{DuplicatedWorkoutId}}",
+                "date": "{{date}}T00:00:00",
+                "type": "Push",
+                "exerciseCount": 1,
+                "totalVolume": 2560,
+                "leadingMuscles": ["Chest"],
+                "exercises": [
+                  {
+                    "id": "20000000-0000-0000-0000-000000000001",
+                    "typeId": 1,
+                    "name": "Bench Press",
+                    "series": 4,
+                    "repetitions": 8,
+                    "weight": 80,
+                    "volume": 2560,
+                    "muscles": ["Chest"]
+                  }
+                ]
+              }
+            }
+            """;
 }

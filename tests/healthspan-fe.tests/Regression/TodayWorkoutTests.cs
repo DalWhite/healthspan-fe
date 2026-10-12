@@ -1,8 +1,12 @@
 using System.Net;
+using System.Text;
 using Bunit;
+using Bunit.TestDoubles;
 using FluentAssertions;
 using healthspan_fe.tests.Infrastructure;
 using healthspan_fe_wasm_pwa.Pages.Exercises;
+using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using RichardSzalay.MockHttp;
 using Xunit;
 
@@ -214,4 +218,196 @@ public class TodayWorkoutTests : BlazorTestBase
             cut.Markup.Should().Contain("Retry");
         });
     }
+
+    [Fact]
+    public void Shows_Repeat_Last_Workout_For_The_Most_Recent_Workout_With_Exercises()
+    {
+        var emptyWorkoutId = Guid.NewGuid();
+        var lastWorkoutId = Guid.NewGuid();
+        var lastWorkoutDate = DateTime.Today.AddDays(-7);
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "[]"); // no session for today
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=10")
+            .Respond("application/json", $$"""
+                [
+                    {
+                      "id": "{{emptyWorkoutId}}",
+                      "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                      "type": "Rest placeholder",
+                      "exerciseCount": 0,
+                      "totalVolume": 0,
+                      "leadingMuscles": [],
+                      "exercises": []
+                    },
+                    {
+                      "id": "{{lastWorkoutId}}",
+                      "date": "{{lastWorkoutDate:yyyy-MM-dd}}",
+                      "type": "Cycling",
+                      "exerciseCount": 2,
+                      "totalVolume": 0,
+                      "leadingMuscles": [],
+                      "exercises": []
+                    }
+                ]
+                """);
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll("button")
+                .Should().ContainSingle(btn => btn.TextContent.Trim() == "Repeat last workout");
+            cut.Markup.Should().Contain($"From {lastWorkoutDate:ddd, d MMM}");
+            cut.Markup.Should().Contain("2 exercises");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void Repeat_Last_Workout_Copies_It_To_Today_And_Keeps_The_User_On_Today()
+    {
+        var lastWorkoutId = Guid.NewGuid();
+        var duplicatedWorkoutId = Guid.NewGuid();
+        var duplicatedExerciseId = Guid.NewGuid();
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo("https://localhost:7278/training/today");
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        var sessionLoads = 0;
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond(_ =>
+            {
+                // First load: nothing logged today yet. After the duplicate the
+                // copy shows up as today's session.
+                sessionLoads++;
+                var body = sessionLoads == 1 ? "[]" : TodaySessionJson(duplicatedWorkoutId, duplicatedExerciseId);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "application/json")
+                };
+            });
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=10")
+            .Respond("application/json", $$"""
+                [{
+                    "id": "{{lastWorkoutId}}",
+                    "date": "{{DateTime.Today.AddDays(-7):yyyy-MM-dd}}",
+                    "type": "Cycling",
+                    "exerciseCount": 2,
+                    "totalVolume": 0,
+                    "leadingMuscles": [],
+                    "exercises": []
+                }]
+                """);
+        var duplicateCall = MockHttp.When(
+                HttpMethod.Post,
+                $"/Workouts/{lastWorkoutId}/duplicate")
+            .Respond(HttpStatusCode.Created, "application/json", $$"""
+                {
+                    "sourceWorkoutId": "{{lastWorkoutId}}",
+                    "workout": {
+                        "id": "{{duplicatedWorkoutId}}",
+                        "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                        "type": "Cycling",
+                        "exerciseCount": 2,
+                        "totalVolume": 0,
+                        "leadingMuscles": [],
+                        "exercises": []
+                    }
+                }
+                """);
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() =>
+            cut.FindAll("button")
+                .Single(btn => btn.TextContent.Trim() == "Repeat last workout")
+                .Click(), TimeSpan.FromSeconds(10));
+
+        cut.WaitForAssertion(() =>
+        {
+            MockHttp.GetMatchCount(duplicateCall).Should().Be(1);
+
+            // Rule 2 (ux-ui-good-apps): the user lands on their own context,
+            // with the copied exercises ready to edit, not on a catalog.
+            navigationManager.Uri.Should().EndWith("/training/today");
+            cut.Markup.Should().Contain("Bike");
+            cut.Markup.Should().Contain("Add exercise");
+            cut.Markup.Should().NotContain("Repeat last workout");
+
+            Services.GetRequiredService<ISnackbar>()
+                .ShownSnackbars
+                .Should().Contain(snackbar => snackbar.Message == "Last workout copied to today.");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void Repeat_Last_Workout_Keeps_The_User_On_Today_When_The_Copy_Fails()
+    {
+        var lastWorkoutId = Guid.NewGuid();
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo("https://localhost:7278/training/today");
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=10")
+            .Respond("application/json", $$"""
+                [{
+                    "id": "{{lastWorkoutId}}",
+                    "date": "{{DateTime.Today.AddDays(-2):yyyy-MM-dd}}",
+                    "type": "Cycling",
+                    "exerciseCount": 2,
+                    "totalVolume": 0,
+                    "leadingMuscles": [],
+                    "exercises": []
+                }]
+                """);
+        MockHttp.When(
+                HttpMethod.Post,
+                $"/Workouts/{lastWorkoutId}/duplicate")
+            .Respond(HttpStatusCode.BadRequest, "application/json", "{}");
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() =>
+            cut.FindAll("button")
+                .Single(btn => btn.TextContent.Trim() == "Repeat last workout")
+                .Click(), TimeSpan.FromSeconds(10));
+
+        cut.WaitForAssertion(() =>
+        {
+            navigationManager.Uri.Should().EndWith("/training/today");
+            cut.Markup.Should().Contain("could not be repeated");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    private static string TodaySessionJson(Guid workoutId, Guid exerciseId)
+        => $$"""
+            [{
+                "id": "{{workoutId}}",
+                "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                "type": "Cycling",
+                "exercises": [
+                    {
+                        "id": "{{exerciseId}}",
+                        "typeId": 1,
+                        "name": "Bike",
+                        "series": 3,
+                        "repetitions": 10,
+                        "weight": 0
+                    }
+                ],
+                "recentExerciseTypeIds": [1]
+            }]
+            """;
 }
