@@ -8,7 +8,8 @@
                 <MudCardContent>
                     <MudText Typo="Typo.h6" Class="mb-4 hs-text-primary">Basic Info</MudText>
 
-                    <MudTextField Value="Model.Name"
+                    <MudTextField T="string?"
+                                  Value="Model.Name"
                                   ValueChanged="OnNameChanged"
                                   Label="Exercise Name"
                                   Required="true"
@@ -101,9 +102,13 @@
                     </MudSelect>
 
                     <MudSelect T="int?"
-                               @bind-Value="Model.ParentExerciseTypeId"
+                               Value="Model.ParentExerciseTypeId"
+                               ValueChanged="OnParentChanged"
                                Label="Variation Of"
                                Clearable="true"
+                               Error="@(_parentError is not null)"
+                               ErrorText="@_parentError"
+                               OnBlur="OnParentBlur"
                                HelperText="Leave empty for a main exercise. Set a parent to create a variation like Romanian Sit-up under Sit-up."
                                Variant="Variant.Outlined">
                         @foreach (var exerciseType in ParentExerciseOptions)
@@ -209,6 +214,13 @@
     private List<int> _selectedPrimaryMuscleIds = new();
     private List<int> _selectedSecondaryMuscleIds = new();
     private string? _assignmentError;
+
+    // Inline per-field validation (NN/g rule 5): errors appear on blur, never while typing.
+    private const int NameUniquenessDebounceMs = 400;
+    private string? _nameError;
+    private bool _nameIsUniqueConfirmed;
+    private CancellationTokenSource? _nameCheckCts;
+    private string? _parentError;
 
     private IEnumerable<GetExerciseTypeResource> ParentExerciseOptions
         => _exerciseTypes
@@ -346,10 +358,122 @@
             .ToList();
     }
 
+    private void OnNameChanged(string? name)
+    {
+        Model.Name = name;
+        // While typing we never validate; just drop stale feedback for the old value.
+        _nameError = null;
+        _nameIsUniqueConfirmed = false;
+        _nameCheckCts?.Cancel();
+    }
+
+    private async Task OnNameBlur()
+    {
+        _nameCheckCts?.Cancel();
+        if (!ValidateNameInline())
+        {
+            return;
+        }
+
+        // Debounced uniqueness check against the server, only after the user leaves the field.
+        var cts = new CancellationTokenSource();
+        _nameCheckCts = cts;
+        var checkedName = Model.Name ?? string.Empty;
+        try
+        {
+            await Task.Delay(NameUniquenessDebounceMs, cts.Token);
+            var existing = await Http.GetFromJsonAsync<List<GetExerciseTypeResource>>("/ExerciseTypes");
+            if (cts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            var duplicate = existing is not null
+                && existing.Any(et => et.Id != Model.Id
+                    && string.Equals(et.Name?.Trim(), checkedName.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (duplicate)
+            {
+                _nameError = $"'{checkedName.Trim()}' already exists. Pick a different name.";
+            }
+            else
+            {
+                _nameError = null;
+                _nameIsUniqueConfirmed = true;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            // Offline/unreachable: keep quiet inline, the submit alert is the safety net.
+        }
+    }
+
+    private bool ValidateNameInline()
+    {
+        var name = Model.Name?.Trim() ?? string.Empty;
+        if (name.Length == 0)
+        {
+            _nameError = "Name is required.";
+            return false;
+        }
+
+        if (name.Length < 2)
+        {
+            _nameError = "Name must be at least 2 characters.";
+            return false;
+        }
+
+        if (name.Length > 100)
+        {
+            _nameError = "Name cannot exceed 100 characters.";
+            return false;
+        }
+
+        _nameError = null;
+        return true;
+    }
+
+    private void OnParentChanged(int? parentId)
+    {
+        Model.ParentExerciseTypeId = parentId;
+        _parentError = null;
+    }
+
+    private void OnParentBlur()
+    {
+        if (Model.ParentExerciseTypeId is int parentId)
+        {
+            var parent = _exerciseTypes.FirstOrDefault(et => et.Id == parentId);
+            if (parent is null)
+            {
+                _parentError = "The selected parent exercise type does not exist.";
+            }
+            else if (parent.ParentExerciseTypeId is not null)
+            {
+                _parentError = "Variations can only belong to a main exercise type.";
+            }
+            else
+            {
+                _parentError = null;
+            }
+        }
+        else
+        {
+            _parentError = null;
+        }
+    }
+
     private async Task TriggerSubmit()
     {
         await form.Validate();
-        if (!success || !OnSubmit.HasDelegate)
+
+        // Surface per-field inline errors for the same rules the backend enforces.
+        var nameOk = ValidateNameInline();
+        OnParentBlur();
+
+        if (!success || !nameOk || _parentError is not null || !OnSubmit.HasDelegate)
         {
             return;
         }

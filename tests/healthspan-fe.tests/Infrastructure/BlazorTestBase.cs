@@ -35,7 +35,11 @@ public abstract class BlazorTestBase : TestContext
         MockHttp.When("/Users/roles")
             .Respond("application/json", "[]");
 
-        Services.AddSingleton(httpClient);
+        // Register via factory so the DI container OWNS the HttpClient and disposes it
+        // when TestContext.Dispose() runs. Registering the instance directly
+        // (AddSingleton(instance)) leaves it undisposed; a leaked HttpClient that has
+        // already served a request can deadlock the next test's async submit chain.
+        Services.AddSingleton(_ => httpClient);
         Services.AddSingleton(TitleService);
         Services.AddSingleton(new AppStateService(httpClient));
         Services.AddSingleton(new ThemeState());
