@@ -409,6 +409,51 @@ public class ExerciseCreationFormTests : BlazorTestBase
         });
     }
 
+    [Fact]
+    public void Saves_The_Exercise_When_Sets_And_Reps_Are_Cleared()
+    {
+        var workoutId = Guid.NewGuid();
+        AddExerciseResource? submitted = null;
+
+        var createExerciseRequest = MockHttp
+            .When(HttpMethod.Post, "/Exercises")
+            .Respond(HttpStatusCode.Created, "application/json", "{}");
+
+        var cut = RenderComponent<ExerciseCreationForm>(parameters => parameters
+            .Add(component => component.ExerciseTypes, new[]
+            {
+                new GetExerciseTypeResource
+                {
+                    Id = 21,
+                    Name = "Bench Press",
+                    WeightType = ExerciseWeightType.Standard
+                }
+            })
+            .Add(component => component.InitialExerciseTypeId, 21)
+            .Add(component => component.InitialDate, DateTime.Today)
+            .Add(component => component.WorkoutId, workoutId)
+            .Add(component => component.OnExerciseAdded,
+                (Action<AddExerciseResource>)(exercise => submitted = exercise)));
+
+        // The fast path prefills 3x10; the user can wipe it to log the exercise
+        // now and fill the numbers later.
+        cut.WaitForAssertion(() => NumericInput(cut, 0)
+            .GetAttribute("value").Should().Be("3"));
+
+        NumericInput(cut, 0).Change("");
+        NumericInput(cut, 1).Change("");
+        cut.Find("form").Submit();
+
+        cut.WaitForAssertion(() =>
+        {
+            MockHttp.GetMatchCount(createExerciseRequest).Should().Be(1);
+            submitted.Should().NotBeNull();
+            submitted!.Series.Should().BeNull();
+            submitted.Repetitions.Should().BeNull();
+            cut.FindAll(".mud-alert").Should().BeEmpty();
+        }, timeout: TimeSpan.FromSeconds(3));
+    }
+
     // MudBlazor gives these inputs unstable ids, so the prescription grid is
     // addressed by position: Sets, Reps, Weight.
     private static AngleSharp.Dom.IElement NumericInput(

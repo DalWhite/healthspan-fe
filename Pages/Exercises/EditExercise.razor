@@ -159,8 +159,8 @@
             {
                 WorkoutId = Exercise.Workout?.Id,
                 TypeId = Exercise.Type?.Id,
-                Series = Exercise.Series ?? 1,
-                Repetitions = Exercise.Repetitions ?? 0,
+                Series = Exercise.Series,
+                Repetitions = Exercise.Repetitions,
                 Weight = Exercise.Weight ?? 0,
                 WeightType = weightType,
                 BodyWeight = weightType == ExerciseWeightType.BodyWeight

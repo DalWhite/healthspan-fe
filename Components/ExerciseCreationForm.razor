@@ -72,7 +72,7 @@
                          Clearable="true" />
 
         <div class="hs-exercise-prescription-grid">
-            <MudNumericField T="int"
+            <MudNumericField T="int?"
                              Value="_exercise.Series"
                              ValueChanged="@(value => { _exercise.Series = value; _prescriptionTouched = true; })"
                              Label="Sets"
@@ -80,7 +80,7 @@
                              Margin="Margin.Dense"
                              InputType="InputType.Number" />
 
-            <MudNumericField T="int"
+            <MudNumericField T="int?"
                              Value="_exercise.Repetitions"
                              ValueChanged="@(value => { _exercise.Repetitions = value; _prescriptionTouched = true; })"
                              Label="Reps"

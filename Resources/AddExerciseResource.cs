@@ -5,11 +5,14 @@ public record AddExerciseResource : IValidatableObject
     public Guid? WorkoutId { get; set; }
     public int? TypeId { get; set; }
 
+    // Sets/reps are optional. A cleared field stays null (the entry is logged
+    // without numbers and completed later); Range only fires when the user
+    // actually types an out-of-range value, never for an empty optional field.
     [Range(1, 100, ErrorMessage = "Series must be between 1 and 100")]
-    public int Series { get; set; } = 1;
+    public int? Series { get; set; }
 
     [Range(0, 1000, ErrorMessage = "Repetitions must be between 0 and 1000")]
-    public int Repetitions { get; set; } = 8;
+    public int? Repetitions { get; set; }
 
     [Range(0, 10000, ErrorMessage = "Weight must be between 0 and 10,000")]
     public decimal Weight { get; set; } = 0;
