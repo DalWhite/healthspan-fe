@@ -65,6 +65,45 @@ html {
   }
 }
 
+/* ── Touch target baseline (WCAG 2.5.5 / Apple HIG) ─────────────────────── */
+/* Every control a user taps inside the app bar, page shells and toolbars gets a
+   44px hit area. Compact visuals stay compact only where nothing is tappable
+   (display chips, meta text). Component rules below may raise a target, never
+   shrink one below this baseline. */
+.hs-appbar :is(.mud-button-root, .mud-icon-button),
+.hs-page-shell :is(.mud-button-root, .mud-icon-button, .mud-chip-close-button),
+.hs-health-shell :is(.mud-button-root, .mud-icon-button, .mud-chip-close-button),
+.hs-page-toolbar :is(.mud-button-root, .mud-icon-button, .mud-chip-close-button),
+.hs-login-layout :is(.mud-button-root, .mud-icon-button, .mud-chip-close-button) {
+  min-width: var(--hs-touch-target);
+  min-height: var(--hs-touch-target);
+}
+
+/* MudBlazor sizes the input element with content-box (height + padding), so a bare
+   min-height would stack 44px on top of the padding. Only the dense fields — the ones
+   that actually render under 44px — get switched to border-box; roomier fields already
+   clear the baseline and must not be squeezed. */
+.hs-page-shell .mud-input > .mud-input-root.mud-input-root-margin-dense,
+.hs-health-shell .mud-input > .mud-input-root.mud-input-root-margin-dense,
+.hs-login-layout .mud-input > .mud-input-root.mud-input-root-margin-dense {
+  box-sizing: border-box;
+  min-height: var(--hs-touch-target);
+}
+
+/* A closable chip is a tap target (its close button), so the chip grows with it. */
+.hs-page-shell .mud-chip:has(.mud-chip-close-button),
+.hs-health-shell .mud-chip:has(.mud-chip-close-button) {
+  min-height: var(--hs-touch-target);
+}
+
+/* Numeric steppers are a fine-pointer affordance: two 20px buttons stacked inside
+   a 44px field can never each reach 44px. On touch, the field itself is the target. */
+@media (pointer: coarse) {
+  .mud-input-control.mud-input-number-control .mud-input-numeric-spin {
+    display: none;
+  }
+}
+
 /* ── Application shell and shared page primitives ───────────────────────── */
 .hs-appbar {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -350,12 +389,6 @@ html {
 
   .hs-mobile-nav-primary .mud-icon-root {
     color: var(--mud-palette-primary);
-  }
-
-  .hs-page-shell :where(.mud-button-root, .mud-icon-button),
-  .hs-health-shell :where(.mud-button-root, .mud-icon-button) {
-    min-width: var(--hs-touch-target);
-    min-height: var(--hs-touch-target);
   }
 }
 
@@ -1567,8 +1600,8 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-et-variation-toggle {
-  min-width: 0 !important;
-  min-height: 32px !important;
+  min-width: var(--hs-touch-target) !important;
+  min-height: var(--hs-touch-target) !important;
   padding-inline: 6px !important;
 }
 
@@ -1590,7 +1623,7 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-et-card-menu .mud-button-root {
-  min-width: 40px;
+  min-width: var(--hs-touch-target);
   border-radius: 12px;
 }
 
@@ -3486,7 +3519,7 @@ a.hs-exercise-history-row:hover {
 
 .hs-exercise-entry-submit .mud-button-root {
   min-width: 152px;
-  min-height: 42px;
+  min-height: var(--hs-touch-target);
   border-radius: var(--hs-radius-sm);
 }
 
@@ -3522,7 +3555,7 @@ a.hs-exercise-history-row:hover {
   flex: 0 0 auto;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: var(--hs-touch-target);
   max-width: 190px;
   padding: 7px 11px;
   overflow: hidden;
@@ -3603,7 +3636,7 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-exercise-edit-footer .hs-exercise-edit-button {
-  min-height: 40px;
+  min-height: var(--hs-touch-target);
   border-color: transparent;
 }
 
@@ -3782,7 +3815,9 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-history-tag-filter {
-    padding: .38rem .7rem;
+  min-width: var(--hs-touch-target);
+  min-height: var(--hs-touch-target);
+  padding: .38rem .7rem;
     border: 1px solid var(--hs-color-border);
     border-radius: 999px;
     background: transparent;
