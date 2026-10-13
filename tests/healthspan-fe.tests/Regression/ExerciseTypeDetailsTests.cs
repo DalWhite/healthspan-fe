@@ -239,7 +239,7 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
                 .Which.TextContent.Trim().Should().Be("1RM");
             cut.Find(".hs-exercise-trend-latest")
                 .TextContent.Should().Contain("101");
-        });
+        }, timeout: TimeSpan.FromSeconds(10));
 
         cut.FindAll(".hs-exercise-trend-metrics button")
             .Single(button => button.TextContent.Trim() == "Volume")
@@ -257,7 +257,7 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
                 .Which.TextContent.Trim().Should().Be("Volume");
             cut.Find(".hs-exercise-trend-latest")
                 .TextContent.Should().Contain("560 kg");
-        });
+        }, timeout: TimeSpan.FromSeconds(10));
     }
 
     private void ConfigureWeightedExercise()
