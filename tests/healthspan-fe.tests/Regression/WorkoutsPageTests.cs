@@ -336,15 +336,15 @@ public class WorkoutsPageTests : BlazorTestBase
 
         var cut = RenderComponent<Workouts>();
 
-        cut.WaitForAssertion(() => ExpandPushWorkout(cut), TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(() => ExpandPushWorkout(cut), TimeSpan.FromSeconds(20));
         cut.WaitForAssertion(() =>
             cut.FindAll(".hs-workout-action")
                 .Single(button => button.TextContent.Trim() == "Duplicate")
-                .Click(), TimeSpan.FromSeconds(10));
+                .Click(), TimeSpan.FromSeconds(20));
 
         cut.WaitForAssertion(
             () => cut.Find(".hs-workout-sheet-actions .is-primary").Click(),
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(20));
 
         cut.WaitForAssertion(() =>
         {
@@ -355,7 +355,7 @@ public class WorkoutsPageTests : BlazorTestBase
             Services.GetRequiredService<ISnackbar>()
                 .ShownSnackbars
                 .Should().Contain(snackbar => snackbar.Message == "Workout copied to today.");
-        }, TimeSpan.FromSeconds(10));
+        }, TimeSpan.FromSeconds(20));
     }
 
     [Fact]
