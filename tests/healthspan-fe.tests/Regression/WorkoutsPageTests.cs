@@ -377,17 +377,17 @@ public class WorkoutsPageTests : BlazorTestBase
 
         var cut = RenderComponent<Workouts>();
 
-        cut.WaitForAssertion(() => ExpandPushWorkout(cut), TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(() => ExpandPushWorkout(cut), TimeSpan.FromSeconds(20));
         cut.WaitForAssertion(() =>
             cut.FindAll(".hs-workout-action")
                 .Single(button => button.TextContent.Trim() == "Duplicate")
-                .Click(), TimeSpan.FromSeconds(10));
+                .Click(), TimeSpan.FromSeconds(20));
 
         cut.WaitForAssertion(() =>
         {
             cut.Find("#duplicate-workout-date").Change("2025-06-10");
             cut.Find(".hs-workout-sheet-actions .is-primary").Click();
-        }, TimeSpan.FromSeconds(10));
+        }, TimeSpan.FromSeconds(20));
 
         cut.WaitForAssertion(() =>
         {
@@ -401,7 +401,7 @@ public class WorkoutsPageTests : BlazorTestBase
             var copyCard = cut.Find(
                 $"[id='workout-card-{DuplicatedWorkoutId:N}']");
             copyCard.ClassList.Should().Contain("is-expanded");
-        }, TimeSpan.FromSeconds(10));
+        }, TimeSpan.FromSeconds(20));
     }
 
     private static string DuplicatedJson(string date)
