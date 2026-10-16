@@ -3,6 +3,10 @@
 @inject NavigationManager NavigationManager
 @inject Blazored.LocalStorage.ISyncLocalStorageService LocalStorage
 @inject ThemeState ThemeState
+@inject IJSRuntime JS
+@inject Healthspan.Offline.SyncStatusService SyncStatus
+@inject Healthspan.Offline.SyncCoordinator SyncCoordinator
+@inject Healthspan.Offline.SyncEngine SyncEngine
 @implements IDisposable
 
 <MudThemeProvider IsDarkMode="@ThemeState.IsDarkMode" Theme="@HealthspanTheme.Default" />
@@ -17,6 +21,7 @@
                        aria-label="Toggle navigation"
                        OnClick="ToggleDrawer" />
         <MudSpacer />
+        <SyncStatusIndicator />
         <MudButton Variant="Variant.Filled"
                    Color="MudBlazor.Color.Primary"
                    StartIcon="@Icons.Material.Filled.Add"
@@ -85,7 +90,40 @@
 </MudLayout>
 
 @code {
+    private bool _jsBridgeRegistered;
+    private DotNetObjectReference<MainLayout>? _selfRef;
+
     private bool _drawerOpen = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _jsBridgeRegistered)
+        {
+            return;
+        }
+
+        // Bridge browser online/offline events to the sync status service and
+        // start the queue-drain loop for this app scope.
+        _selfRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("hsdb.setConnectivityBridge", _selfRef);
+        SyncCoordinator.Register(SyncEngine);
+        SyncEngine.Start(CancellationToken.None);
+        _jsBridgeRegistered = true;
+    }
+
+    [JSInvokable]
+    public void OnBrowserConnectivity(bool online)
+    {
+        if (online)
+        {
+            SyncStatus.MarkOnline();
+            _ = SyncCoordinator.TriggerDrainAsync();
+        }
+        else
+        {
+            SyncStatus.MarkOffline();
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -132,6 +170,12 @@
         => _ = InvokeAsync(StateHasChanged);
 
     public void Dispose()
-        => ThemeState.Changed -= HandleThemeChanged;
+    {
+        ThemeState.Changed -= HandleThemeChanged;
+        SyncCoordinator.Unregister(SyncEngine);
+        SyncEngine.Stop();
+        _selfRef?.Dispose();
+        _selfRef = null;
+    }
 
 }

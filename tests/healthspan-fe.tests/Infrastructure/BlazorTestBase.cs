@@ -44,6 +44,20 @@ public abstract class BlazorTestBase : TestContext
         Services.AddSingleton(new AppStateService(httpClient));
         Services.AddSingleton(new ThemeState());
         Services.AddSingleton(new HealthspanApiClient(httpClient));
+
+        // Offline layer: MainLayout injects these; tests exercise the same
+        // code paths with the in-memory store (no JS/SQLite needed).
+        var offlineStore = new Healthspan.Offline.InMemoryLocalStore();
+        var offlineStatus = new Healthspan.Offline.SyncStatusService();
+        var offlineCoordinator = new Healthspan.Offline.SyncCoordinator();
+        Services.AddSingleton<Healthspan.Offline.ILocalStore>(offlineStore);
+        Services.AddSingleton(offlineStatus);
+        Services.AddSingleton(offlineCoordinator);
+        Services.AddSingleton(new Healthspan.Offline.LocalMutator(
+            offlineStore, offlineStatus));
+        Services.AddSingleton(new Healthspan.Offline.SyncEngine(
+            () => httpClient, offlineStore, offlineStatus));
+
         Services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         var syncLocalStorage = Substitute.For<ISyncLocalStorageService>();
         syncLocalStorage.ContainKey(Arg.Any<string>()).Returns(false);

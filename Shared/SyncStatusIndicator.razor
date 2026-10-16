@@ -1,0 +1,69 @@
+@using Healthspan.Offline
+@inject SyncStatusService SyncStatus
+@implements IDisposable
+
+@if (Status != SyncUiStatus.Synced)
+{
+    <span class="hs-sync-status hs-sync-@StatusCss"
+          role="status"
+          aria-live="polite"
+          title="@Tooltip">
+        <MudIcon Icon="@IconCss" Size="Size.Small" />
+        <span>@Label</span>
+    </span>
+}
+
+@code {
+    private SyncUiStatus Status = SyncUiStatus.Synced;
+
+    protected override void OnInitialized()
+    {
+        SyncStatus.StatusChanged += HandleStatusChanged;
+        Status = SyncStatus.CurrentStatus;
+    }
+
+    private void HandleStatusChanged()
+        => _ = InvokeAsync(() =>
+        {
+            Status = SyncStatus.CurrentStatus;
+            StateHasChanged();
+        });
+
+    private string IconCss => Status switch
+    {
+        SyncUiStatus.Syncing => Icons.Material.Filled.Sync,
+        SyncUiStatus.Offline => Icons.Material.Filled.CloudOff,
+        SyncUiStatus.Pending => Icons.Material.Filled.CloudUpload,
+        _ => Icons.Material.Filled.CloudDone
+    };
+
+    private string Label => Status switch
+    {
+        SyncUiStatus.Syncing => "Syncing…",
+        SyncUiStatus.Offline => SyncStatus.PendingCount > 0
+            ? $"Offline · {SyncStatus.PendingCount} pending"
+            : "Offline",
+        SyncUiStatus.Pending => SyncStatus.PendingCount == 1
+            ? "1 change to sync"
+            : $"{SyncStatus.PendingCount} changes to sync",
+        _ => "Synced"
+    };
+
+    private string Tooltip => Status switch
+    {
+        SyncUiStatus.Offline => "No connection. Your workout is saved on this device and will sync automatically.",
+        SyncUiStatus.Pending => "Changes saved on this device, waiting to sync.",
+        SyncUiStatus.Syncing => "Syncing your changes…",
+        _ => "All changes saved"
+    };
+
+    private string StatusCss => Status switch
+    {
+        SyncUiStatus.Syncing => "syncing",
+        SyncUiStatus.Offline => "offline",
+        SyncUiStatus.Pending => "pending",
+        _ => "ok"
+    };
+
+    public void Dispose() => SyncStatus.StatusChanged -= HandleStatusChanged;
+}

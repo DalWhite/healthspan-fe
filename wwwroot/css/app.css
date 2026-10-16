@@ -4786,3 +4786,28 @@ button.hs-health-overview-card {
     display: none;
   }
 }
+
+/* Offline / sync status indicator (app bar) */
+.hs-sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.hs-sync-status .mud-icon-root {
+  font-size: 1.1rem;
+}
+
+.hs-sync-offline { color: var(--mud-palette-error, #c62828); }
+.hs-sync-pending { color: var(--mud-palette-warning, #ad6800); }
+.hs-sync-syncing { color: var(--mud-palette-primary, #594ae2); }
+.hs-sync-ok { color: var(--mud-palette-success, #2e7d32); }
+
+@media (max-width: 600px) {
+  .hs-sync-status span span { display: none; }
+  .hs-sync-status { margin-right: 6px; }
+}
