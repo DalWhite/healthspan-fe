@@ -35,8 +35,11 @@
                 <MudDatePicker Label="Date of birth"
                                Date="_dateOfBirth"
                                DateChanged="OnDateOfBirthChanged"
-                               MinDate="@MinDateOfBirth"
-                               MaxDate="@MaxDateOfBirth"
+                               TextChanged="OnDateOfBirthTextChanged"
+                               Converter="_dateOfBirthConverter"
+                               Editable="true"
+                               MinDate="@DateOfBirthConverter.MinDateOfBirth"
+                               MaxDate="@DateOfBirthConverter.MaxDateOfBirth"
                                Error="@(_dateOfBirthError is not null)"
                                ErrorText="@_dateOfBirthError"
                                Variant="Variant.Outlined"
@@ -84,6 +87,7 @@
 @code {
     private string? _name;
     private DateTime? _dateOfBirth;
+    private readonly DateOfBirthConverter _dateOfBirthConverter = new();
     private HealthBiologicalSex _biologicalSex;
     private int? _heightCm;
     private int? _weightKg;
@@ -93,11 +97,6 @@
     private bool _isSaving;
     private string? _errorMessage;
     private string? _dateOfBirthError;
-
-    // Same bounds the backend enforces on PUT /healthprofile: a date of birth
-    // is only meaningful as a real past date.
-    private static readonly DateTime MinDateOfBirth = new(1900, 1, 1);
-    private static DateTime MaxDateOfBirth => DateTime.Today.AddDays(-1);
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,6 +110,7 @@
         {
             var profile = await ApiClient.GetHealthProfileAsync();
             _name = profile.Name;
+            _dateOfBirthConverter.Reset();
             _dateOfBirth = profile.DateOfBirth?.ToDateTime(
                 TimeOnly.MinValue);
             _biologicalSex = profile.BiologicalSex;
@@ -135,38 +135,40 @@
     private void OnDateOfBirthChanged(DateTime? value)
     {
         _dateOfBirth = value?.Date;
-        // A picked or parsed date is a complete value, so it is safe to
-        // validate now: Save can never fire with an impossible date and the
-        // reason appears next to the field, not as a generic alert.
+        // A picked date is a complete value, so it is safe to validate now:
+        // Save can never fire with an impossible date and the reason appears
+        // next to the field, not as a generic alert.
         _dateOfBirthError = ValidateDateOfBirthInline();
     }
 
-    // null when the date is acceptable, otherwise the inline message.
-    // Kept in sync with PUT /healthprofile so the form never accepts what
-    // the backend would reject.
-    private string? ValidateDateOfBirthInline()
+    /// <summary>
+    /// The picker runs typed text through <c>_dateOfBirthConverter</c> before
+    /// it raises TextChanged, so the converter's verdict is already known here.
+    ///
+    /// Surfacing it through the page's own error state is what keeps this to a
+    /// single inline mechanism. The picker's Error/ErrorText are parameters:
+    /// MudBlazor re-applies whatever the parent passes on every render, so an
+    /// error the converter raised on the control itself is wiped by the next
+    /// render of the page.
+    /// </summary>
+    private void OnDateOfBirthTextChanged(string text)
     {
-        if (_dateOfBirth is null)
-        {
-            return null;
-        }
-
-        if (_dateOfBirth.Value.Date > MaxDateOfBirth)
-        {
-            return "Date of birth must be a date before today.";
-        }
-
-        if (_dateOfBirth.Value.Date < MinDateOfBirth)
-        {
-            return $"Date of birth must be {MinDateOfBirth:yyyy-MM-dd} or later.";
-        }
-
-        return null;
+        _dateOfBirthError = _dateOfBirthConverter.GetError
+            ? _dateOfBirthConverter.GetErrorMessage
+            : ValidateDateOfBirthInline();
     }
+
+    // null when the date is acceptable, otherwise the inline message. The rule
+    // lives in DateOfBirthConverter so the picker, this guard and the wording
+    // all agree with PUT /healthprofile.
+    private string? ValidateDateOfBirthInline()
+        => DateOfBirthConverter.Validate(_dateOfBirth);
 
     private async Task SaveAsync()
     {
-        _dateOfBirthError = ValidateDateOfBirthInline();
+        _dateOfBirthError = _dateOfBirthConverter.GetError
+            ? _dateOfBirthConverter.GetErrorMessage
+            : ValidateDateOfBirthInline();
         if (_dateOfBirthError is not null)
         {
             // SAVE stays blocked; the field itself says what to fix.
