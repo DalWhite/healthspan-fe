@@ -2,6 +2,7 @@
 @inject AppStateService AppState
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 @if (_isLoading)
 {
@@ -136,7 +137,7 @@ else
         else
         {
             <MudGrid Spacing="2" Class="hs-et-grid">
-            @foreach (var exercise in _visibleMainExercises)
+            @foreach (var exercise in PageExercises)
             {
                 var variations = GetVariationsFor(exercise).ToList();
                 var equipmentTags = GetTagNames(exercise, "equipment").ToList();
@@ -150,10 +151,13 @@ else
                              @onclick="() => OnCardClick(exercise)"
                              @onkeydown="args => OnCardKeyDown(args, exercise)">
                         <div class="hs-et-card-media">
-                            <div class="hs-et-card-photo"
-                                 role="img"
-                                 aria-label="@exercise.Name"
-                                 style="@GetImageStyle(exercise)"></div>
+                            <div class="hs-et-card-photo">
+                                <img src="@GetImageUrl(exercise)"
+                                     alt="@exercise.Name"
+                                     loading="lazy"
+                                     decoding="async"
+                                     onerror="this.remove()" />
+                            </div>
 
                             <div class="hs-et-media-overlay">
                                 <div class="hs-et-media-top">
@@ -265,6 +269,22 @@ else
                 </MudItem>
             }
             </MudGrid>
+
+            @if (TotalPages > 1)
+            {
+                <nav class="hs-et-pagination" aria-label="Exercise library pages">
+                    <MudPagination Count="@TotalPages"
+                                   Selected="@_page"
+                                   SelectedChanged="OnPageChanged"
+                                   ShowFirstButton="true"
+                                   ShowPreviousButton="true"
+                                   ShowNextButton="true"
+                                   ShowLastButton="true"
+                                   BoundaryCount="1"
+                                   MiddleCount="3"
+                                   Color="Color.Primary" />
+                </nav>
+            }
         }
     </div>
 }
@@ -276,8 +296,11 @@ else
     [Parameter] public bool ShowSearch { get; set; } = true;
     [Parameter] public EventCallback<GetExerciseTypeResource> OnCardClicked { get; set; }
 
+    private const int PageSize = 40;
+
     private GetExerciseTypeResource[] _all = Array.Empty<GetExerciseTypeResource>();
     private List<GetExerciseTypeResource> _visibleMainExercises = new();
+    private int _page = 1;
     private IReadOnlyDictionary<int, Muscle> _musclesById = new Dictionary<int, Muscle>();
     private List<string> _muscleGroups = new();
     private List<string> _equipmentOptions = new();
@@ -297,6 +320,16 @@ else
 
     private bool HasActiveFilters => ActiveFilterCount > 0;
     private bool HasQueryOrFilters => HasActiveFilters || !string.IsNullOrWhiteSpace(_search);
+
+    // Only the current page is rendered: 700+ MudCards (each with a MudMenu) in one WASM
+    // render pass freezes the main thread for ~30s. Filters/search still run over the
+    // full list; pagination slices the result.
+    private int TotalPages
+        => Math.Max(1, (int)Math.Ceiling(_visibleMainExercises.Count / (double)PageSize));
+
+    private List<GetExerciseTypeResource> PageExercises
+        => _visibleMainExercises.Skip((_page - 1) * PageSize).Take(PageSize).ToList();
+
     private string EmptyStateTitle => HasQueryOrFilters ? "No matching exercises" : "No exercises yet";
     private string EmptyStateSubtitle => HasQueryOrFilters ? "Change or clear the current filters." : "Add your first exercise to the library.";
     private string EmptyStateActionLabel => HasQueryOrFilters ? "Clear filters" : "Add exercise";
@@ -312,10 +345,21 @@ else
 
         try
         {
-            var userQuery = TraineeId is null ? string.Empty : $"?userId={TraineeId}";
-            var endpoint = TrainedOnly ? "/ExerciseTypes/trained" : "/ExerciseTypes";
-            _all = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>($"{endpoint}{userQuery}")
-                ?? Array.Empty<GetExerciseTypeResource>();
+            // Plain library reads go through the shared AppState cache: re-entering the
+            // library must not re-download and re-parse 876 records (~4s of main-thread
+            // work in WASM). Trained/trainee variants are different result sets, so they
+            // keep their own fetch.
+            if (!TrainedOnly && TraineeId is null)
+            {
+                var cached = await AppState.GetExerciseTypesAsync();
+                _all = cached.ToArray();
+            }
+            else
+            {
+                var userQuery = TraineeId is null ? string.Empty : $"?userId={TraineeId}";
+                _all = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>($"/ExerciseTypes/trained{userQuery}")
+                    ?? Array.Empty<GetExerciseTypeResource>();
+            }
         }
         catch
         {
@@ -331,7 +375,7 @@ else
     private void OnSearchChanged(string value)
     {
         _search = value;
-        ApplyFilter();
+        ApplyFilter(resetPage: true);
         PersistLibraryState();
     }
 
@@ -348,7 +392,7 @@ else
             .OrderBy(value => value)
             .ToList();
 
-    private void ApplyFilter()
+    private void ApplyFilter(bool resetPage = false)
     {
         var mainExercises = _all
             .Where(exercise => exercise.ParentExerciseTypeId is null)
@@ -361,6 +405,11 @@ else
             .ToList();
 
         _visibleMainExercises = mainExercises;
+        if (resetPage)
+        {
+            _page = 1;
+        }
+        _page = Math.Clamp(_page, 1, TotalPages);
     }
 
     private IEnumerable<GetExerciseTypeResource> GetVariationsFor(GetExerciseTypeResource mainExercise)
@@ -422,17 +471,47 @@ else
             ? exercise.ImageRoute
             : $"ExerciseImages/{exercise.Name}.jpg";
 
-    private string GetImageStyle(GetExerciseTypeResource exercise)
-        => $"background-image: url('{GetImageUrl(exercise).Replace((char)39, '_')}'), url('icon-512.png');";
-
     private string GetMuscleLine(GetExerciseTypeResource exercise)
         => AppState.FormatExerciseTypeMuscleLine(exercise);
 
     private static string FormatVariationSummary(int variationCount)
         => variationCount == 1 ? "1 variation ready to track" : $"{variationCount} variations ready to track";
 
-    private static string FormatResultCount(int count)
-        => count == 1 ? "1 exercise" : $"{count} exercises";
+    private string FormatResultCount(int count)
+    {
+        if (count == 0)
+        {
+            return "0 exercises";
+        }
+
+        if (TotalPages <= 1)
+        {
+            return count == 1 ? "1 exercise" : $"{count} exercises";
+        }
+
+        var from = (_page - 1) * PageSize + 1;
+        var to = Math.Min(count, _page * PageSize);
+        return $"Showing {from}–{to} of {count} exercises";
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _page = Math.Clamp(page, 1, TotalPages);
+        PersistLibraryState();
+        await ScrollToTop();
+    }
+
+    private async Task ScrollToTop()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("hsScrollToTop");
+        }
+        catch
+        {
+            // JS interop is unavailable (bUnit harness); paging still works.
+        }
+    }
 
     private async Task OnCardKeyDown(KeyboardEventArgs args, GetExerciseTypeResource exercise)
     {
@@ -510,28 +589,28 @@ else
     private void OnMuscleGroupChanged(string? value)
     {
         _selectedMuscleGroup = value;
-        ApplyFilter();
+        ApplyFilter(resetPage: true);
         PersistLibraryState();
     }
 
     private void OnEquipmentChanged(string? value)
     {
         _selectedEquipment = value;
-        ApplyFilter();
+        ApplyFilter(resetPage: true);
         PersistLibraryState();
     }
 
     private void OnMovementChanged(string? value)
     {
         _selectedMovement = value;
-        ApplyFilter();
+        ApplyFilter(resetPage: true);
         PersistLibraryState();
     }
 
     private void OnFavouritesFilterChanged(bool value)
     {
         _favouritesOnlyFilter = value;
-        ApplyFilter();
+        ApplyFilter(resetPage: true);
         PersistLibraryState();
     }
 
@@ -546,7 +625,7 @@ else
         _selectedEquipment = null;
         _selectedMovement = null;
         _favouritesOnlyFilter = false;
-        ApplyFilter();
+        ApplyFilter(resetPage: true);
         PersistLibraryState();
     }
 
@@ -579,6 +658,7 @@ else
         _selectedMovement = state.Movement;
         _favouritesOnlyFilter = state.FavouritesOnly;
         _showFilters = state.FiltersExpanded;
+        _page = Math.Max(1, state.Page);
     }
 
     private void PersistLibraryState()
@@ -595,6 +675,7 @@ else
         state.Movement = _selectedMovement;
         state.FavouritesOnly = _favouritesOnlyFilter;
         state.FiltersExpanded = _showFilters;
+        state.Page = _page;
     }
 
     private string GetCurrentRelativeUrl()

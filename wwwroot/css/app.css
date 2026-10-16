@@ -1504,10 +1504,20 @@ a.hs-exercise-history-row:hover {
 
 .hs-et-card-photo {
   height: 190px;
+  overflow: hidden;
   background-color: color-mix(in srgb, var(--mud-palette-primary) 8%, var(--mud-palette-surface));
-  background-position: center, center;
-  background-repeat: no-repeat, no-repeat;
-  background-size: cover, 64px;
+  background-image: url('/icon-512.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 64px;
+}
+
+/* Lazy-loaded card photo: only cards near the viewport fetch their remote image. */
+.hs-et-card-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .hs-et-media-overlay {
@@ -1635,6 +1645,18 @@ a.hs-exercise-history-row:hover {
 
 .hs-tag-more {
   opacity: 0.6;
+}
+
+/* ── Library pagination (ExerciseTypeGrid) ──────────────────────────────── */
+.hs-et-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.hs-et-pagination .mud-pagination-item button {
+  min-width: var(--hs-touch-target);
+  min-height: var(--hs-touch-target);
 }
 
 @media (min-width: 700px) {

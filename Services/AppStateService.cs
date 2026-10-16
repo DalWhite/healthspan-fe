@@ -187,4 +187,5 @@ public sealed class ExerciseLibraryViewState
     public string? Movement { get; set; }
     public bool FavouritesOnly { get; set; }
     public bool FiltersExpanded { get; set; }
+    public int Page { get; set; } = 1;
 }

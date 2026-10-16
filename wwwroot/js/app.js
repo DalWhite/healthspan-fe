@@ -23,6 +23,11 @@ window.healthspanDocuments = {
     }
 };
 
+// Scroll the viewport back to the top (used when paging long lists)
+window.hsScrollToTop = function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
 // Scroll to an element by ID and briefly highlight it
 window.scrollToElement = function (elementId) {
     const el = document.getElementById(elementId);
