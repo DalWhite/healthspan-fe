@@ -62,7 +62,7 @@ public class OfflineSyncTests
 
         var payload = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync());
-        payload.RootElement.TryGetProperty("clientId", out var clientId).Should().BeTrue();
+        payload.RootElement.TryGetProperty("id", out var clientId).Should().BeTrue();
 
         var workout = await store.GetWorkoutAsync(Guid.Parse(clientId.GetString()!));
         workout.Should().NotBeNull();
@@ -87,7 +87,7 @@ public class OfflineSyncTests
         var createdJson = JsonDocument.Parse(
             await created!.Content.ReadAsStringAsync());
         var workoutClientId = Guid.Parse(
-            createdJson.RootElement.GetProperty("clientId").GetString()!);
+            createdJson.RootElement.GetProperty("id").GetString()!);
 
         var response = await mutator.TryHandleAsync(
             Post($"/workouts/{workoutClientId}/exercises",
@@ -119,7 +119,7 @@ public class OfflineSyncTests
             Post("/workouts", new { date = DateTime.UtcNow, type = "Legs" }));
         var clientId = Guid.Parse(JsonDocument
             .Parse(await created!.Content.ReadAsStringAsync())
-            .RootElement.GetProperty("clientId").GetString()!);
+            .RootElement.GetProperty("id").GetString()!);
 
         var response = await mutator.TryHandleAsync(
             new(HttpMethod.Delete, $"https://localhost:7278/workouts/{clientId}"));
@@ -149,7 +149,7 @@ public class OfflineSyncTests
             Post("/workouts", new { date = DateTime.UtcNow, type = "Core" }));
         var clientId = Guid.Parse(JsonDocument
             .Parse(await created!.Content.ReadAsStringAsync())
-            .RootElement.GetProperty("clientId").GetString()!);
+            .RootElement.GetProperty("id").GetString()!);
         var serverId = Guid.NewGuid();
 
         var mockHttp = new MockHttpMessageHandler();

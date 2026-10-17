@@ -50,6 +50,13 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         return SendAsync(request, cancellationToken);
     }
 
+    /// <summary>
+    /// Chain mode: assigns the terminal transport (an HttpClientHandler on
+    /// WASM) so SendNetworkAsync can delegate through the chain.
+    /// </summary>
+    public void AssignTerminalHandler(HttpMessageHandler terminal)
+        => InnerHandler = terminal;
+
     private Task<HttpResponseMessage> SendNetworkAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
@@ -263,7 +270,106 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         {
             await MirrorCatalogAsync("muscles", body, "id");
         }
+        else if (key.StartsWith("workouts", StringComparison.OrdinalIgnoreCase))
+        {
+            // Hydrate the entity mirrors from server reads: a workout the
+            // server created must exist locally (client_id = server id) or
+            // local mutations against it 404 with "Workout not found".
+            await IngestWorkoutsAsync(body);
+        }
     }
+
+    private async Task IngestWorkoutsAsync(string body)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            var roots = doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? doc.RootElement.EnumerateArray().ToList()
+                : new List<System.Text.Json.JsonElement> { doc.RootElement };
+
+            foreach (var session in roots)
+            {
+                if (session.ValueKind != System.Text.Json.JsonValueKind.Object
+                    || !session.TryGetProperty("id", out var idEl)
+                    || !Guid.TryParse(idEl.GetString(), out var sessionId))
+                {
+                    continue;
+                }
+
+                var date = session.TryGetProperty("date", out var dateEl)
+                           && DateOnly.TryParse(dateEl.GetString(), out var parsed)
+                    ? parsed
+                    : DateOnly.FromDateTime(DateTime.UtcNow);
+                var type = session.TryGetProperty("type", out var typeEl)
+                    ? typeEl.GetString() ?? "Training"
+                    : "Training";
+
+                await _store.UpsertWorkoutAsync(new LocalWorkout
+                {
+                    ClientId = sessionId,
+                    ServerId = sessionId,
+                    Date = date,
+                    Type = type
+                });
+
+                if (!session.TryGetProperty("exercises", out var exercises)
+                    || exercises.ValueKind != System.Text.Json.JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var ex in exercises.EnumerateArray())
+                {
+                    if (!ex.TryGetProperty("id", out var exIdEl)
+                        || !Guid.TryParse(exIdEl.GetString(), out var exId))
+                    {
+                        continue;
+                    }
+
+                    await _store.UpsertExerciseAsync(new LocalExercise
+                    {
+                        ClientId = exId,
+                        ServerId = exId,
+                        WorkoutClientId = sessionId,
+                        TypeId = ReadInt(ex, "typeId") ?? 0,
+                        Name = ReadString(ex, "name"),
+                        Series = ReadInt(ex, "series"),
+                        Repetitions = ReadInt(ex, "repetitions"),
+                        Weight = ReadDouble(ex, "weight"),
+                        BodyWeight = ReadDouble(ex, "bodyWeight"),
+                        AddedWeight = ReadDouble(ex, "addedWeight"),
+                        Comments = ReadString(ex, "comments"),
+                        Tags = ex.TryGetProperty("tags", out var tags)
+                               && tags.ValueKind == System.Text.Json.JsonValueKind.Array
+                            ? tags.EnumerateArray()
+                                .Select(t => t.GetString() ?? string.Empty).ToList()
+                            : new List<string>()
+                    });
+                }
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // not JSON: skip ingestion
+        }
+    }
+
+    private static string? ReadString(System.Text.Json.JsonElement el, string prop)
+        => el.TryGetProperty(prop, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String
+            ? v.GetString()
+            : null;
+
+    private static int? ReadInt(System.Text.Json.JsonElement el, string prop)
+        => el.TryGetProperty(prop, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number
+            && v.TryGetInt32(out var n)
+            ? n
+            : null;
+
+    private static double? ReadDouble(System.Text.Json.JsonElement el, string prop)
+        => el.TryGetProperty(prop, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number
+            ? v.GetDouble()
+            : null;
 
     private async Task MirrorCatalogAsync(string kind, string body, string idProperty)
     {

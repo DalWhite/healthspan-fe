@@ -87,6 +87,24 @@ public sealed class JsLocalStore : SqlLocalStoreBase
         return new LocalStoreChanges(result.Changes, result.LastInsertRowId);
     }
 
+    protected override async Task ExecuteBatchAsync(
+        IEnumerable<(string Sql, object?[] Args)> statements)
+    {
+        await EnsureOpenAsync();
+        var payload = JsonSerializer.Serialize(
+            statements.Select(s => new
+            {
+                sql = s.Sql,
+                bind = s.Args.Select(a => a switch
+                {
+                    null => null,
+                    bool b => b ? 1 : 0,
+                    _ => a
+                }).ToArray()
+            }));
+        await _js.InvokeAsync<ChangesResult>("hsdb.tx", payload);
+    }
+
     private static string ToParamsJson(object?[] args)
         => JsonSerializer.Serialize(
             args.Select(a => a switch

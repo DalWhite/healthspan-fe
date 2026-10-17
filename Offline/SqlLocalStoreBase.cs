@@ -17,6 +17,19 @@ public abstract class SqlLocalStoreBase : ILocalStore
     protected abstract Task<LocalStoreChanges> ExecuteAsync(
         string sql, params object?[] args);
 
+    /// <summary>
+    /// Applies many statements in one round trip. The default loops
+    /// ExecuteAsync; backends with a real transaction API override it.
+    /// </summary>
+    protected virtual async Task ExecuteBatchAsync(
+        IEnumerable<(string Sql, object?[] Args)> statements)
+    {
+        foreach (var (sql, args) in statements)
+        {
+            await ExecuteAsync(sql, args);
+        }
+    }
+
     // ── Sync queue ────────────────────────────────────────────────────────────
 
     public async Task EnqueueAsync(SyncOperation operation)
@@ -130,15 +143,11 @@ public abstract class SqlLocalStoreBase : ILocalStore
     public async Task SaveCatalogAsync(
         string kind, IEnumerable<(string Id, string Payload)> items)
     {
-        foreach (var (id, payload) in items)
-        {
-            await ExecuteAsync(
-                """
-                INSERT OR REPLACE INTO mirror_catalog (kind, item_id, payload, cached_at_utc)
-                VALUES (?, ?, ?, ?)
-                """,
-                kind, id, payload, DateTime.UtcNow.ToString("O"));
-        }
+        var cachedAt = DateTime.UtcNow.ToString("O");
+        await ExecuteBatchAsync(
+            items.Select(item =>
+                ("INSERT OR REPLACE INTO mirror_catalog (kind, item_id, payload, cached_at_utc) VALUES (?, ?, ?, ?)",
+                 new object?[] { kind, item.Id, item.Payload, cachedAt })));
     }
 
     public async Task<List<string>> GetCatalogPayloadsAsync(string kind)

@@ -65,7 +65,10 @@ public sealed class LocalMutator
         {
             var body = await ReadJsonAsync<StartSessionBody>(request);
             var date = body?.Date ?? DateOnly.FromDateTime(DateTime.UtcNow);
-            return JsonResponse(await StartTodaySessionAsync(date, body?.CreateNew ?? false));
+            var session = await StartTodaySessionAsync(date, body?.CreateNew ?? false);
+            // The FE contract is WorkoutSessionResource ({id,...}); returning
+            // the raw LocalWorkout ({clientId,...}) left the FE with Id=Empty.
+            return JsonResponse(await BuildSessionAsync(session));
         }
 
         // ── /Workouts/{id}/... ────────────────────────────────────────────────
@@ -119,6 +122,7 @@ public sealed class LocalMutator
             {
                 var body = await ReadJsonAsync<AddWorkoutBody>(request);
                 return JsonResponse(await AddWorkoutAsync(body));
+
             }
 
             if (method == HttpMethod.Put)
@@ -216,7 +220,7 @@ public sealed class LocalMutator
         return workout;
     }
 
-    private async Task<LocalWorkout> AddWorkoutAsync(AddWorkoutBody? body)
+    private async Task<object> AddWorkoutAsync(AddWorkoutBody? body)
     {
         var date = body?.Date is null
             ? DateOnly.FromDateTime(DateTime.UtcNow)
@@ -230,7 +234,8 @@ public sealed class LocalMutator
         await _store.UpsertWorkoutAsync(workout);
         await EnqueueAsync(SyncEntities.Workout, SyncActions.Create,
             workout.ClientId, new { date, type = workout.Type });
-        return workout;
+        // FE contract for POST /Workouts is GetWorkoutResource ({id,...}).
+        return new { id = workout.ClientId, date = workout.Date, type = workout.Type };
     }
 
     private async Task<HttpResponseMessage> UpdateWorkoutAsync(UpdateWorkoutBody? body)

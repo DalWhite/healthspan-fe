@@ -2,6 +2,11 @@
 // persistent OPFS VFS (the .db file lives in the browser's origin-private
 // file system, so it survives reloads and works with no network at all).
 //
+// OPFS requires createSyncAccessHandle + Atomics.wait, which only exist in
+// worker threads under cross-origin isolation, so sqlite3 runs inside a
+// dedicated module worker (offline-db-worker.js) and this file is a thin
+// postMessage wrapper with the same API the C# interop expects.
+//
 // C# talks to this via IJSRuntime:
 //   hsdb.exec(sql, paramsJson) -> JSON array of row objects
 //   hsdb.changes(sql, paramsJson) -> { changes, lastInsertRowId }
@@ -9,103 +14,70 @@
 'use strict';
 
 (function () {
-    const DB_FILENAME = '/healthspan-local.sqlite3';
-    const SCHEMA = `
-        CREATE TABLE IF NOT EXISTS sync_queue (
-            op_id TEXT PRIMARY KEY,
-            entity TEXT NOT NULL,
-            action TEXT NOT NULL,
-            client_entity_id TEXT,
-            payload TEXT NOT NULL,
-            created_at_utc TEXT NOT NULL,
-            attempts INTEGER NOT NULL DEFAULT 0,
-            last_error TEXT
-        );
-        CREATE TABLE IF NOT EXISTS response_cache (
-            cache_key TEXT PRIMARY KEY,
-            status_code INTEGER NOT NULL,
-            content_type TEXT NOT NULL,
-            body TEXT NOT NULL,
-            cached_at_utc TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS workouts (
-            client_id TEXT PRIMARY KEY,
-            server_id TEXT,
-            date TEXT NOT NULL,
-            type TEXT NOT NULL,
-            updated_at_utc TEXT NOT NULL,
-            deleted INTEGER NOT NULL DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS exercises (
-            client_id TEXT PRIMARY KEY,
-            server_id TEXT,
-            workout_client_id TEXT NOT NULL,
-            type_id INTEGER NOT NULL,
-            name TEXT,
-            series INTEGER,
-            repetitions INTEGER,
-            weight REAL,
-            body_weight REAL,
-            added_weight REAL,
-            comments TEXT,
-            tags TEXT NOT NULL DEFAULT '[]',
-            updated_at_utc TEXT NOT NULL,
-            deleted INTEGER NOT NULL DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS mirror_catalog (
-            kind TEXT NOT NULL,
-            item_id TEXT NOT NULL,
-            payload TEXT NOT NULL,
-            cached_at_utc TEXT NOT NULL,
-            PRIMARY KEY (kind, item_id)
-        );
-        CREATE INDEX IF NOT EXISTS ix_exercises_workout ON exercises(workout_client_id);
-        CREATE INDEX IF NOT EXISTS ix_workouts_date ON workouts(date);
-    `;
+    const workerUrl = new URL('js/sqlite/offline-db-worker.js', document.baseURI).href;
+    const worker = new Worker(workerUrl, { type: 'module' });
 
-    let dbPromise = null;
+    let seq = 0;
+    let backend = 'none';
+    let workerFailed = false;
+    const pending = new Map();
+    const readyWaiters = [];
 
-    async function openDb() {
-        if (typeof globalThis.sqlite3InitModule !== 'function') {
-            throw new Error('sqlite3InitModule is not loaded (js/sqlite/sqlite3.js missing?)');
+    worker.onmessage = (e) => {
+        const msg = e.data || {};
+        if (msg.type === 'ready') {
+            backend = msg.backend;
+            readyWaiters.splice(0).forEach((res) => res(true));
+            return;
         }
-        const sqlite3 = await globalThis.sqlite3InitModule();
-        const oo = sqlite3.oo1;
-        if (oo && oo.OpfsDb) {
-            const db = new oo.OpfsDb(DB_FILENAME, 'ct');
-            return { db, capi: sqlite3.capi, backend: 'opfs' };
+        if (msg.type === 'failed') {
+            workerFailed = true;
+            readyWaiters.splice(0).forEach((res) => res(false));
+            return;
         }
-        // OPFS unavailable (old browser): fall back to a transient in-memory
-        // DB so the app keeps working for this session at least.
-        console.warn('healthspan offline-db: OPFS VFS unavailable, using transient in-memory DB.');
-        const db = new oo.DB(':memory:', 'ct');
-        return { db, capi: sqlite3.capi, backend: 'memory' };
+        const p = pending.get(msg.id);
+        if (!p) return;
+        pending.delete(msg.id);
+        if (msg.error) p.reject(new Error(msg.error));
+        else p.resolve(msg.result);
+    };
+
+    worker.onerror = (e) => {
+        console.error('healthspan offline-db worker error:', e.message);
+        workerFailed = true;
+        for (const p of pending.values()) p.reject(new Error(e.message || 'offline-db worker error'));
+        pending.clear();
+        readyWaiters.splice(0).forEach((res) => res(false));
+    };
+
+    function whenReady() {
+        if (workerFailed) return Promise.reject(new Error('offline-db worker failed'));
+        if (backend !== 'none') return Promise.resolve(true);
+        return new Promise((resolve, reject) => {
+            readyWaiters.push((ok) => ok ? resolve(true) : reject(new Error('offline-db worker failed')));
+        });
     }
 
-    function ensureDb() {
-        if (!dbPromise) {
-            dbPromise = openDb()
-                .then((handle) => {
-                    handle.db.exec(SCHEMA);
-                    return handle;
-                })
-                .catch((err) => {
-                    console.error('healthspan offline-db: init failed', err);
-                    dbPromise = null;
-                    throw err;
-                });
-        }
-        return dbPromise;
+    function call(method, sql, paramsJson) {
+        return new Promise((resolve, reject) => {
+            const id = ++seq;
+            pending.set(id, { resolve, reject });
+            worker.postMessage({ id, method, sql, bind: paramsJson ? JSON.parse(paramsJson) : [] });
+        });
     }
 
-    function run(handle, sql, bind) {
-        return handle.db.exec({ sql, bind: bind || [], returnValue: 'resultRows' });
+    function callTx(statementsJson) {
+        return new Promise((resolve, reject) => {
+            const id = ++seq;
+            pending.set(id, { resolve, reject });
+            worker.postMessage({ id, method: 'tx', statements: JSON.parse(statementsJson) });
+        });
     }
 
     globalThis.hsdb = {
         ready: async function () {
             try {
-                await ensureDb();
+                await whenReady();
                 return true;
             } catch (e) {
                 return false;
@@ -113,38 +85,29 @@
         },
 
         state: async function () {
-            if (!dbPromise) return { ready: false, backend: 'none' };
-            try {
-                const handle = await dbPromise;
-                return { ready: true, backend: handle.backend };
-            } catch (e) {
-                return { ready: false, backend: 'failed' };
-            }
+            if (workerFailed) return { ready: false, backend: 'failed' };
+            if (backend === 'none') return { ready: false, backend: 'none' };
+            return { ready: true, backend };
         },
 
         // SELECT-style: returns a JSON string with an array of row objects.
         exec: async function (sql, paramsJson) {
-            const handle = await ensureDb();
-            const rows = run(handle, sql, paramsJson ? JSON.parse(paramsJson) : []);
+            await whenReady();
+            const rows = await call('exec', sql, paramsJson);
             return JSON.stringify(rows);
         },
 
         // INSERT/UPDATE/DELETE-style: returns { changes, lastInsertRowId }.
         changes: async function (sql, paramsJson) {
-            const handle = await ensureDb();
-            const bind = paramsJson ? JSON.parse(paramsJson) : [];
-            const q = handle.db.prepare(sql);
-            try {
-                if (bind.length) q.bind(bind);
-                q.step();
-            } finally {
-                q.finalize();
-            }
-            const capi = handle.capi;
-            return {
-                changes: capi.sqlite3_changes(handle.db.pointer),
-                lastInsertRowId: capi.sqlite3_last_insert_rowid(handle.db.pointer)
-            };
+            await whenReady();
+            return await call('changes', sql, paramsJson);
+        },
+
+        // Batch: statementsJson is a JSON array of {sql, bind} applied in a
+        // single transaction (one OPFS sync for the whole batch).
+        tx: async function (statementsJson) {
+            await whenReady();
+            return await callTx(statementsJson);
         },
 
         // Connectivity events are bridged to C#: pass a DotNetObjectReference

@@ -13,13 +13,19 @@ public sealed class LazyOfflineHandler : DelegatingHandler
     public LazyOfflineHandler(IServiceProvider services)
     {
         _services = services;
+        // The chain must be complete BEFORE the HttpClient is constructed.
+        // Blazor WASM does NOT inject a transport into a custom chain: the
+        // terminal handler must be an HttpClientHandler (mapped to the
+        // browser fetch transport on WASM).
+        _inner = services.GetRequiredService<OfflineHttpHandler>();
+        _inner.AssignTerminalHandler(new HttpClientHandler());
+        InnerHandler = _inner;
     }
 
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
-        _inner ??= _services.GetRequiredService<OfflineHttpHandler>();
-        return _inner.ProcessAsync(request, base.InnerHandler!, cancellationToken);
+        return base.SendAsync(request, cancellationToken);
     }
 }

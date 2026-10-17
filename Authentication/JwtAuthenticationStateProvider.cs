@@ -15,13 +15,35 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         };
-    private readonly HttpClient _httpClient;
-    private readonly ILocalStorageService _localStorage;
+    private readonly IServiceProvider _services;
+    private HttpClient? _httpClient;
+    private ILocalStorageService? _localStorage;
+    private HttpClient Http => _httpClient ??= _services.GetRequiredService<HttpClient>();
+    private ILocalStorageService Storage => _localStorage ??= _services.GetRequiredService<ILocalStorageService>();
     private bool _authenticated = false;
+
+    // Cached auth state: guard evaluations (AuthorizeRouteView, MainLayout,
+    // CascadingAuthenticationState re-cascade) hit this many times per
+    // navigation. Without a cache each evaluation re-fetches manage/info,
+    // which is slow enough that the guard can render NotAuthorized with a
+    // stale cascaded task and bounce a just-completed login to /login.
+    private AuthenticationState? _cachedState;
+    private DateTime _cachedStateAt;
+    private static readonly TimeSpan AuthStateCacheTtl = TimeSpan.FromSeconds(60);
     private readonly ClaimsPrincipal Unauthenticated =
         new(new ClaimsIdentity());
+    // Singleton-safe: HttpClient and ILocalStorageService are scoped, so they
+    // are resolved lazily from the provider instead of constructor-injected
+    // (a singleton cannot constructor-inject scoped services).
+    public JwtAuthenticationStateProvider(IServiceProvider services)
+    {
+        _services = services;
+    }
+
+    // Test-only compatibility: direct injection of the two lazy dependencies.
     public JwtAuthenticationStateProvider(HttpClient httpClient, ILocalStorageService localStorage)
     {
+        _services = null!;
         _httpClient = httpClient;
         _localStorage = localStorage;
     }
@@ -31,7 +53,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
         try
         {
-            var result = await _httpClient.PostAsJsonAsync(
+            var result = await Http.PostAsJsonAsync(
                 "register", new
                 {
                     email,
@@ -81,7 +103,8 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
     {
         try
         {
-            var result = await _httpClient.PostAsJsonAsync(
+            await Storage.SetItemAsync("offlineEmail", email);
+            var result = await Http.PostAsJsonAsync(
                 "login", new
                 {
                     email,
@@ -92,8 +115,11 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
             {
                 return new FormResult { Succeeded = true };
             }
+
         }
-        catch { }
+        catch (Exception ex)
+        {
+        }
 
         return new FormResult
         {
@@ -108,7 +134,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
         try
         {
-            var response = await _httpClient.PostAsJsonAsync(
+            var response = await Http.PostAsJsonAsync(
                 "auth/google/exchange",
                 new
                 {
@@ -144,8 +170,14 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
             return false;
         }
 
+        // Fresh sign-in: bypass any cached (possibly unauthenticated) state.
+        _cachedState = null;
         var authenticationState = await GetAuthenticationStateAsync();
         NotifyAuthenticationStateChanged(Task.FromResult(authenticationState));
+        // Give the Router/AuthorizeRouteView a beat to consume the new state
+        // before the caller navigates; otherwise the guard still sees the old
+        // unauthenticated task and bounces back to /login.
+        await Task.Delay(250);
         return authenticationState.User.Identity?.IsAuthenticated == true;
     }
 
@@ -158,19 +190,34 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
             return false;
         }
 
-        await _localStorage.SetItemAsync("authToken", tokenObject.accessToken);
-        await _localStorage.SetItemAsync("refreshToken", tokenObject.refreshToken);
+        await Storage.SetItemAsync("authToken", tokenObject.accessToken);
+        await Storage.SetItemAsync("refreshToken", tokenObject.refreshToken);
+        // The access token is an opaque protected ticket, not a JWT: remember
+        // its expiry locally so offline auth can trust it while it is fresh.
+        await Storage.SetItemAsync("authTokenExpiresAt",
+            DateTimeOffset.UtcNow.AddSeconds(tokenObject.expiresIn > 0 ? tokenObject.expiresIn : 3600).ToUnixTimeSeconds());
+        var id = await Storage.GetItemAsync<string>("offlineEmail");
+        if (!string.IsNullOrWhiteSpace(id))
+        {
+            await Storage.SetItemAsync("offlineEmail", id);
+        }
         SetAuthorizationHeader(tokenObject.accessToken);
         return true;
     }
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
-        var savedToken = await _localStorage.GetItemAsync<string>("authToken");
+        if (_cachedState != null &&
+            DateTime.UtcNow - _cachedStateAt < AuthStateCacheTtl)
+        {
+            return _cachedState;
+        }
+
+        var savedToken = await Storage.GetItemAsync<string>("authToken");
         if (string.IsNullOrWhiteSpace(savedToken))
         {
             _authenticated = false;
             SetAuthorizationHeader(null);
-            return CreateUnauthenticatedState();
+            return CacheUnauthenticated();
         }
 
         _authenticated = false;
@@ -181,26 +228,85 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         {
             user = await GetUserInfoAndBuildClaimsIdentityUserAndSetAsAuthenticatedIfSuccess(savedToken, user);
         }
-        catch
+        catch (Exception netEx)
         {
-            var refreshResult = await RefreshToken();
-            if (!refreshResult.Succeeded)
+            // Offline-first: any manage/info failure (fetch abort, 5xx, network)
+            // falls back to the locally-decoded token while it is unexpired.
+            var offlineUser = await BuildOfflinePrincipal(savedToken);
+            if (offlineUser != null)
             {
-                SetAuthorizationHeader(null);
-                return CreateUnauthenticatedState();
+                Console.WriteLine($"[offline] auth: trusting unexpired token ({netEx.GetType().Name})");
+                _authenticated = true;
+                return CacheAuthenticated(new AuthenticationState(offlineUser));
             }
 
-            savedToken = await _localStorage.GetItemAsync<string>("authToken");
+            try
+            {
+                var refreshResult = await RefreshToken();
+                if (!refreshResult.Succeeded)
+                {
+                    SetAuthorizationHeader(null);
+                    return CacheUnauthenticated();
+                }
+            }
+            catch (Exception refreshEx)
+            {
+                Console.WriteLine($"[offline] refresh failed: {refreshEx.Message}");
+                SetAuthorizationHeader(null);
+                return CacheUnauthenticated();
+            }
+
+            savedToken = await Storage.GetItemAsync<string>("authToken");
             user = await GetUserInfoAndBuildClaimsIdentityUserAndSetAsAuthenticatedIfSuccess(savedToken, user);
         }
 
-        return new AuthenticationState(user);
+        var state = new AuthenticationState(user);
+        return _authenticated ? CacheAuthenticated(state) : CacheUnauthenticated();
+    }
+
+    private AuthenticationState CacheAuthenticated(AuthenticationState state)
+    {
+        _cachedState = state;
+        _cachedStateAt = DateTime.UtcNow;
+        return state;
+    }
+
+    private AuthenticationState CacheUnauthenticated()
+    {
+        _cachedState = null;
+        return CreateUnauthenticatedState();
+    }
+
+    // Offline auth: the access token is an opaque protected ticket, so we
+    // trust it while the expiry recorded at sign-in has not passed.
+    private async Task<ClaimsPrincipal?> BuildOfflinePrincipal(string token)
+    {
+        try
+        {
+            var expiresAt = await Storage.GetItemAsync<long>("authTokenExpiresAt");
+            if (expiresAt <= 0 || expiresAt < DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+            {
+                return null;
+            }
+
+            var email = await Storage.GetItemAsync<string>("offlineEmail") ?? "offline-user";
+
+            var id = new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Name, email), new Claim(ClaimTypes.Email, email) },
+                nameof(JwtAuthenticationStateProvider));
+            SetAuthorizationHeader(token);
+            return new ClaimsPrincipal(id);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task<ClaimsPrincipal> GetUserInfoAndBuildClaimsIdentityUserAndSetAsAuthenticatedIfSuccess(string? savedToken, ClaimsPrincipal user)
     {
         SetAuthorizationHeader(savedToken);
-        var userResponse = await _httpClient.GetAsync("manage/info");
+        var userResponse = await Http.GetAsync("manage/info");
         userResponse.EnsureSuccessStatusCode();
         var userJson = await userResponse.Content.ReadAsStringAsync();
         var userInfo = JsonSerializer.Deserialize<UserInfo>(userJson, jsonSerializerOptions);
@@ -227,13 +333,14 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
     public async Task LogoutAsync()
     {
-        var savedToken = await _localStorage.GetItemAsync<string>("authToken");
+        var savedToken = await Storage.GetItemAsync<string>("authToken");
         SetAuthorizationHeader(savedToken);
-        await _httpClient.PostAsync("Logout", null);
-        await _localStorage.RemoveItemAsync("authToken");
-        await _localStorage.RemoveItemAsync("refreshToken");
+        await Http.PostAsync("Logout", null);
+        await Storage.RemoveItemAsync("authToken");
+        await Storage.RemoveItemAsync("refreshToken");
         SetAuthorizationHeader(null);
         _authenticated = false;
+        _cachedState = null;
         NotifyAuthenticationStateChanged(Task.FromResult(CreateUnauthenticatedState()));
     }
 
@@ -244,9 +351,9 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
     }
     public async Task<FormResult> RefreshToken()
     {
-        var refreshToken = await _localStorage.GetItemAsync<string>("refreshToken");
+        var refreshToken = await Storage.GetItemAsync<string>("refreshToken");
         SetAuthorizationHeader(null);
-        var refreshResult = await _httpClient.PostAsJsonAsync(
+        var refreshResult = await Http.PostAsJsonAsync(
             "refresh", new
             {
                 refreshToken
@@ -254,10 +361,11 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
         if (!refreshResult.IsSuccessStatusCode)
         {
-            await _localStorage.RemoveItemAsync("authToken");
-            await _localStorage.RemoveItemAsync("refreshToken");
+            await Storage.RemoveItemAsync("authToken");
+            await Storage.RemoveItemAsync("refreshToken");
             SetAuthorizationHeader(null);
             _authenticated = false;
+            _cachedState = null;
             NotifyAuthenticationStateChanged(Task.FromResult(CreateUnauthenticatedState()));
             return new FormResult
             {
@@ -268,8 +376,8 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
         var refreshContent = await refreshResult.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<AuthLoginResponse>(refreshContent);
 
-        await _localStorage.SetItemAsync("authToken", result?.accessToken);
-        await _localStorage.SetItemAsync("refreshToken", result?.refreshToken);
+        await Storage.SetItemAsync("authToken", result?.accessToken);
+        await Storage.SetItemAsync("refreshToken", result?.refreshToken);
 
         SetAuthorizationHeader(result?.accessToken);
         return new FormResult() { Succeeded = true };
@@ -277,7 +385,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
 
     private void SetAuthorizationHeader(string? accessToken)
     {
-        _httpClient.DefaultRequestHeaders.Authorization = string.IsNullOrWhiteSpace(accessToken)
+        Http.DefaultRequestHeaders.Authorization = string.IsNullOrWhiteSpace(accessToken)
             ? null
             : new AuthenticationHeaderValue("Bearer", accessToken);
     }
