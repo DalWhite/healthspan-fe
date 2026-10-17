@@ -52,8 +52,8 @@ builder.Services.AddSingleton<SyncEngine>(sp => new SyncEngine(
     sp.GetRequiredService<ILocalStore>(),
     sp.GetRequiredService<SyncStatusService>()));
 
-builder.Services.AddSingleton<IAccountManagement, JwtAuthenticationStateProvider>();
-builder.Services.AddSingleton<JwtAuthenticationStateProvider>();
+builder.Services.AddSingleton<IAccountManagement>(sp => sp.GetRequiredService<JwtAuthenticationStateProvider>());
+builder.Services.AddSingleton<JwtAuthenticationStateProvider>(sp => new JwtAuthenticationStateProvider(sp));
 builder.Services.AddSingleton<AuthenticationStateProvider>(provider => provider.GetRequiredService<JwtAuthenticationStateProvider>());
 
 builder.Services.AddSingleton(sp =>
