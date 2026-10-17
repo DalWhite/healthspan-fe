@@ -258,7 +258,7 @@ public sealed class LocalMutator
         await _store.UpsertWorkoutAsync(workout);
         await EnqueueAsync(SyncEntities.Workout, SyncActions.Update,
             workout.ClientId,
-            new { id = workout.ServerId, date = workout.Date, type = workout.Type });
+            new { id = workout.ServerId ?? workout.ClientId, date = workout.Date, type = workout.Type });
         return await ServeWorkoutDetailAsync(workout);
     }
 
@@ -340,7 +340,7 @@ public sealed class LocalMutator
         var exercise = BuildExercise(workout.ClientId, body);
         await _store.UpsertExerciseAsync(exercise);
         await EnqueueAsync(SyncEntities.Exercise, SyncActions.Create,
-            exercise.ClientId, BuildExercisePayload(workout, exercise));
+            exercise.ClientId, await BuildExercisePayloadAsync(exercise));
     }
 
     private async Task<HttpResponseMessage> AddExerciseStandaloneAsync(AddExerciseBody body)
@@ -360,7 +360,7 @@ public sealed class LocalMutator
         var exercise = BuildExercise(workout.ClientId, body);
         await _store.UpsertExerciseAsync(exercise);
         await EnqueueAsync(SyncEntities.Exercise, SyncActions.Create,
-            exercise.ClientId, BuildExercisePayload(workout, exercise));
+            exercise.ClientId, await BuildExercisePayloadAsync(exercise));
 
         return JsonResponse(new
         {
@@ -474,11 +474,16 @@ public sealed class LocalMutator
         };
     }
 
-    private static object BuildExercisePayload(LocalWorkout workout, LocalExercise exercise)
-        => new
+    private async Task<object> BuildExercisePayloadAsync(LocalExercise exercise)
+    {
+        // The parent may still be client-only (created offline, not yet
+        // synced). Always send the client id; the server maps it to its
+        // server id when the parent's create op lands in the same batch.
+        var parent = await _store.GetWorkoutAsync(exercise.WorkoutClientId);
+        return new
         {
-            workoutClientId = workout.ClientId,
-            workoutId = workout.ServerId,
+            workoutClientId = exercise.WorkoutClientId,
+            workoutId = parent?.ServerId,
             typeId = exercise.TypeId,
             series = exercise.Series,
             repetitions = exercise.Repetitions,
@@ -488,6 +493,7 @@ public sealed class LocalMutator
             comments = exercise.Comments,
             tags = exercise.Tags
         };
+    }
 
     // ── Read paths ────────────────────────────────────────────────────────────
 
