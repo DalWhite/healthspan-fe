@@ -35,6 +35,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider, IAcco
     // Singleton-safe: HttpClient and ILocalStorageService are scoped, so they
     // are resolved lazily from the provider instead of constructor-injected
     // (a singleton cannot constructor-inject scoped services).
+    [ActivatorUtilitiesConstructor]
     public JwtAuthenticationStateProvider(IServiceProvider services)
     {
         _services = services;
