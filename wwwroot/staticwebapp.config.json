@@ -2,5 +2,26 @@
   "globalHeaders": {
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Embedder-Policy": "require-corp"
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/_framework/*",
+      "/js/*",
+      "/css/*",
+      "/img/*",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.webp",
+      "*.svg",
+      "*.gif",
+      "*.woff",
+      "*.woff2",
+      "*.json",
+      "*.css",
+      "*.js",
+      "*.wasm"
+    ]
   }
 }
