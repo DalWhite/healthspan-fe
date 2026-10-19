@@ -13,6 +13,8 @@ const offlineAssetsExclude = [ /^service-worker\.js$/ ];
 
 async function onInstall(event) {
     console.info('Service worker: Install');
+    // Activate immediately so a new deploy takes over on the next open.
+    self.skipWaiting();
 
     // Fetch and cache all matching items from the assets manifest
     const assetsRequests = self.assetsManifest.assets
@@ -25,6 +27,9 @@ async function onInstall(event) {
 async function onActivate(event) {
     console.info('Service worker: Activate');
 
+    // Take control of open clients immediately.
+    await self.clients.claim();
+
     // Delete unused caches
     const cacheKeys = await caches.keys();
     await Promise.all(cacheKeys
@@ -35,13 +40,22 @@ async function onActivate(event) {
 async function onFetch(event) {
     let cachedResponse = null;
     if (event.request.method === 'GET') {
-        // For all navigation requests, try to serve index.html from cache
-        // If you need some URLs to be server-rendered, edit the following check to exclude those URLs
-        const shouldServeIndexHtml = event.request.mode === 'navigate';
+        // Navigation requests: NETWORK-FIRST so a new deploy is picked up on
+        // the next online open (cache is the offline fallback only).
+        // Fingerprinted static assets stay cache-first (safe: content-hashed).
+        const isNavigation = event.request.mode === 'navigate';
+        if (isNavigation) {
+            try {
+                return await fetch(event.request);
+            } catch (networkError) {
+                const cache = await caches.open(cacheName);
+                cachedResponse = await cache.match('index.html');
+                return cachedResponse || networkError;
+            }
+        }
 
-        const request = shouldServeIndexHtml ? 'index.html' : event.request;
         const cache = await caches.open(cacheName);
-        cachedResponse = await cache.match(request);
+        cachedResponse = await cache.match(event.request);
     }
 
     return cachedResponse || fetch(event.request);
