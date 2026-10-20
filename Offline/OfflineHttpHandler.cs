@@ -20,6 +20,13 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         "workouts", "exercises"
     ];
 
+    /// <summary>
+    /// Stale-while-revalidate budget: a cached GET answers immediately if
+    /// the network has not replied within this window; the network then
+    /// refreshes the cache in the background.
+    /// </summary>
+    private static readonly TimeSpan SlowNetworkBudget = TimeSpan.FromSeconds(4);
+
     private readonly ILocalStore _store;
     private readonly LocalMutator _mutator;
     private readonly SyncStatusService _status;
@@ -126,6 +133,36 @@ public sealed class OfflineHttpHandler : DelegatingHandler
             }
         }
 
+        // Stale-while-revalidate: when a cached copy exists, the network
+        // gets a short budget. A slow network must not make the user wait:
+        // answer from the cache now and let the network refresh it later.
+        if (storeReady && isGet)
+        {
+            var cached = await ServeCachedAsync(request);
+            if (cached is not null)
+            {
+                var networkTask = TryNetworkAsync(request, cancellationToken);
+                using var budgetCts = new CancellationTokenSource();
+                var budgetTask = Task.Delay(SlowNetworkBudget, budgetCts.Token);
+                var completed = await Task.WhenAny(networkTask, budgetTask);
+                if (completed == networkTask)
+                {
+                    budgetCts.Cancel();
+                    var response = await networkTask;
+                    if (response is not null)
+                    {
+                        return response;
+                    }
+                }
+                else
+                {
+                    _ = RefreshCacheInBackgroundAsync(networkTask);
+                }
+
+                return cached;
+            }
+        }
+
         try
         {
             var response = await SendNetworkAsync(request, cancellationToken);
@@ -221,6 +258,45 @@ public sealed class OfflineHttpHandler : DelegatingHandler
 
     private static bool IsNetworkReachable(HttpResponseMessage response)
         => (int)response.StatusCode < 500;
+
+    private async Task<HttpResponseMessage?> TryNetworkAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await SendNetworkAsync(request, cancellationToken);
+            if (IsNetworkReachable(response))
+            {
+                _status.MarkOnline();
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                await CacheAsync(request, response);
+            }
+
+            return response;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _status.MarkOffline();
+            return null;
+        }
+    }
+
+    private static async Task RefreshCacheInBackgroundAsync(Task<HttpResponseMessage?> networkTask)
+    {
+        try
+        {
+            // TryNetworkAsync already cached the response and reported
+            // failures; this wrapper only keeps the task from going unobserved.
+            await networkTask;
+        }
+        catch
+        {
+        }
+    }
 
     private async Task<HttpResponseMessage?> ServeCachedAsync(HttpRequestMessage request)
     {
