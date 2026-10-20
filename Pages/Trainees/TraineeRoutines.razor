@@ -1,0 +1,133 @@
+@page "/trainees/{TraineeId}/routines"
+@inject HttpClient Http
+
+@* Trainer view: the routines assigned to one trainee. "New routine" opens the
+   shared editor with the trainee as the target user. *@
+
+<PageShell>
+    <PageHeader Title="@($"{_traineeName}'s routines")"
+                Subtitle="Build a training plan for this trainee. They will see it in their own routine view.">
+        <Actions>
+            <MudButton Href="@($"/trainees/{TraineeId}/routines/new")"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       aria-label="New routine">
+                New routine
+            </MudButton>
+        </Actions>
+    </PageHeader>
+
+    @if (_loading)
+    {
+        <LoadingState Message="Loading routines..." />
+    }
+    else if (_error is not null)
+    {
+        <ErrorState Title="Couldn't load routines"
+                    Message="@_error"
+                    ActionLabel="Retry"
+                    OnAction="LoadAsync" />
+    }
+    else if (_routines.Count == 0)
+    {
+        <EmptyState Icon="@Icons.Material.Filled.CalendarViewDay"
+                    Title="No routines yet"
+                    Subtitle="@($"Create the first routine for {_traineeName}.")" />
+    }
+    else
+    {
+        @foreach (var routine in _routines)
+        {
+            <MudCard Class="hs-routine-card mb-4">
+                <MudCardContent>
+                    <div class="hs-routine-card-head">
+                        <MudText Typo="Typo.h6">@routine.Name</MudText>
+                        <MudButton Href="@($"/trainees/{TraineeId}/routines/{routine.Id}")"
+                                   Variant="Variant.Text"
+                                   Size="Size.Medium"
+                                   StartIcon="@Icons.Material.Filled.Edit"
+                                   aria-label="@($"Edit {routine.Name}")">
+                            Edit
+                        </MudButton>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(routine.Description))
+                    {
+                        <MudText Typo="Typo.body2" Class="hs-muted-copy">@routine.Description</MudText>
+                    }
+
+                    <MudText Typo="Typo.caption" Class="hs-muted-copy">
+                        @Summary(routine)
+                    </MudText>
+                </MudCardContent>
+            </MudCard>
+        }
+    }
+</PageShell>
+
+@code {
+    [Parameter] public string TraineeId { get; set; } = string.Empty;
+
+    private List<RoutineResource> _routines = [];
+    private string _traineeName = "trainee";
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            var traineeResponse = await Http.GetAsync($"/users/{TraineeId}");
+            if (!traineeResponse.IsSuccessStatusCode)
+            {
+                _error = await HttpProblemDetailsReader.ReadMessageAsync(
+                    traineeResponse,
+                    "This trainee could not be loaded.");
+                return;
+            }
+
+            var trainee = await traineeResponse.Content.ReadFromJsonAsync<UserResource>();
+            _traineeName = string.IsNullOrWhiteSpace(trainee?.Name) ? "trainee" : trainee!.Name!;
+
+            var routinesResponse = await Http.GetAsync($"/routines?traineeId={TraineeId}");
+            if (!routinesResponse.IsSuccessStatusCode)
+            {
+                _error = await HttpProblemDetailsReader.ReadMessageAsync(
+                    routinesResponse,
+                    "The routines could not be loaded.");
+                return;
+            }
+
+            _routines = await routinesResponse.Content.ReadFromJsonAsync<List<RoutineResource>>() ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The routines could not be loaded. Check your connection and try again.";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "Loading the routines took too long. Please try again.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string Summary(RoutineResource routine)
+    {
+        var workouts = routine.WorkoutTemplates.Count;
+        var exercises = routine.WorkoutTemplates.Sum(template => template.Exercises.Count);
+        var days = routine.WorkoutTemplates.Sum(template => template.FrequencyPerWeek);
+        return $"{workouts} workout{(workouts == 1 ? "" : "s")} · {exercises} exercise{(exercises == 1 ? "" : "s")} · {days} day{(days == 1 ? "" : "s")} per week";
+    }
+}

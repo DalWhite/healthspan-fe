@@ -44,6 +44,13 @@
                                         Favourites
                                     </MudButton>
                                 </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Secondary"
+                                               FullWidth="true"
+                                               OnClick='@(() => NavigationManager.NavigateTo("/trainees/" + trainee.Id + "/routines"))'>
+                                        Rutinas
+                                    </MudButton>
+                                </MudItem>
                             </MudGrid>
                         </MudCardActions>
                     </MudCard>

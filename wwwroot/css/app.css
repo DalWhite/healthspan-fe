@@ -4811,3 +4811,105 @@ button.hs-health-overview-card {
   .hs-sync-status span span { display: none; }
   .hs-sync-status { margin-right: 6px; }
 }
+
+/* Trainer routine editor */
+.hs-routine-editor-head {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.hs-routine-workout-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.hs-routine-exercise {
+  border: 1px solid var(--mud-palette-lines-inputs, rgba(0, 0, 0, 0.2));
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.hs-routine-exercise.is-expanded {
+  border-color: var(--mud-palette-primary, #594ae2);
+}
+
+.hs-routine-exercise-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hs-routine-exercise-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--mud-palette-primary, #594ae2);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+.hs-routine-exercise-name {
+  font-weight: 600;
+}
+
+.hs-routine-exercise-targets {
+  color: var(--mud-palette-text-secondary, rgba(0, 0, 0, 0.6));
+  font-size: 0.85rem;
+}
+
+.hs-routine-exercise-note {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--mud-palette-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+.hs-routine-exercise-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.hs-routine-exercise-fields {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.hs-routine-exercise-target-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.hs-routine-editor-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.hs-routine-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 600px) {
+  .hs-routine-workout-head { grid-template-columns: 1fr; }
+  .hs-routine-exercise-target-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
