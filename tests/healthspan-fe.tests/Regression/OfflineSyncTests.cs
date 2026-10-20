@@ -325,4 +325,69 @@ public class OfflineSyncTests
         list.RootElement[0].GetProperty("type").GetString().Should().Be("Cached type");
         status.IsOnline.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Handler_ServesCachedResponse_WhenNetworkIsSlow_AndRefreshesInBackground()
+    {
+        var store = new InMemoryLocalStore();
+        var status = new SyncStatusService();
+        var mutator = new LocalMutator(store, status);
+        var coordinator = new SyncCoordinator();
+
+        // Seed the cache with a fast first read.
+        var seedHttp = new MockHttpMessageHandler();
+        seedHttp.When(HttpMethod.Get, "/workouts")
+            .Respond("application/json",
+                "[{\"id\":\"11111111-1111-1111-1111-111111111111\",\"date\":\"2026-10-15T00:00:00\",\"type\":\"Cached type\"}]");
+        var seedHandler = new OfflineHttpHandler(store, mutator, status, coordinator);
+        await seedHandler.ProcessAsync(
+            new(HttpMethod.Get, "https://localhost:7278/workouts"),
+            seedHttp,
+            CancellationToken.None);
+
+        // Now the network is alive but slow (8s > the 4s stale-while-revalidate budget).
+        var slowHandler = new OfflineHttpHandler(store, mutator, status, coordinator);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var response = await slowHandler.ProcessAsync(
+            new(HttpMethod.Get, "https://localhost:7278/workouts"),
+            new SlowNetworkHandler(TimeSpan.FromSeconds(8), "Fresh type"),
+            CancellationToken.None);
+        sw.Stop();
+
+        // The user must not wait for the slow network: the cached copy is served.
+        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(6));
+        var list = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        list.RootElement[0].GetProperty("type").GetString().Should().Be("Cached type");
+
+        // The slow network still refreshed the cache in the background.
+        await Task.Delay(TimeSpan.FromSeconds(9));
+        var cached = await store.GetCachedResponseAsync("workouts");
+        cached.Should().NotBeNull();
+        cached!.Body.Should().Contain("Fresh type");
+    }
+
+    private sealed class SlowNetworkHandler : HttpMessageHandler
+    {
+        private readonly TimeSpan delay;
+        private readonly string bodyType;
+
+        public SlowNetworkHandler(TimeSpan delay, string bodyType)
+        {
+            this.delay = delay;
+            this.bodyType = bodyType;
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(delay, cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    $"[{{\"id\":\"11111111-1111-1111-1111-111111111111\",\"date\":\"2026-10-15T00:00:00\",\"type\":\"{bodyType}\"}}]",
+                    System.Text.Encoding.UTF8,
+                    "application/json")
+            };
+        }
+    }
 }
