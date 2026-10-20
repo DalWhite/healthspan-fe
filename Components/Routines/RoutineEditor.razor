@@ -216,6 +216,7 @@
     [Parameter] public EventCallback<RoutineResource> OnSaved { get; set; }
 
     private RoutineResource _model = new();
+    private RoutineResource? _builtFrom;
     private readonly Dictionary<ExercisePrescriptionResource, GetExerciseTypeResource> _picked = [];
     private readonly HashSet<ExercisePrescriptionResource> _expanded = [];
     private bool _isSaving;
@@ -224,15 +225,10 @@
 
     protected override void OnParametersSet()
     {
-        if (_model.WorkoutTemplates.Count > 0 || Initial is not null)
-        {
-            // Rebuild only when a new Initial arrives (first load / after save).
-            if (!ReferenceEquals(_model, Initial))
-            {
-                LoadModel();
-            }
-        }
-        else
+        // Rebuild only when a genuinely new Initial arrives (first load / after save).
+        // _model is always a deep copy of Initial, so comparing _model to Initial would
+        // rebuild on every parent re-render and silently discard unsaved edits.
+        if (!ReferenceEquals(_builtFrom, Initial))
         {
             LoadModel();
         }
@@ -242,6 +238,7 @@
 
     private void LoadModel()
     {
+        _builtFrom = Initial;
         _picked.Clear();
         _expanded.Clear();
 

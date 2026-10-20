@@ -89,7 +89,10 @@
 
             if (!_isNew)
             {
-                var routineResponse = await Http.GetAsync($"/routines/{RoutineId}");
+                // The routine belongs to the trainee: the API scopes a routine to the
+                // resolved target user, so the trainer must pass traineeId or the
+                // lookup resolves to the trainer and returns 404.
+                var routineResponse = await Http.GetAsync($"/routines/{RoutineId}?traineeId={TraineeId}");
                 if (!routineResponse.IsSuccessStatusCode)
                 {
                     _error = await HttpProblemDetailsReader.ReadMessageAsync(
