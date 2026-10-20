@@ -178,6 +178,24 @@ public class HealthspanApiClient
                ?? new HealthProfileResource();
     }
 
+    /// <summary>
+    /// The next workout from the user's routines (Next workout view).
+    /// null (204) when there is no routine with exercises yet.
+    /// </summary>
+    public async Task<RoutineNextWorkoutResource?> GetNextRoutineWorkoutAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync("routines/next", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return null;
+        }
+
+        await EnsureSuccessAsync(response, cancellationToken);
+        return await response.Content
+            .ReadFromJsonAsync<RoutineNextWorkoutResource>(cancellationToken: cancellationToken);
+    }
+
     private static string BuildPath(string basePath, IReadOnlyDictionary<string, string?> query)
     {
         var items = query

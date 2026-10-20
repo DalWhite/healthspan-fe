@@ -3514,6 +3514,119 @@ a.hs-exercise-history-row:hover {
   margin-bottom: var(--hs-space-3);
 }
 
+/* Next-workout pointer on Today: a quiet route into the routine view. */
+.hs-today-routine {
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-card);
+  background: var(--hs-color-surface);
+}
+
+.hs-today-routine-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px var(--hs-space-4);
+  color: inherit;
+  text-decoration: none;
+}
+
+.hs-today-routine-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hs-today-routine-title {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hs-today-routine-meta {
+  color: var(--mud-palette-text-secondary);
+  font-size: 0.84rem;
+}
+
+.hs-routine-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-4);
+  padding-bottom: 24px;
+}
+
+.hs-routine-card {
+  padding: var(--hs-space-4);
+}
+
+.hs-routine-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hs-routine-head-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hs-routine-week-done {
+  margin-top: var(--hs-space-3);
+}
+
+.hs-routine-exercise-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+}
+
+.hs-routine-exercise-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 48px;
+  padding: 10px 0;
+  border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.hs-routine-exercise-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hs-routine-exercise-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hs-routine-exercise-target {
+  flex-shrink: 0;
+  color: var(--mud-palette-text-secondary);
+  font-size: 0.86rem;
+}
+
+.hs-routine-exercise-note {
+  overflow-wrap: anywhere;
+}
+
+.hs-routine-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-2);
+  margin-top: var(--hs-space-4);
+}
+
 .hs-exercise-entry-form,
 .hs-exercise-entry-fields {
   display: flex;

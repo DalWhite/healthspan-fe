@@ -1,0 +1,194 @@
+@page "/training/routine"
+@inject HttpClient Http
+@inject HealthspanApiClient ApiClient
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject TitleService TitleService
+@using System.Net
+@using System.Globalization
+@using System.Text.Json
+
+<PageTitle>Next workout</PageTitle>
+
+<PageShell Narrow="true" Class="hs-routine-page">
+    <PageHeader Title="Next workout"
+                Subtitle="@(_next is null ? "Your routines decide what to train" : _next.RoutineName)" />
+
+    @if (_isLoading)
+    {
+        <LoadingState Message="Loading your next workout..." />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <ErrorState Title="Your next workout could not be loaded"
+                    Message="@_error"
+                    ActionLabel="Try again"
+                    OnAction="LoadAsync" />
+    }
+    else if (_next is null)
+    {
+        <EmptyState Icon="@Icons.Material.Filled.FitnessCenter"
+                    Title="No routines yet"
+                    Subtitle="Once you have a routine, the workout you should do next appears here." />
+    }
+    else
+    {
+        <MudPaper Class="hs-surface hs-routine-card" Elevation="0">
+            <div class="hs-routine-head">
+                <div class="hs-routine-head-copy">
+                    <MudText Typo="Typo.h6">@_next.Type</MudText>
+                    <MudText Typo="Typo.body2" Class="hs-muted-copy">
+                        @Headline
+                    </MudText>
+                </div>
+                <MudChip Size="Size.Small" Variant="Variant.Outlined">
+                    @($"{_next.FrequencyPerWeek}x per week")
+                </MudChip>
+            </div>
+
+            @if (!_next.PendingNow)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="hs-routine-week-done">
+                    You have met this workout's weekly quota. It is ready again on
+                    @_next.Date.ToString("dddd d MMMM", CultureInfo.CurrentCulture).
+                </MudAlert>
+            }
+
+            <div class="hs-routine-exercise-list">
+                @foreach (var exercise in _next.Exercises)
+                {
+                    <div class="hs-routine-exercise-item">
+                        <div class="hs-routine-exercise-copy">
+                            <MudText Typo="Typo.body1" Class="hs-routine-exercise-name">
+                                @(exercise.ExerciseTypeName ?? "Exercise")
+                            </MudText>
+                            <MudText Typo="Typo.body2" Class="hs-routine-exercise-target">
+                                @($"{exercise.TargetLabel} · {exercise.LoadLabel}")
+                            </MudText>
+                        </div>
+                        @if (exercise.Explanation is not null)
+                        {
+                            <MudText Typo="Typo.body2" Class="hs-muted-copy hs-routine-exercise-note">
+                                @exercise.Explanation
+                            </MudText>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="hs-routine-actions">
+                @if (_next.PendingNow)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="MudBlazor.Color.Primary"
+                               FullWidth="true"
+                               Class="hs-routine-start"
+                               Disabled="@_isStarting"
+                               StartIcon="@Icons.Material.Filled.PlayArrow"
+                               OnClick="StartWorkoutAsync">
+                        @(_isStarting ? "Starting..." : "Start today's workout")
+                    </MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Outlined"
+                               Color="MudBlazor.Color.Primary"
+                               FullWidth="true"
+                               OnClick="@(() => NavigationManager.NavigateTo("/training/today"))">
+                        Go to today's training
+                    </MudButton>
+                }
+            </div>
+        </MudPaper>
+    }
+</PageShell>
+
+@code {
+    private RoutineNextWorkoutResource? _next;
+    private bool _isLoading = true;
+    private bool _isStarting;
+    private string? _error;
+
+    private string Headline
+        => _next is null
+            ? string.Empty
+            : _next.PendingNow
+                ? $"Due today · {_next.Exercises.Count} {(_next.Exercises.Count == 1 ? "exercise" : "exercises")}"
+                : $"Ready on {_next.Date.ToString("dddd d MMMM", CultureInfo.CurrentCulture)}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        TitleService.Title = "Next workout";
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+
+        try
+        {
+            _next = await ApiClient.GetNextRoutineWorkoutAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _error = "Your next workout could not be loaded.";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "Loading took too long. Please try again.";
+        }
+        catch (JsonException)
+        {
+            _error = "The routine response was incomplete. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task StartWorkoutAsync()
+    {
+        if (_isStarting || _next is null)
+        {
+            return;
+        }
+
+        _isStarting = true;
+        _error = null;
+
+        try
+        {
+            using var response = await Http.PostAsJsonAsync(
+                "/workouts/apply-template",
+                new
+                {
+                    RoutineId = _next.RoutineId,
+                    TemplateId = _next.TemplateId,
+                    Date = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd")
+                });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = response.StatusCode == HttpStatusCode.ServiceUnavailable
+                    ? "You are offline. Connect to start the workout."
+                    : "The workout could not be started.";
+                return;
+            }
+
+            // Land in context: the copied session is already on Today, ready to log.
+            NavigationManager.NavigateTo("/training/today");
+            Snackbar.Add("Today's workout started from your routine.", Severity.Success);
+        }
+        catch (Exception)
+        {
+            _error = "You are offline. Connect to start the workout.";
+        }
+        finally
+        {
+            _isStarting = false;
+        }
+    }
+}

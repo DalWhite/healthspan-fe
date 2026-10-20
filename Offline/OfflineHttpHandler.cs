@@ -12,7 +12,7 @@ public sealed class OfflineHttpHandler : DelegatingHandler
 {
     private static readonly string[] CacheablePrefixes =
     [
-        "workouts", "exercises", "exercisetypes", "api/muscles", "users"
+        "workouts", "exercises", "exercisetypes", "api/muscles", "users", "routines"
     ];
 
     private static readonly string[] MirrorPrefixes =

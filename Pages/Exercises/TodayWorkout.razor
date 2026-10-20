@@ -139,6 +139,20 @@
                               WorkoutIdResolver="@(() => EnsureTodaySessionAsync())"
                               OnSessionUpdated="HandleSessionUpdated" />
     </MudPaper>
+
+    @if (_nextRoutineWorkout is not null)
+    {
+        <section class="hs-today-routine" aria-label="Next workout from your routine">
+            <a class="hs-today-routine-link"
+               href="training/routine">
+                <span class="hs-today-routine-copy">
+                    <span class="hs-today-routine-title">Next workout · @(_nextRoutineWorkout.Type)</span>
+                    <span class="hs-today-routine-meta">@RoutineWorkoutLabel</span>
+                </span>
+                <MudIcon Icon="@Icons.Material.Filled.ChevronRight" aria-hidden="true" />
+            </a>
+        </section>
+    }
 </PageShell>
 
 @code {
@@ -147,6 +161,7 @@
     private readonly List<WorkoutSessionResource> _sessions = [];
     private WorkoutSessionResource? _session;
     private GetWorkoutResource? _lastWorkout;
+    private RoutineNextWorkoutResource? _nextRoutineWorkout;
     private decimal? _currentUserBodyWeight;
     private string? _error;
     private bool _isLoading = true;
@@ -194,6 +209,23 @@
         await LoadPageAsync();
     }
 
+    private string RoutineWorkoutLabel
+    {
+        get
+        {
+            if (_nextRoutineWorkout is not { } next)
+            {
+                return string.Empty;
+            }
+
+            var when = next.PendingNow
+                ? "due today"
+                : $"ready {next.Date.ToString("ddd, d MMM")}";
+            var exerciseCount = next.Exercises.Count;
+            return $"{next.Type} · {exerciseCount} {(exerciseCount == 1 ? "exercise" : "exercises")} · {when}";
+        }
+    }
+
     private async Task LoadPageAsync()
     {
         _isLoading = true;
@@ -221,6 +253,8 @@
             {
                 _lastWorkout = await LoadLastWorkoutAsync();
             }
+
+            _nextRoutineWorkout = await LoadNextRoutineWorkoutAsync();
         }
         catch (HttpRequestException)
         {
@@ -269,6 +303,22 @@
         catch (Exception)
         {
             // The shortcut is optional; never block Today for it.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The routine pointer strip is optional context: a failure here must
+    /// never block Today.
+    /// </summary>
+    private async Task<RoutineNextWorkoutResource?> LoadNextRoutineWorkoutAsync()
+    {
+        try
+        {
+            return await ApiClient.GetNextRoutineWorkoutAsync();
+        }
+        catch (Exception)
+        {
             return null;
         }
     }

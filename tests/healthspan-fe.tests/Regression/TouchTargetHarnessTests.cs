@@ -39,6 +39,7 @@ public class TouchTargetHarnessTests : BlazorTestBase
         markup["appbar"].Should().Contain("hs-appbar-primary-action");
         markup["today"].Should().Contain("hs-today-exercise-edit-link");
         markup["today"].Should().Contain("hs-today-session-switcher");
+        markup["today"].Should().Contain("hs-today-routine-link");
         markup["entryform"].Should().Contain("hs-exercise-quick-button");
         markup["history"].Should().Contain("hs-workout-session-toggle");
         markup["history"].Should().Contain("hs-workout-action");
@@ -80,6 +81,7 @@ public class TouchTargetHarnessTests : BlazorTestBase
         {
             ".hs-et-variation-toggle", ".hs-et-card-menu", ".hs-exercise-quick-button",
             ".hs-history-tag-filter", ".hs-exercise-entry-submit", ".hs-exercise-edit-button",
+            ".hs-today-routine-link",
         }).Should().BeEmpty(
             "training controls must not re-declare a touch target below --hs-touch-target");
     }
@@ -300,6 +302,30 @@ public class TouchTargetHarnessTests : BlazorTestBase
                   ],
                   "recentExerciseTypeIds": [1, 2]
                 }]
+                """);
+
+        MockHttp.When(HttpMethod.Get, "/routines/next")
+            .Respond("application/json", $$"""
+                {
+                  "date": "{{DateTime.UtcNow:yyyy-MM-dd}}",
+                  "pendingNow": true,
+                  "routineId": "00000000-0000-0000-0000-0000000000a1",
+                  "routineName": "Push / Pull",
+                  "templateId": 7,
+                  "type": "Push",
+                  "frequencyPerWeek": 2,
+                  "exercises": [
+                    {
+                      "exerciseTypeId": 1,
+                      "exerciseTypeName": "Bench Press",
+                      "description": "Barbell bench press",
+                      "order": 1,
+                      "sets": 4,
+                      "reps": 8,
+                      "loadKg": 80
+                    }
+                  ]
+                }
                 """);
     }
 
