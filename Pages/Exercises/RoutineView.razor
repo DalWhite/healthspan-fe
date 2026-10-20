@@ -28,8 +28,8 @@
     else if (_next is null)
     {
         <EmptyState Icon="@Icons.Material.Filled.FitnessCenter"
-                    Title="No routines yet"
-                    Subtitle="Once you have a routine, the workout you should do next appears here." />
+                    Title="No workout scheduled yet"
+                    Subtitle="When a routine has a workout ready for you, it appears here." />
     }
     else
     {
@@ -109,6 +109,12 @@
     private bool _isStarting;
     private string? _error;
 
+    // The local day, exactly as TodayWorkout computes its own _today. The
+    // session apply-template writes here must be the session Today reads:
+    // a UTC date lands on the previous day whenever the browser's local date
+    // differs from UTC (in CEST, every night between 00:00 and 01:59).
+    private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
+
     private string Headline
         => _next is null
             ? string.Empty
@@ -167,7 +173,7 @@
                 {
                     RoutineId = _next.RoutineId,
                     TemplateId = _next.TemplateId,
-                    Date = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd")
+                    Date = _today.ToString("yyyy-MM-dd")
                 });
 
             if (!response.IsSuccessStatusCode)
@@ -182,9 +188,20 @@
             NavigationManager.NavigateTo("/training/today");
             Snackbar.Add("Today's workout started from your routine.", Severity.Success);
         }
-        catch (Exception)
+        catch (HttpRequestException)
         {
             _error = "You are offline. Connect to start the workout.";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "The request timed out. Please try again.";
+        }
+        catch (Exception)
+        {
+            // A server or parsing failure is not a connectivity failure:
+            // saying "you are offline" here would send the trainee looking
+            // for a network problem they do not have.
+            _error = "The workout could not be started.";
         }
         finally
         {

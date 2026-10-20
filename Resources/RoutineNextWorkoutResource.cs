@@ -38,7 +38,6 @@ public sealed class RoutineExerciseResource
     public int? Sets { get; set; }
     public int? Reps { get; set; }
     public double? LoadKg { get; set; }
-    public int? Series { get; set; }
     public int? RestSeconds { get; set; }
     public string? Notes { get; set; }
 
@@ -51,7 +50,7 @@ public sealed class RoutineExerciseResource
     {
         get
         {
-            var series = Series ?? Sets ?? 0;
+            var series = Sets ?? 0;
             var reps = Reps ?? 0;
             if (series == 0 && reps == 0)
             {
