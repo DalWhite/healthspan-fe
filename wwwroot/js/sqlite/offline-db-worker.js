@@ -28,7 +28,11 @@ const SCHEMA = `
         date TEXT NOT NULL,
         type TEXT NOT NULL,
         updated_at_utc TEXT NOT NULL,
-        deleted INTEGER NOT NULL DEFAULT 0
+        deleted INTEGER NOT NULL DEFAULT 0,
+        goal TEXT,
+        secondary_goals TEXT,
+        modality TEXT,
+        perceived_fatigue INTEGER
     );
     CREATE TABLE IF NOT EXISTS exercises (
         client_id TEXT PRIMARY KEY,
@@ -44,6 +48,22 @@ const SCHEMA = `
         comments TEXT,
         tags TEXT NOT NULL DEFAULT '[]',
         updated_at_utc TEXT NOT NULL,
+        deleted INTEGER NOT NULL DEFAULT 0,
+        block_client_id TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        attempts INTEGER NOT NULL DEFAULT 1,
+        completed_attempts INTEGER NOT NULL DEFAULT 1,
+        quality_intent INTEGER NOT NULL DEFAULT 0,
+        load_type TEXT
+    );
+    CREATE TABLE IF NOT EXISTS blocks (
+        client_id TEXT PRIMARY KEY,
+        server_id TEXT,
+        workout_client_id TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        type TEXT NOT NULL DEFAULT 'Normal',
+        label TEXT,
+        updated_at_utc TEXT NOT NULL,
         deleted INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS mirror_catalog (
@@ -55,7 +75,24 @@ const SCHEMA = `
     );
     CREATE INDEX IF NOT EXISTS ix_exercises_workout ON exercises(workout_client_id);
     CREATE INDEX IF NOT EXISTS ix_workouts_date ON workouts(date);
+    CREATE INDEX IF NOT EXISTS ix_blocks_workout ON blocks(workout_client_id);
 `;
+
+// Databases created before the universal tracker lack the new columns. SQLite
+// has no "ADD COLUMN IF NOT EXISTS", so each statement is attempted and the
+// "duplicate column" error is swallowed: the migration is idempotent.
+const MIGRATIONS = [
+    'ALTER TABLE workouts ADD COLUMN goal TEXT',
+    'ALTER TABLE workouts ADD COLUMN secondary_goals TEXT',
+    'ALTER TABLE workouts ADD COLUMN modality TEXT',
+    'ALTER TABLE workouts ADD COLUMN perceived_fatigue INTEGER',
+    'ALTER TABLE exercises ADD COLUMN block_client_id TEXT',
+    'ALTER TABLE exercises ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE exercises ADD COLUMN attempts INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE exercises ADD COLUMN completed_attempts INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE exercises ADD COLUMN quality_intent INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE exercises ADD COLUMN load_type TEXT',
+];
 
 let db = null;
 let capi = null;
@@ -89,6 +126,17 @@ async function init() {
             backend = 'memory';
         }
         db.exec(SCHEMA);
+        for (const sql of MIGRATIONS) {
+            try {
+                db.exec(sql);
+            } catch (migrationErr) {
+                // 'duplicate column name' means the column already exists.
+                const message = String((migrationErr && migrationErr.message) || migrationErr);
+                if (!/duplicate column name/i.test(message)) {
+                    throw migrationErr;
+                }
+            }
+        }
         self.postMessage({ type: 'ready', backend });
     } catch (err) {
         console.error('healthspan offline-db worker: init failed', err);

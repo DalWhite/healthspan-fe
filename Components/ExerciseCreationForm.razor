@@ -137,6 +137,87 @@
             </MudButton>
         }
 
+        @* Progressive disclosure: sets/reps stay upfront (the frequent case);
+           attempts, intent and load type are rare and stay behind one tap.
+           When the user tapped "Exercise" on a block, the block is already
+           chosen and the disclosure opens with it. *@
+        @if (ShowQualityOptions)
+        {
+            @if (_showQuality)
+            {
+                <div class="hs-exercise-quality">
+                    @if (Blocks is { Count: > 0 })
+                    {
+                        <MudSelect T="Guid?"
+                                   Value="_blockId"
+                                   ValueChanged="@(value => { _blockId = value; _blockIdTouched = true; })"
+                                   Label="Block"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense"
+                                   Clearable="true">
+                            <MudSelectItem T="Guid?" Value="null">No block</MudSelectItem>
+                            @foreach (var block in Blocks)
+                            {
+                                <MudSelectItem T="Guid?" Value="@block.Id">@BlockLabel(block)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    }
+
+                    <MudNumericField T="int"
+                                     Value="_attempts"
+                                     ValueChanged="@(value => _attempts = Math.Clamp(value, 1, 100))"
+                                     Label="Attempts"
+                                     Min="1"
+                                     Max="100"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     InputType="InputType.Number" />
+
+                    <div class="hs-today-chip-row" role="group" aria-label="Quality intent">
+                        @foreach (var intent in QualityIntentChoices)
+                        {
+                            <button type="button"
+                                    class="@(_qualityIntent == intent ? "hs-chip hs-chip-selected" : "hs-chip")"
+                                    aria-pressed="@(_qualityIntent == intent)"
+                                    @onclick="() => _qualityIntent = _qualityIntent == intent ? null : intent">
+                                @intent
+                            </button>
+                        }
+                    </div>
+
+                    <MudTextField @bind-Value="_qualityIntent"
+                                  Label="Intent (optional)"
+                                  Placeholder="100% explosive, controlled, isometric 30s…"
+                                  MaxLength="200"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+
+                    <MudSelect T="string?"
+                               Value="_loadType"
+                               ValueChanged="@(value => _loadType = value)"
+                               Label="Load"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Clearable="true">
+                        @foreach (var loadType in TrainingIntent.LoadOrder)
+                        {
+                            <MudSelectItem T="string?" Value="@loadType.ToString()">@loadType.Label()</MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Text"
+                           Color="MudBlazor.Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Tune"
+                           OnClick="@(() => _showQuality = true)">
+                    Attempts & quality
+                </MudButton>
+            }
+        }
+
         <div class="hs-exercise-entry-submit">
             <MudButton OnClick="OnSaveClick"
                        Color="MudBlazor.Color.Primary"
@@ -165,6 +246,9 @@
     [Parameter] public Func<Task<Guid>>? WorkoutIdResolver { get; set; }
     [Parameter] public int DefaultSets { get; set; } = 3;
     [Parameter] public int DefaultReps { get; set; } = 10;
+    [Parameter] public IReadOnlyList<WorkoutBlockResource>? Blocks { get; set; }
+    [Parameter] public Guid? InitialBlockId { get; set; }
+    [Parameter] public bool ShowQualityOptions { get; set; }
     [Parameter] public EventCallback<AddExerciseResource> OnExerciseAdded { get; set; }
     [Parameter] public EventCallback<WorkoutSessionResource> OnSessionUpdated { get; set; }
 
@@ -177,6 +261,27 @@
     private string? _submissionError;
     private bool _isSaving;
     private bool _showTags;
+
+    // Universal tracker: attempts / intent / load stay behind one tap so the
+    // fast path (pick exercise, save) keeps its two fields.
+    private bool _showQuality;
+    private bool _blockIdTouched;
+    private Guid? _blockId;
+    private Guid? _seededBlockId;
+    private int _attempts = 1;
+    private string? _qualityIntent;
+    private string? _loadType;
+
+    private static readonly string[] QualityIntentChoices =
+        ["Explosive", "Controlled", "Isometric", "To failure"];
+
+    private static string BlockLabel(WorkoutBlockResource block)
+    {
+        var type = WorkoutBlockTypeLabels.Parse(block.Type) is { } parsed
+            ? parsed.Label()
+            : "Block";
+        return string.IsNullOrWhiteSpace(block.Label) ? type : $"{block.Label} · {type}";
+    }
 
     // Fast logging first, detail after: sets/reps arrive prefilled so the user
     // never has to touch them to save. They stay editable in place, and the
@@ -222,7 +327,25 @@
     {
         ApplyInitialDate();
         ApplyInitialType();
+        ApplyInitialBlock();
         SyncTypeToModel();
+    }
+
+    // Tapping "Exercise" on a block pre-selects it: the user already decided
+    // where the exercise goes, so the form must not ask again.
+    private void ApplyInitialBlock()
+    {
+        if (InitialBlockId == _seededBlockId)
+        {
+            return;
+        }
+
+        _seededBlockId = InitialBlockId;
+        if (InitialBlockId is not null && !_blockIdTouched)
+        {
+            _blockId = InitialBlockId;
+            _showQuality = true;
+        }
     }
 
     private Task<IEnumerable<GetExerciseTypeResource>> SearchExerciseTypes(string value)
@@ -373,6 +496,21 @@
 
             _exercise.WorkoutId = workoutId;
             _exercise.TypeId = _selectedType.Id;
+
+            if (UseWorkoutSessionEndpoint)
+            {
+                // Order 0 = append at the end of the block: the user never
+                // manages sequence numbers. A multi-attempt entry starts with
+                // nothing completed, so "muscle-up 8/0" is a valid log.
+                _exercise.BlockId = _blockId;
+                _exercise.Order = 0;
+                _exercise.Attempts = _attempts;
+                _exercise.CompletedAttempts = _attempts > 1 ? 0 : 1;
+                _exercise.QualityIntent = string.IsNullOrWhiteSpace(_qualityIntent)
+                    ? null
+                    : _qualityIntent.Trim();
+                _exercise.LoadType = _loadType;
+            }
 
             var endpoint = UseWorkoutSessionEndpoint
                 ? string.IsNullOrWhiteSpace(TraineeId)

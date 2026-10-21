@@ -46,6 +46,14 @@ public interface ILocalStore
     Task MarkExerciseDeletedAsync(Guid clientId);
     Task MarkWorkoutExercisesDeletedAsync(Guid workoutClientId);
 
+    Task UpsertBlockAsync(LocalBlock block);
+    Task<LocalBlock?> GetBlockAsync(Guid clientId);
+    Task<List<LocalBlock>> GetBlocksForWorkoutAsync(
+        Guid workoutClientId,
+        bool includeDeleted = false);
+    Task MarkBlockDeletedAsync(Guid clientId);
+    Task MarkWorkoutBlocksDeletedAsync(Guid workoutClientId);
+
     /// <summary>
     /// After a successful sync, points the client-generated id at the
     /// server-generated id so later ops reference the canonical entity.
@@ -65,6 +73,13 @@ public sealed class LocalWorkout
     public string Type { get; set; } = "Training";
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
     public bool Deleted { get; set; }
+
+    // Universal tracker. A null PerceivedFatigue means the session is still
+    // open; the score itself is what closes it (the API stamps CompletedAt).
+    public string? Goal { get; set; }
+    public List<string> SecondaryGoals { get; set; } = [];
+    public string? Modality { get; set; }
+    public int? PerceivedFatigue { get; set; }
 }
 
 public sealed class LocalExercise
@@ -84,7 +99,29 @@ public sealed class LocalExercise
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
     public bool Deleted { get; set; }
 
+    // Block membership is by CLIENT id: while offline the server id of a block
+    // does not exist yet, and the sync remap resolves it later.
+    public Guid? BlockClientId { get; set; }
+    public int Order { get; set; }
+    public int Attempts { get; set; } = 1;
+    public int CompletedAttempts { get; set; } = 1;
+    public string? QualityIntent { get; set; }
+    public string? LoadType { get; set; }
+
     public double Volume =>
         (Series.GetValueOrDefault() * Repetitions.GetValueOrDefault())
         * (Weight ?? BodyWeight ?? AddedWeight ?? 0);
+}
+
+public sealed class LocalBlock
+{
+    public Guid ClientId { get; init; }
+    public Guid? ServerId { get; set; }
+    public Guid WorkoutClientId { get; init; }
+    public int Order { get; set; }
+    public string Type { get; set; } = "Normal";
+    public string? Label { get; set; }
+    public int? Rounds { get; set; }
+    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    public bool Deleted { get; set; }
 }

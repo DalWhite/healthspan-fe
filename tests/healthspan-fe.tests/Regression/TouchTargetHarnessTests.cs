@@ -80,6 +80,7 @@ public class TouchTargetHarnessTests : BlazorTestBase
         {
             ".hs-et-variation-toggle", ".hs-et-card-menu", ".hs-exercise-quick-button",
             ".hs-history-tag-filter", ".hs-exercise-entry-submit", ".hs-exercise-edit-button",
+            ".hs-chip",
         }).Should().BeEmpty(
             "training controls must not re-declare a touch target below --hs-touch-target");
     }

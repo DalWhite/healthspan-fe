@@ -12,6 +12,7 @@ public sealed class InMemoryLocalStore : ILocalStore
     private readonly Dictionary<string, Dictionary<string, string>> _catalog = [];
     private readonly Dictionary<Guid, LocalWorkout> _workouts = [];
     private readonly Dictionary<Guid, LocalExercise> _exercises = [];
+    private readonly Dictionary<Guid, LocalBlock> _blocks = [];
 
     public Task<bool> IsAvailableAsync() => Task.FromResult(true);
 
@@ -216,6 +217,50 @@ public sealed class InMemoryLocalStore : ILocalStore
         return Task.CompletedTask;
     }
 
+    public Task UpsertBlockAsync(LocalBlock block)
+    {
+        _blocks[block.ClientId] = block;
+        return Task.CompletedTask;
+    }
+
+    public Task<LocalBlock?> GetBlockAsync(Guid clientId)
+        => Task.FromResult<LocalBlock?>(
+            _blocks.TryGetValue(clientId, out var block) ? block : null);
+
+    public Task<List<LocalBlock>> GetBlocksForWorkoutAsync(
+        Guid workoutClientId,
+        bool includeDeleted = false)
+        => Task.FromResult(
+            _blocks.Values
+                .Where(b => b.WorkoutClientId == workoutClientId
+                            && (includeDeleted || !b.Deleted))
+                .OrderBy(b => b.Order)
+                .ThenBy(b => b.UpdatedAtUtc)
+                .ToList());
+
+    public Task MarkBlockDeletedAsync(Guid clientId)
+    {
+        if (_blocks.TryGetValue(clientId, out var block))
+        {
+            block.Deleted = true;
+            block.UpdatedAtUtc = DateTime.UtcNow;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task MarkWorkoutBlocksDeletedAsync(Guid workoutClientId)
+    {
+        foreach (var block in _blocks.Values
+                     .Where(b => b.WorkoutClientId == workoutClientId))
+        {
+            block.Deleted = true;
+            block.UpdatedAtUtc = DateTime.UtcNow;
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task RemapEntityIdAsync(Guid clientEntityId, Guid serverEntityId)
     {
         if (_workouts.TryGetValue(clientEntityId, out var workout))
@@ -228,6 +273,11 @@ public sealed class InMemoryLocalStore : ILocalStore
             exercise.ServerId = serverEntityId;
         }
 
+        if (_blocks.TryGetValue(clientEntityId, out var block))
+        {
+            block.ServerId = serverEntityId;
+        }
+
         return Task.CompletedTask;
     }
 
@@ -236,4 +286,5 @@ public sealed class InMemoryLocalStore : ILocalStore
     public IReadOnlyDictionary<Guid, SyncOperation> Queue => _queue;
     public IReadOnlyDictionary<Guid, LocalWorkout> Workouts => _workouts;
     public IReadOnlyDictionary<Guid, LocalExercise> Exercises => _exercises;
+    public IReadOnlyDictionary<Guid, LocalBlock> Blocks => _blocks;
 }

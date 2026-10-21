@@ -28,6 +28,15 @@ public record AddExerciseResource : IValidatableObject
 
     public List<string> Tags { get; set; } = [];
 
+    // Block + attempt tracking. Order 0 means "append at the end" and
+    // Attempts defaults to a single attempt, matching the API defaults.
+    public Guid? BlockId { get; set; }
+    public int Order { get; set; }
+    public int Attempts { get; set; } = 1;
+    public int CompletedAttempts { get; set; } = 1;
+    public string? QualityIntent { get; set; }
+    public string? LoadType { get; set; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         => ExerciseTagText.Validate(Tags);
 }

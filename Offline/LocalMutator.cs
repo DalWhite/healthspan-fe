@@ -110,6 +110,38 @@ public sealed class LocalMutator
                 source, body.Date.Value, body.Type, body.ExerciseIds));
         }
 
+        // ── /Workouts/{id}/blocks ─────────────────────────────────────────────
+        var blockAdd = Match(path, @"^/workouts/([^/]+)/blocks$");
+        if (blockAdd is not null && method == HttpMethod.Post)
+        {
+            var workout = await ResolveWorkoutAsync(blockAdd);
+            if (workout is null)
+            {
+                return Problem(HttpStatusCode.NotFound, "Workout not found.");
+            }
+
+            var body = await ReadJsonAsync<AddBlockBody>(request);
+            if (body is null || WorkoutBlockTypeLabels.Parse(body.Type) is null)
+            {
+                return Problem(HttpStatusCode.BadRequest,
+                    "Choose a block type: Normal, Superset, Circuito, EMOM, AMRAP, Tabata or Ronda.");
+            }
+
+            return JsonResponse(await AddBlockAsync(workout, body));
+        }
+
+        var blockById = Match(path, @"^/workouts/blocks/([^/]+)$");
+        if (blockById is not null && method == HttpMethod.Delete)
+        {
+            var block = await ResolveBlockAsync(blockById);
+            if (block is null)
+            {
+                return Problem(HttpStatusCode.NotFound, "Block not found.");
+            }
+
+            return await DeleteBlockAsync(block);
+        }
+
         // ── /Workouts CRUD ────────────────────────────────────────────────────
         if (path.Equals("/workouts", StringComparison.OrdinalIgnoreCase))
         {
@@ -141,6 +173,18 @@ public sealed class LocalMutator
                 return workout is null
                     ? Problem(HttpStatusCode.NotFound, "Workout not found.")
                     : await ServeWorkoutDetailAsync(workout);
+            }
+
+            if (method == HttpMethod.Patch)
+            {
+                var workout = await ResolveWorkoutAsync(workoutById);
+                if (workout is null)
+                {
+                    return Problem(HttpStatusCode.NotFound, "Workout not found.");
+                }
+
+                var body = await ReadJsonAsync<PatchWorkoutBody>(request);
+                return await PatchWorkoutAsync(workout, body);
             }
 
             if (method == HttpMethod.Delete)
@@ -216,7 +260,7 @@ public sealed class LocalMutator
         };
         await _store.UpsertWorkoutAsync(workout);
         await EnqueueAsync(SyncEntities.Workout, SyncActions.Create,
-            workout.ClientId, new { date, type = workout.Type });
+            workout.ClientId, WorkoutCreatePayload(workout));
         return workout;
     }
 
@@ -229,13 +273,24 @@ public sealed class LocalMutator
         {
             ClientId = Guid.NewGuid(),
             Date = date,
-            Type = string.IsNullOrWhiteSpace(body?.Type) ? "Training" : body!.Type
+            Type = string.IsNullOrWhiteSpace(body?.Type) ? "Training" : body!.Type,
+            Goal = body?.Goal,
+            SecondaryGoals = body?.SecondaryGoals is null ? [] : [.. body.SecondaryGoals],
+            Modality = body?.Modality
         };
         await _store.UpsertWorkoutAsync(workout);
         await EnqueueAsync(SyncEntities.Workout, SyncActions.Create,
-            workout.ClientId, new { date, type = workout.Type });
+            workout.ClientId, WorkoutCreatePayload(workout));
         // FE contract for POST /Workouts is GetWorkoutResource ({id,...}).
-        return new { id = workout.ClientId, date = workout.Date, type = workout.Type };
+        return new
+        {
+            id = workout.ClientId,
+            date = workout.Date,
+            type = workout.Type,
+            goal = workout.Goal,
+            secondaryGoals = workout.SecondaryGoals,
+            modality = workout.Modality
+        };
     }
 
     private async Task<HttpResponseMessage> UpdateWorkoutAsync(UpdateWorkoutBody? body)
@@ -257,10 +312,93 @@ public sealed class LocalMutator
         workout.UpdatedAtUtc = DateTime.UtcNow;
         await _store.UpsertWorkoutAsync(workout);
         await EnqueueAsync(SyncEntities.Workout, SyncActions.Update,
-            workout.ClientId,
-            new { id = workout.ServerId ?? workout.ClientId, date = workout.Date, type = workout.Type });
+            workout.ClientId, WorkoutUpdatePayload(workout));
         return await ServeWorkoutDetailAsync(workout);
     }
+
+    /// <summary>PATCH /Workouts/{id} — refine the intent, or close the session
+    /// with the perceived fatigue. Only the fields the user touched change.</summary>
+    private async Task<HttpResponseMessage> PatchWorkoutAsync(
+        LocalWorkout workout, PatchWorkoutBody? body)
+    {
+        if (body is null)
+        {
+            return Problem(HttpStatusCode.BadRequest, "Invalid workout payload.");
+        }
+
+        if (body.Goal is not null && TrainingIntent.ParseGoal(body.Goal) is null)
+        {
+            return Problem(HttpStatusCode.BadRequest, "Unknown training goal.");
+        }
+
+        if (body.Modality is not null && TrainingIntent.ParseModality(body.Modality) is null)
+        {
+            return Problem(HttpStatusCode.BadRequest, "Unknown training modality.");
+        }
+
+        if (body.PerceivedFatigue is not null && !PerceivedFatigue.IsValid(body.PerceivedFatigue))
+        {
+            return Problem(HttpStatusCode.BadRequest,
+                "Perceived fatigue must be between 1 and 5.");
+        }
+
+        if (body.Goal is not null)
+        {
+            workout.Goal = body.Goal;
+        }
+
+        if (body.SecondaryGoals is not null)
+        {
+            workout.SecondaryGoals = [.. body.SecondaryGoals];
+        }
+
+        if (body.Modality is not null)
+        {
+            workout.Modality = body.Modality;
+        }
+
+        if (body.PerceivedFatigue is not null)
+        {
+            workout.PerceivedFatigue = body.PerceivedFatigue;
+        }
+
+        if (!string.IsNullOrWhiteSpace(body.Type))
+        {
+            workout.Type = body.Type!;
+        }
+
+        if (body.Date is not null)
+        {
+            workout.Date = DateOnly.FromDateTime(body.Date.Value);
+        }
+
+        workout.UpdatedAtUtc = DateTime.UtcNow;
+        await _store.UpsertWorkoutAsync(workout);
+        await EnqueueAsync(SyncEntities.Workout, SyncActions.Update,
+            workout.ClientId, WorkoutUpdatePayload(workout));
+        return await ServeWorkoutDetailAsync(workout);
+    }
+
+    private static object WorkoutCreatePayload(LocalWorkout workout) => new
+    {
+        date = workout.Date,
+        type = workout.Type,
+        goal = workout.Goal,
+        secondaryGoals = workout.SecondaryGoals,
+        modality = workout.Modality,
+        perceivedFatigue = workout.PerceivedFatigue
+    };
+
+    private static object WorkoutUpdatePayload(LocalWorkout workout) => new
+    {
+        id = workout.ServerId ?? workout.ClientId,
+        date = workout.Date,
+        type = workout.Type,
+        goal = workout.Goal,
+        secondaryGoals = workout.SecondaryGoals,
+        modality = workout.Modality,
+        perceivedFatigue = workout.PerceivedFatigue
+    };
 
     private async Task<object> DuplicateWorkoutAsync(
         LocalWorkout source,
@@ -279,9 +417,39 @@ public sealed class LocalMutator
         {
             ClientId = Guid.NewGuid(),
             Date = targetDate,
-            Type = string.IsNullOrWhiteSpace(type) ? source.Type : type
+            Type = string.IsNullOrWhiteSpace(type) ? source.Type : type,
+            Goal = source.Goal,
+            SecondaryGoals = [.. source.SecondaryGoals],
+            Modality = source.Modality
         };
         await _store.UpsertWorkoutAsync(clone);
+
+        // Blocks travel with the copy: a duplicated circuit stays a circuit.
+        // Each clone gets a fresh client id, and exercises map through it.
+        var blockIds = new Dictionary<Guid, Guid>();
+        foreach (var block in await _store.GetBlocksForWorkoutAsync(source.ClientId))
+        {
+            var blockClone = new LocalBlock
+            {
+                ClientId = Guid.NewGuid(),
+                WorkoutClientId = clone.ClientId,
+                Order = block.Order,
+                Type = block.Type,
+                Label = block.Label,
+                Rounds = block.Rounds
+            };
+            blockIds[block.ClientId] = blockClone.ClientId;
+            await _store.UpsertBlockAsync(blockClone);
+            await EnqueueAsync(SyncEntities.WorkoutBlock, SyncActions.Create,
+                blockClone.ClientId, new
+                {
+                    workoutClientId = clone.ClientId,
+                    order = blockClone.Order,
+                    type = blockClone.Type,
+                    label = blockClone.Label,
+                    rounds = blockClone.Rounds
+                });
+        }
 
         var clones = new List<LocalExercise>();
         foreach (var exercise in selected)
@@ -298,7 +466,15 @@ public sealed class LocalMutator
                 BodyWeight = exercise.BodyWeight,
                 AddedWeight = exercise.AddedWeight,
                 Comments = exercise.Comments,
-                Tags = [.. exercise.Tags]
+                Tags = [.. exercise.Tags],
+                BlockClientId = exercise.BlockClientId is not null
+                    ? blockIds.GetValueOrDefault(exercise.BlockClientId.Value)
+                    : null,
+                Order = exercise.Order,
+                Attempts = exercise.Attempts,
+                CompletedAttempts = exercise.CompletedAttempts,
+                QualityIntent = exercise.QualityIntent,
+                LoadType = exercise.LoadType
             };
             clones.Add(copy);
             await _store.UpsertExerciseAsync(copy);
@@ -311,6 +487,9 @@ public sealed class LocalMutator
                 sourceWorkoutId = source.ServerId,
                 date = targetDate,
                 type = clone.Type,
+                goal = clone.Goal,
+                secondaryGoals = clone.SecondaryGoals,
+                modality = clone.Modality,
                 exercises = selected.Select(e => e.ServerId).ToList(),
                 clonedExercises = clones.Select(c => new
                 {
@@ -322,14 +501,21 @@ public sealed class LocalMutator
                     bodyWeight = c.BodyWeight,
                     addedWeight = c.AddedWeight,
                     comments = c.Comments,
-                    tags = c.Tags
+                    tags = c.Tags,
+                    blockClientId = c.BlockClientId,
+                    order = c.Order,
+                    attempts = c.Attempts,
+                    completedAttempts = c.CompletedAttempts,
+                    qualityIntent = c.QualityIntent,
+                    loadType = c.LoadType
                 }).ToList()
             });
 
         return new
         {
             sourceWorkoutId = source.ServerId ?? source.ClientId,
-            workout = BuildGetWorkout(clone, await _store.GetExercisesForWorkoutAsync(clone.ClientId))
+            workout = await BuildGetWorkoutAsync(
+                clone, await _store.GetExercisesForWorkoutAsync(clone.ClientId))
         };
     }
 
@@ -337,7 +523,7 @@ public sealed class LocalMutator
 
     private async Task AddExerciseAsync(LocalWorkout workout, AddExerciseBody body)
     {
-        var exercise = BuildExercise(workout.ClientId, body);
+        var exercise = await BuildExerciseAsync(workout.ClientId, body);
         await _store.UpsertExerciseAsync(exercise);
         await EnqueueAsync(SyncEntities.Exercise, SyncActions.Create,
             exercise.ClientId, await BuildExercisePayloadAsync(exercise));
@@ -357,7 +543,7 @@ public sealed class LocalMutator
                 DateOnly.FromDateTime(DateTime.UtcNow), createNew: false);
         }
 
-        var exercise = BuildExercise(workout.ClientId, body);
+        var exercise = await BuildExerciseAsync(workout.ClientId, body);
         await _store.UpsertExerciseAsync(exercise);
         await EnqueueAsync(SyncEntities.Exercise, SyncActions.Create,
             exercise.ClientId, await BuildExercisePayloadAsync(exercise));
@@ -372,7 +558,7 @@ public sealed class LocalMutator
             tags = exercise.Tags,
             bodyWeight = exercise.BodyWeight,
             addedWeight = exercise.AddedWeight,
-            workout = BuildGetWorkout(workout, [])
+            workout = await BuildGetWorkoutAsync(workout, [])
         });
     }
 
@@ -405,6 +591,36 @@ public sealed class LocalMutator
             exercise.Tags = body.Tags;
         }
 
+        // Completing an attempt is the tap that matters mid-session, so the
+        // local mirror must accept it on its own.
+        if (body.CompletedAttempts is >= 0)
+        {
+            exercise.CompletedAttempts = body.CompletedAttempts.Value;
+            if (exercise.CompletedAttempts > exercise.Attempts)
+            {
+                exercise.Attempts = exercise.CompletedAttempts;
+            }
+        }
+
+        if (body.Attempts is >= 1)
+        {
+            exercise.Attempts = Math.Max(body.Attempts.Value, exercise.CompletedAttempts);
+        }
+
+        if (body.QualityIntent is not null)
+        {
+            exercise.QualityIntent = string.IsNullOrWhiteSpace(body.QualityIntent)
+                ? null
+                : body.QualityIntent.Trim();
+        }
+
+        if (body.LoadType is not null)
+        {
+            exercise.LoadType = string.IsNullOrWhiteSpace(body.LoadType)
+                ? null
+                : body.LoadType.Trim();
+        }
+
         exercise.UpdatedAtUtc = DateTime.UtcNow;
         await _store.UpsertExerciseAsync(exercise);
         await EnqueueAsync(SyncEntities.Exercise, SyncActions.Update,
@@ -418,7 +634,11 @@ public sealed class LocalMutator
                 bodyWeight = exercise.BodyWeight,
                 addedWeight = exercise.AddedWeight,
                 comments = exercise.Comments,
-                tags = exercise.Tags
+                tags = exercise.Tags,
+                attempts = exercise.Attempts,
+                completedAttempts = exercise.CompletedAttempts,
+                qualityIntent = exercise.QualityIntent,
+                loadType = exercise.LoadType
             });
 
         var workout = await _store.GetWorkoutAsync(exercise.WorkoutClientId);
@@ -432,11 +652,18 @@ public sealed class LocalMutator
             tags = exercise.Tags,
             bodyWeight = exercise.BodyWeight,
             addedWeight = exercise.AddedWeight,
-            workout = workout is null ? null : BuildGetWorkout(workout, [])
+            attempts = exercise.Attempts,
+            completedAttempts = exercise.CompletedAttempts,
+            qualityIntent = exercise.QualityIntent,
+            loadType = exercise.LoadType,
+            workout = workout is null
+                ? null
+                : await BuildGetWorkoutAsync(workout, [])
         });
     }
 
-    private static LocalExercise BuildExercise(Guid workoutClientId, AddExerciseBody body)
+    private async Task<LocalExercise> BuildExerciseAsync(
+        Guid workoutClientId, AddExerciseBody body)
     {
         double? bodyWeight = body.BodyWeight;
         double? addedWeight = body.AddedWeight;
@@ -459,6 +686,15 @@ public sealed class LocalMutator
                 break;
         }
 
+        var block = await ResolveBlockForWorkoutAsync(workoutClientId, body.BlockId);
+
+        // Order 0 means "append at the end" — the same default the API uses,
+        // so the FE never has to manage sequence numbers to log an exercise.
+        var order = body.Order > 0
+            ? body.Order
+            : (await _store.GetExercisesForWorkoutAsync(workoutClientId))
+                .Count(e => e.BlockClientId == block?.ClientId) + 1;
+
         return new LocalExercise
         {
             ClientId = Guid.NewGuid(),
@@ -470,8 +706,120 @@ public sealed class LocalMutator
             BodyWeight = bodyWeight,
             AddedWeight = addedWeight,
             Comments = body.Comments,
-            Tags = body.Tags ?? []
+            Tags = body.Tags ?? [],
+            BlockClientId = block?.ClientId,
+            Order = order,
+            Attempts = body.Attempts is >= 1 ? body.Attempts.Value : 1,
+            CompletedAttempts = body.CompletedAttempts is >= 0
+                ? body.CompletedAttempts.Value
+                : 1,
+            QualityIntent = string.IsNullOrWhiteSpace(body.QualityIntent)
+                ? null
+                : body.QualityIntent.Trim(),
+            LoadType = string.IsNullOrWhiteSpace(body.LoadType)
+                ? null
+                : body.LoadType.Trim()
         };
+    }
+
+    /// <summary>A block reference may arrive as a client id (offline-created)
+    /// or a server id (already synced). An unknown id is not an error: the
+    /// exercise simply lands in the implicit Normal block.</summary>
+    private async Task<LocalBlock?> ResolveBlockForWorkoutAsync(
+        Guid workoutClientId, Guid? id)
+    {
+        if (id is null)
+        {
+            return null;
+        }
+
+        var byClient = await _store.GetBlockAsync(id.Value);
+        if (byClient is not null && byClient.WorkoutClientId == workoutClientId)
+        {
+            return byClient;
+        }
+
+        var blocks = await _store.GetBlocksForWorkoutAsync(workoutClientId);
+        return blocks.FirstOrDefault(b => b.ServerId == id);
+    }
+
+    private async Task<LocalBlock?> ResolveBlockAsync(string id)
+    {
+        if (!Guid.TryParse(id, out var clientId))
+        {
+            return null;
+        }
+
+        var byClient = await _store.GetBlockAsync(clientId);
+        if (byClient is not null)
+        {
+            return byClient;
+        }
+
+        var workouts = await _store.GetWorkoutsAsync();
+        foreach (var workout in workouts)
+        {
+            var match = (await _store.GetBlocksForWorkoutAsync(workout.ClientId))
+                .FirstOrDefault(b => b.ServerId == clientId);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<object> AddBlockAsync(LocalWorkout workout, AddBlockBody body)
+    {
+        var blocks = await _store.GetBlocksForWorkoutAsync(workout.ClientId);
+        var block = new LocalBlock
+        {
+            ClientId = body.ClientEntityId is not null && body.ClientEntityId.Value != Guid.Empty
+                ? body.ClientEntityId.Value
+                : Guid.NewGuid(),
+            WorkoutClientId = workout.ClientId,
+            Order = body.Order > 0 ? body.Order : blocks.Count + 1,
+            Type = body.Type,
+            Label = string.IsNullOrWhiteSpace(body.Label) ? null : body.Label.Trim(),
+            Rounds = body.Rounds
+        };
+
+        await _store.UpsertBlockAsync(block);
+        await EnqueueAsync(SyncEntities.WorkoutBlock, SyncActions.Create,
+            block.ClientId, new
+            {
+                workoutClientId = workout.ClientId,
+                workoutId = workout.ServerId,
+                order = block.Order,
+                type = block.Type,
+                label = block.Label,
+                rounds = block.Rounds
+            });
+
+        return await BuildSessionAsync(workout);
+    }
+
+    private async Task<HttpResponseMessage> DeleteBlockAsync(LocalBlock block)
+    {
+        await _store.MarkBlockDeletedAsync(block.ClientId);
+
+        // The exercises do not disappear with the block: they fall back to the
+        // implicit Normal block, exactly like the API does on delete.
+        var exercises = await _store.GetExercisesForWorkoutAsync(block.WorkoutClientId);
+        foreach (var exercise in exercises.Where(e => e.BlockClientId == block.ClientId))
+        {
+            exercise.BlockClientId = null;
+            await _store.UpsertExerciseAsync(exercise);
+        }
+
+        await EnqueueAsync(SyncEntities.WorkoutBlock, SyncActions.Delete,
+            block.ClientId, new { id = block.ServerId });
+
+        var workout = await _store.GetWorkoutAsync(block.WorkoutClientId);
+        return workout is null
+            ? new HttpResponseMessage(HttpStatusCode.NoContent)
+            : await ServeWorkoutDetailAsync(workout);
     }
 
     private async Task<object> BuildExercisePayloadAsync(LocalExercise exercise)
@@ -480,6 +828,9 @@ public sealed class LocalMutator
         // synced). Always send the client id; the server maps it to its
         // server id when the parent's create op lands in the same batch.
         var parent = await _store.GetWorkoutAsync(exercise.WorkoutClientId);
+        var block = exercise.BlockClientId is not null
+            ? await _store.GetBlockAsync(exercise.BlockClientId.Value)
+            : null;
         return new
         {
             workoutClientId = exercise.WorkoutClientId,
@@ -491,7 +842,14 @@ public sealed class LocalMutator
             bodyWeight = exercise.BodyWeight,
             addedWeight = exercise.AddedWeight,
             comments = exercise.Comments,
-            tags = exercise.Tags
+            tags = exercise.Tags,
+            blockClientId = exercise.BlockClientId,
+            blockId = block?.ServerId,
+            order = exercise.Order,
+            attempts = exercise.Attempts,
+            completedAttempts = exercise.CompletedAttempts,
+            qualityIntent = exercise.QualityIntent,
+            loadType = exercise.LoadType
         };
     }
 
@@ -547,7 +905,7 @@ public sealed class LocalMutator
         foreach (var workout in pageItems)
         {
             var exercises = await _store.GetExercisesForWorkoutAsync(workout.ClientId);
-            resources.Add(BuildGetWorkout(workout, exercises));
+            resources.Add(await BuildGetWorkoutAsync(workout, exercises));
         }
 
         var response = JsonResponse(resources);
@@ -558,7 +916,7 @@ public sealed class LocalMutator
     private async Task<HttpResponseMessage> ServeWorkoutDetailAsync(LocalWorkout workout)
     {
         var exercises = await _store.GetExercisesForWorkoutAsync(workout.ClientId);
-        return JsonResponse(BuildGetWorkout(workout, exercises));
+        return JsonResponse(await BuildGetWorkoutAsync(workout, exercises));
     }
 
     private async Task<List<object>> BuildTodaySessionsAsync(DateOnly date)
@@ -575,27 +933,65 @@ public sealed class LocalMutator
     private async Task<object> BuildSessionAsync(LocalWorkout workout)
     {
         var exercises = await _store.GetExercisesForWorkoutAsync(workout.ClientId);
+        var blocks = await _store.GetBlocksForWorkoutAsync(workout.ClientId);
+        var blockWireIds = BlockWireIds(blocks);
+
         return new
         {
             id = workout.ServerId ?? workout.ClientId,
             date = workout.Date,
             type = workout.Type,
-            exercises = exercises.Select(e => new
+            goal = workout.Goal,
+            secondaryGoals = workout.SecondaryGoals,
+            modality = workout.Modality,
+            perceivedFatigue = workout.PerceivedFatigue,
+            exercises = exercises.Select(e => SessionExerciseWire(e, blockWireIds)).ToList(),
+            blocks = blocks.Select(b => new
             {
-                id = e.ServerId ?? e.ClientId,
-                typeId = e.TypeId,
-                name = e.Name,
-                series = e.Series,
-                repetitions = e.Repetitions,
-                weight = e.Weight,
-                bodyWeight = e.BodyWeight,
-                addedWeight = e.AddedWeight,
-                comments = e.Comments,
-                tags = e.Tags
+                id = blockWireIds[b.ClientId],
+                clientEntityId = b.ClientId,
+                order = b.Order,
+                type = b.Type,
+                label = b.Label,
+                rounds = b.Rounds,
+                exercises = exercises
+                    .Where(e => e.BlockClientId == b.ClientId)
+                    .Select(e => SessionExerciseWire(e, blockWireIds))
+                    .ToList()
             }).ToList(),
             recentExerciseTypeIds = await GetRecentExerciseTypeIdsAsync()
         };
     }
+
+    /// <summary>The id the FE sees for a block. It is the server id once the
+    /// block is synced, the client id while it only exists offline; the mutator
+    /// accepts either when an exercise is assigned to it.</summary>
+    private static Dictionary<Guid, object?> BlockWireIds(List<LocalBlock> blocks)
+        => blocks.ToDictionary(b => b.ClientId, b => (object?)(b.ServerId ?? b.ClientId));
+
+    private static object SessionExerciseWire(
+        LocalExercise e, Dictionary<Guid, object?> blockWireIds)
+        => new
+        {
+            id = e.ServerId ?? e.ClientId,
+            typeId = e.TypeId,
+            name = e.Name,
+            series = e.Series,
+            repetitions = e.Repetitions,
+            weight = e.Weight,
+            bodyWeight = e.BodyWeight,
+            addedWeight = e.AddedWeight,
+            comments = e.Comments,
+            tags = e.Tags,
+            blockId = e.BlockClientId is null
+                ? null
+                : blockWireIds.GetValueOrDefault(e.BlockClientId.Value),
+            order = e.Order,
+            attempts = e.Attempts,
+            completedAttempts = e.CompletedAttempts,
+            qualityIntent = e.QualityIntent,
+            loadType = e.LoadType
+        };
 
     private async Task<List<int>> GetRecentExerciseTypeIdsAsync()
     {
@@ -621,8 +1017,13 @@ public sealed class LocalMutator
                       .ToList();
     }
 
-    private object BuildGetWorkout(LocalWorkout workout, List<LocalExercise> exercises)
-        => new
+    private async Task<object> BuildGetWorkoutAsync(
+        LocalWorkout workout, List<LocalExercise> exercises)
+    {
+        var blocks = await _store.GetBlocksForWorkoutAsync(workout.ClientId);
+        var blockWireIds = BlockWireIds(blocks);
+
+        return new
         {
             id = workout.ServerId ?? workout.ClientId,
             type = workout.Type,
@@ -631,21 +1032,51 @@ public sealed class LocalMutator
             totalVolume = exercises.Sum(e => e.Volume),
             leadingMuscles = Array.Empty<string>(),
             tags = exercises.SelectMany(e => e.Tags).Distinct().ToList(),
-            exercises = exercises.Select(e => new
+            goal = workout.Goal,
+            secondaryGoals = workout.SecondaryGoals,
+            modality = workout.Modality,
+            perceivedFatigue = workout.PerceivedFatigue,
+            exercises = exercises.Select(e => HistoryExerciseWire(e, blockWireIds)).ToList(),
+            blocks = blocks.Select(b => new
             {
-                id = e.ServerId ?? e.ClientId,
-                typeId = e.TypeId,
-                name = e.Name,
-                series = e.Series,
-                repetitions = e.Repetitions,
-                weight = e.Weight,
-                bodyWeight = e.BodyWeight,
-                addedWeight = e.AddedWeight,
-                volume = e.Volume,
-                comments = e.Comments,
-                tags = e.Tags,
-                muscles = Array.Empty<string>()
+                id = blockWireIds[b.ClientId],
+                clientEntityId = b.ClientId,
+                order = b.Order,
+                type = b.Type,
+                label = b.Label,
+                rounds = b.Rounds,
+                exercises = exercises
+                    .Where(e => e.BlockClientId == b.ClientId)
+                    .Select(e => HistoryExerciseWire(e, blockWireIds))
+                    .ToList()
             }).ToList()
+        };
+    }
+
+    private static object HistoryExerciseWire(
+        LocalExercise e, Dictionary<Guid, object?> blockWireIds)
+        => new
+        {
+            id = e.ServerId ?? e.ClientId,
+            typeId = e.TypeId,
+            name = e.Name,
+            series = e.Series,
+            repetitions = e.Repetitions,
+            weight = e.Weight,
+            bodyWeight = e.BodyWeight,
+            addedWeight = e.AddedWeight,
+            volume = e.Volume,
+            comments = e.Comments,
+            tags = e.Tags,
+            muscles = Array.Empty<string>(),
+            blockId = e.BlockClientId is null
+                ? null
+                : blockWireIds.GetValueOrDefault(e.BlockClientId.Value),
+            order = e.Order,
+            attempts = e.Attempts,
+            completedAttempts = e.CompletedAttempts,
+            qualityIntent = e.QualityIntent,
+            loadType = e.LoadType
         };
 
     private async Task<HttpResponseMessage> ServeCatalogAsync(
@@ -792,6 +1223,9 @@ public sealed class LocalMutator
     {
         public DateTime? Date { get; set; }
         public string? Type { get; set; }
+        public string? Goal { get; set; }
+        public List<string>? SecondaryGoals { get; set; }
+        public string? Modality { get; set; }
     }
 
     private sealed class UpdateWorkoutBody
@@ -799,6 +1233,25 @@ public sealed class LocalMutator
         public string? Id { get; set; }
         public DateTime? Date { get; set; }
         public string? Type { get; set; }
+    }
+
+    private sealed class PatchWorkoutBody
+    {
+        public string? Type { get; set; }
+        public DateTime? Date { get; set; }
+        public string? Goal { get; set; }
+        public List<string>? SecondaryGoals { get; set; }
+        public string? Modality { get; set; }
+        public int? PerceivedFatigue { get; set; }
+    }
+
+    private sealed class AddBlockBody
+    {
+        public Guid? ClientEntityId { get; set; }
+        public int Order { get; set; }
+        public string Type { get; set; } = "Normal";
+        public string? Label { get; set; }
+        public int? Rounds { get; set; }
     }
 
     private sealed class DuplicateBody
@@ -820,6 +1273,12 @@ public sealed class LocalMutator
         public double? AddedWeight { get; set; }
         public string? Comments { get; set; }
         public List<string>? Tags { get; set; }
+        public Guid? BlockId { get; set; }
+        public int Order { get; set; }
+        public int? Attempts { get; set; }
+        public int? CompletedAttempts { get; set; }
+        public string? QualityIntent { get; set; }
+        public string? LoadType { get; set; }
     }
 
     private sealed class UpdateExerciseBody
@@ -832,5 +1291,9 @@ public sealed class LocalMutator
         public double? AddedWeight { get; set; }
         public string? Comments { get; set; }
         public List<string>? Tags { get; set; }
+        public int? Attempts { get; set; }
+        public int? CompletedAttempts { get; set; }
+        public string? QualityIntent { get; set; }
+        public string? LoadType { get; set; }
     }
 }

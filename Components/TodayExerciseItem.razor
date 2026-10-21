@@ -1,0 +1,101 @@
+<article class="hs-today-exercise-item">
+    <div class="hs-today-exercise-copy">
+        <span class="hs-today-exercise-name">
+            @Exercise.Name
+            @if (Exercise.Tags.Count > 0)
+            {
+                <span class="hs-training-tag-inline">
+                    @string.Join(" · ", Exercise.Tags)
+                </span>
+            }
+        </span>
+        <span class="hs-today-exercise-load">@FormatLoad(Exercise)</span>
+        @if (HasAttempts || IntentText is not null)
+        {
+            <span class="hs-today-exercise-tracker">
+                @if (HasAttempts)
+                {
+                    <span class="hs-today-exercise-attempts" aria-label="@($"{CompletedAttempts} of {Attempts} attempts done")">
+                        @($"{CompletedAttempts}/{Attempts} done")
+                    </span>
+                }
+                @if (IntentText is not null)
+                {
+                    <span class="hs-today-exercise-intent">@IntentText</span>
+                }
+            </span>
+        }
+    </div>
+    <div class="hs-today-exercise-side">
+        @if (HasAttempts)
+        {
+            <MudButton Variant="@(Completed ? Variant.Text : Variant.Filled)"
+                       Size="Size.Small"
+                       Color="MudBlazor.Color.Primary"
+                       aria-label="Mark one attempt done"
+                       OnClick="@(() => OnCompleteAttempt.InvokeAsync(Exercise))">
+                @(Completed ? "All done" : "+1 done")
+            </MudButton>
+        }
+        <a class="hs-workout-edit-link hs-today-exercise-edit-link"
+           href="@EditRoute"
+           aria-label="@($"Edit {Exercise.Name ?? "exercise"} entry")">
+            <MudIcon Icon="@Icons.Material.Filled.Edit"
+                     aria-hidden="true" />
+        </a>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public WorkoutSessionExerciseResource Exercise { get; set; } = default!;
+    [Parameter] public string EditRoute { get; set; } = string.Empty;
+    [Parameter] public EventCallback<WorkoutSessionExerciseResource> OnCompleteAttempt { get; set; }
+
+    private int Attempts => Math.Max(1, Exercise.Attempts ?? 1);
+    private int CompletedAttempts => Math.Clamp(Exercise.CompletedAttempts ?? 0, 0, Attempts);
+
+    // The attempt row only appears when there is something to tick off: legacy
+    // exercises (attempts 1, completed 1) render exactly as before.
+    private bool HasAttempts => Attempts > 1 || CompletedAttempts < Attempts;
+    private bool Completed => HasAttempts && CompletedAttempts >= Attempts;
+
+    private string? IntentText
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(Exercise.QualityIntent))
+            {
+                parts.Add(Exercise.QualityIntent);
+            }
+            if (TrainingIntent.ParseLoadType(Exercise.LoadType) is { } loadType)
+            {
+                parts.Add(loadType.Label());
+            }
+            return parts.Count > 0 ? string.Join(" · ", parts) : null;
+        }
+    }
+
+    private static string FormatLoad(WorkoutSessionExerciseResource exercise)
+    {
+        // Sets/reps are optional: an entry logged without them invites the
+        // detail instead of showing a fake "0 x 0".
+        if (exercise.Series is null && exercise.Repetitions is null)
+        {
+            return "Add sets and reps";
+        }
+
+        var sets = exercise.Series ?? 0;
+        var repetitions = exercise.Repetitions ?? 0;
+        var load = exercise.BodyWeight.GetValueOrDefault() > 0
+            ? $" · {exercise.BodyWeight:0.#} kg BW"
+              + (exercise.AddedWeight.GetValueOrDefault() > 0
+                  ? $" + {exercise.AddedWeight:0.#} kg"
+                  : string.Empty)
+            : exercise.Weight.GetValueOrDefault() > 0
+                ? $" · {exercise.Weight:0.#} kg"
+                : string.Empty;
+
+        return $"{sets} × {repetitions}{load}";
+    }
+}

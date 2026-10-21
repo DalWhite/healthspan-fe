@@ -3533,6 +3533,196 @@ a.hs-exercise-history-row:hover {
   font-size: 0.78rem;
 }
 
+/* Universal tracker: intent chips, blocks and attempt counters */
+.hs-today-intent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-2);
+}
+
+.hs-today-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.hs-today-chip-label {
+  margin-right: 2px;
+  color: var(--hs-color-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.hs-chip {
+  min-height: var(--hs-touch-target);
+  padding: 5px 14px;
+  border: 1px solid var(--mud-palette-lines-default);
+  border-radius: 999px;
+  background: var(--hs-color-surface);
+  color: var(--mud-palette-text-secondary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hs-chip:hover {
+  border-color: var(--hs-color-secondary);
+}
+
+.hs-chip-selected {
+  border-color: var(--hs-color-secondary);
+  background: color-mix(in srgb, var(--hs-color-secondary) 12%, var(--hs-color-surface));
+  color: var(--hs-color-secondary);
+}
+
+.hs-chip-more {
+  border-style: dashed;
+  color: var(--hs-color-muted);
+}
+
+.hs-today-block {
+  margin-top: var(--hs-space-3);
+  padding: 10px 12px 12px;
+  border: 1px solid rgba(15, 95, 103, 0.14);
+  border-radius: var(--hs-radius-card);
+  background: var(--hs-color-surface);
+}
+
+.hs-today-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hs-today-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hs-today-block-meta {
+  margin-top: 2px;
+  color: var(--hs-color-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.hs-today-block-empty {
+  padding: 8px 0 2px;
+  color: var(--hs-color-muted);
+  font-size: 0.84rem;
+}
+
+.hs-today-block-creator {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hs-space-2);
+  margin-top: var(--hs-space-3);
+  padding: 12px;
+  border: 1px dashed rgba(15, 95, 103, 0.25);
+  border-radius: var(--hs-radius-card);
+}
+
+.hs-today-block-creator .mud-input-control {
+  flex: 1 1 170px;
+}
+
+.hs-today-attempts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.hs-today-attempt-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hs-today-attempt-count {
+  min-width: 44px;
+  color: var(--mud-palette-text-secondary);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Mid-session taps happen with sweaty hands on a phone: 44px targets. */
+.hs-today-attempt-plus,
+.hs-today-attempt-check {
+  width: 44px;
+  height: 44px;
+}
+
+.hs-today-intent-text {
+  color: var(--hs-color-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.hs-today-session-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--hs-space-3);
+  color: var(--mud-palette-text-secondary);
+  font-size: 0.84rem;
+}
+
+.hs-today-session-fatigue {
+  color: var(--hs-color-secondary);
+  font-weight: 700;
+}
+
+.hs-exercise-quality {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+}
+
+.hs-workout-tracker-meta {
+  color: var(--hs-color-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.hs-workout-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: var(--hs-space-3);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.hs-workout-block-head:first-child {
+  margin-top: 0;
+}
+
+.hs-workout-block-type {
+  color: var(--mud-palette-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.hs-workout-block-rounds {
+  color: var(--hs-color-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.hs-workout-exercise-attempts {
+  color: var(--hs-color-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .hs-exercise-entry-submit {
   display: flex;
   justify-content: flex-end;

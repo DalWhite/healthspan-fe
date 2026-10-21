@@ -20,6 +20,7 @@ public static class SyncEntities
 {
     public const string Workout = "workout";
     public const string Exercise = "exercise";
+    public const string WorkoutBlock = "workout_block";
 }
 
 public static class SyncActions

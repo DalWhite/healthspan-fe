@@ -4,6 +4,7 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject TitleService TitleService
+@inject IDialogService DialogService
 @using System.Net
 @using System.Text.Json
 
@@ -64,6 +65,8 @@
 
     @if (_session is not null)
     {
+        var current = _session;
+
         @if (_sessions.Count > 1)
         {
             <div class="hs-today-session-switcher"
@@ -88,37 +91,170 @@
         <section class="hs-today-session" aria-label="Current workout">
             <div class="hs-today-session-summary">
                 <span>@ExerciseSummary</span>
+                <MudButton Variant="Variant.Text"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.ViewAgenda"
+                           aria-label="Add block"
+                           OnClick="ToggleBlockCreator">
+                    Block
+                </MudButton>
             </div>
 
-            @if (_session!.Exercises.Count == 0)
+            <div class="hs-today-intent" aria-label="Training intent">
+                <div class="hs-today-chip-row" role="group" aria-label="Training type">
+                    @foreach (var modality in ModalityChoices)
+                    {
+                        <button type="button"
+                                class="@IntentChipClass(current.Modality == modality.ToString())"
+                                aria-pressed="@(current.Modality == modality.ToString())"
+                                @onclick="() => SetIntentAsync(modality: modality)">
+                            @modality.Label()
+                        </button>
+                    }
+                    @if (!_showAllModalities)
+                    {
+                        <button type="button"
+                                class="hs-chip hs-chip-more"
+                                @onclick="@(() => _showAllModalities = true)">
+                            Other
+                        </button>
+                    }
+                </div>
+                <div class="hs-today-chip-row" role="group" aria-label="Main goal">
+                    @foreach (var goal in TrainingIntent.GoalOrder)
+                    {
+                        <button type="button"
+                                class="@IntentChipClass(current.Goal == goal.ToString())"
+                                aria-pressed="@(current.Goal == goal.ToString())"
+                                @onclick="() => SetIntentAsync(goal: goal)">
+                            @goal.Label()
+                        </button>
+                    }
+                </div>
+                @if (_showSecondaryGoals || current.SecondaryGoals.Count > 0)
+                {
+                    <div class="hs-today-chip-row" role="group" aria-label="Secondary goals">
+                        <span class="hs-today-chip-label">Also for</span>
+                        @foreach (var goal in TrainingIntent.GoalOrder)
+                        {
+                            <button type="button"
+                                    class="@IntentChipClass(current.SecondaryGoals.Contains(goal.ToString()))"
+                                    aria-pressed="@(current.SecondaryGoals.Contains(goal.ToString()))"
+                                    @onclick="() => ToggleSecondaryGoalAsync(goal)">
+                                @goal.Label()
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="@(() => _showSecondaryGoals = true)">
+                        Also training for
+                    </MudButton>
+                }
+            </div>
+
+            @if (_showBlockCreator)
+            {
+                <div class="hs-today-block-creator" role="group" aria-label="New block">
+                    @foreach (var blockType in WorkoutBlockTypeLabels.PickerOrder)
+                    {
+                        <button type="button"
+                                class="@IntentChipClass(_newBlockType == blockType.ToString())"
+                                aria-pressed="@(_newBlockType == blockType.ToString())"
+                                @onclick="() => _newBlockType = blockType.ToString()">
+                            @blockType.Label()
+                        </button>
+                    }
+                    <MudTextField @bind-Value="_newBlockLabel"
+                                  Placeholder="Name (optional)"
+                                  MaxLength="120"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                    @if (NeedsRounds(_newBlockType))
+                    {
+                        <MudNumericField T="int"
+                                         Value="_newBlockRounds"
+                                         ValueChanged="@(value => _newBlockRounds = value)"
+                                         Label="Rounds"
+                                         Min="1"
+                                         Max="50"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense" />
+                    }
+                    <MudButton Variant="Variant.Filled"
+                               Color="MudBlazor.Color.Primary"
+                               Size="Size.Small"
+                               Disabled="@_busyBlock"
+                               OnClick="AddBlockAsync">
+                        Add block
+                    </MudButton>
+                </div>
+            }
+
+            @if (current.Exercises.Count == 0 && current.Blocks.Count == 0)
             {
                 <div class="hs-today-empty-session">No exercises yet.</div>
+            }
+            else if (current.Blocks.Count > 0)
+            {
+                <div class="hs-today-blocks">
+                    @foreach (var block in current.Blocks)
+                    {
+                        <article class="hs-today-block">
+                            <header class="hs-today-block-head">
+                                <span class="hs-today-block-title">
+                                    @(string.IsNullOrWhiteSpace(block.Label) ? BlockTypeLabel(block.Type) : block.Label)
+                                </span>
+                                <span class="hs-today-block-meta">
+                                    @BlockTypeLabel(block.Type)
+                                    @if (block.Rounds is > 0)
+                                    {
+                                        <span>@($"{block.Rounds} rounds")</span>
+                                    }
+                                </span>
+                                <MudButton Variant="Variant.Text"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Add"
+                                           aria-label="Add exercise to this block"
+                                           OnClick="@(() => AddExerciseToBlock(block))">
+                                    Exercise
+                                </MudButton>
+                            </header>
+                            <div class="hs-today-exercise-list">
+                                @foreach (var exercise in block.Exercises)
+                                {
+                                    <TodayExerciseItem Exercise="exercise"
+                                                       EditRoute="@BuildEditRoute(exercise.Id)"
+                                                       OnCompleteAttempt="CompleteAttemptAsync" />
+                                }
+                            </div>
+                        </article>
+                    }
+                    @if (UnassignedExercises.Count > 0)
+                    {
+                        <div class="hs-today-exercise-list">
+                            @foreach (var exercise in UnassignedExercises)
+                            {
+                                <TodayExerciseItem Exercise="exercise"
+                                                   EditRoute="@BuildEditRoute(exercise.Id)"
+                                                   OnCompleteAttempt="CompleteAttemptAsync" />
+                            }
+                        </div>
+                    }
+                </div>
             }
             else
             {
                 <div class="hs-today-exercise-list">
-                    @foreach (var exercise in _session.Exercises)
+                    @foreach (var exercise in current.Exercises)
                     {
-                        <article class="hs-today-exercise-item">
-                            <div class="hs-today-exercise-copy">
-                                <span class="hs-today-exercise-name">
-                                    @exercise.Name
-                                    @if (exercise.Tags.Count > 0)
-                                    {
-                                        <span class="hs-training-tag-inline">
-                                            @string.Join(" · ", exercise.Tags)
-                                        </span>
-                                    }
-                                </span>
-                                <span class="hs-today-exercise-load">@FormatExerciseLoad(exercise)</span>
-                            </div>
-                            <a class="hs-workout-edit-link hs-today-exercise-edit-link"
-                               href="@BuildEditRoute(exercise.Id)"
-                               aria-label="@($"Edit {exercise.Name ?? "exercise"} entry")">
-                                <MudIcon Icon="@Icons.Material.Filled.Edit"
-                                         aria-hidden="true" />
-                            </a>
-                        </article>
+                        <TodayExerciseItem Exercise="exercise"
+                                           EditRoute="@BuildEditRoute(exercise.Id)"
+                                           OnCompleteAttempt="CompleteAttemptAsync" />
                     }
                 </div>
             }
@@ -136,6 +272,9 @@
                               SubmitLabel="Add exercise"
                               RecentExerciseTypeIds="@(_session?.RecentExerciseTypeIds ?? (IReadOnlyCollection<int>)Array.Empty<int>())"
                               PrescriptionHints="@_session?.Exercises"
+                              Blocks="@(_session?.Blocks)"
+                              InitialBlockId="@_formBlockId"
+                              ShowQualityOptions="true"
                               WorkoutIdResolver="@(() => EnsureTodaySessionAsync())"
                               OnSessionUpdated="HandleSessionUpdated" />
     </MudPaper>
@@ -152,6 +291,14 @@
     private bool _isLoading = true;
     private bool _isStarting;
     private bool _isRepeating;
+    private bool _showSecondaryGoals;
+    private bool _showAllModalities;
+    private bool _showBlockCreator;
+    private bool _busyBlock;
+    private string _newBlockType = WorkoutBlockType.Normal.ToString();
+    private string? _newBlockLabel;
+    private int _newBlockRounds = 1;
+    private Guid? _formBlockId;
 
     private string DateLabel
         => _today.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMMM");
@@ -440,34 +587,320 @@
     private void SelectSession(WorkoutSessionResource session)
         => _session = session;
 
-    private void FinishWorkout()
-        => NavigationManager.NavigateTo("/training/history");
+    // ── Universal tracker: intent chips ───────────────────────────────────────
+    // The intent is a tap, not a form: the wire keeps the API names and the
+    // page updates itself immediately, so a tap never waits for the network.
+
+    private List<TrainingModality> ModalityChoices
+    {
+        get
+        {
+            var recent = new List<TrainingModality>();
+            foreach (var value in _sessions.Select(session => session.Modality)
+                        .Append(_lastWorkout?.Modality))
+            {
+                if (TrainingIntent.ParseModality(value) is { } parsed
+                    && !recent.Contains(parsed))
+                {
+                    recent.Add(parsed);
+                }
+            }
+
+            var ordered = _showAllModalities
+                ? TrainingIntent.ModalityOrder.ToList()
+                : recent
+                    .Concat(TrainingIntent.ModalityOrder
+                        .Where(modality => !recent.Contains(modality)))
+                    .Take(6)
+                    .ToList();
+
+            if (TrainingIntent.ParseModality(_session?.Modality) is { } current
+                && !ordered.Contains(current))
+            {
+                ordered.Add(current);
+            }
+
+            return ordered;
+        }
+    }
+
+    private static string IntentChipClass(bool selected)
+        => selected ? "hs-chip hs-chip-selected" : "hs-chip";
+
+    private static string BlockTypeLabel(string? type)
+        => WorkoutBlockTypeLabels.Parse(type) is { } parsed
+            ? parsed.Label()
+            : type ?? "Block";
+
+    private static bool NeedsRounds(string? blockType)
+        => WorkoutBlockTypeLabels.Parse(blockType) is WorkoutBlockType.EMOM
+            or WorkoutBlockType.AMRAP
+            or WorkoutBlockType.Tabata
+            or WorkoutBlockType.Ronda;
+
+    private List<WorkoutSessionExerciseResource> UnassignedExercises
+    {
+        get
+        {
+            if (_session is null || _session.Blocks.Count == 0)
+            {
+                return [];
+            }
+
+            var assigned = _session.Blocks
+                .SelectMany(block => block.Exercises)
+                .Select(exercise => exercise.Id)
+                .ToHashSet();
+
+            return _session.Exercises
+                .Where(exercise => !assigned.Contains(exercise.Id))
+                .ToList();
+        }
+    }
+
+    private Task SetIntentAsync(TrainingGoal? goal = null, TrainingModality? modality = null)
+    {
+        if (_session is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        if (goal is not null)
+        {
+            _session.Goal = goal.ToString();
+        }
+
+        if (modality is not null)
+        {
+            _session.Modality = modality.ToString();
+        }
+
+        return PatchSessionAsync(new
+        {
+            goal = goal?.ToString(),
+            modality = modality?.ToString()
+        });
+    }
+
+    private Task ToggleSecondaryGoalAsync(TrainingGoal goal)
+    {
+        if (_session is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var name = goal.ToString();
+        if (_session.SecondaryGoals.Contains(name))
+        {
+            _session.SecondaryGoals.Remove(name);
+        }
+        else
+        {
+            _session.SecondaryGoals.Add(name);
+        }
+
+        return PatchSessionAsync(new { secondaryGoals = _session.SecondaryGoals });
+    }
+
+    private async Task PatchSessionAsync(object payload)
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        try
+        {
+            using var response = await Http.PatchAsJsonAsync(
+                $"/Workouts/{_session.Id}",
+                payload);
+            if (!response.IsSuccessStatusCode)
+            {
+                Snackbar.Add(
+                    "The training intent could not be saved. It will retry on the next sync.",
+                    Severity.Warning);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add(
+                "The training intent could not be saved. It will retry on the next sync.",
+                Severity.Warning);
+        }
+        catch (TaskCanceledException)
+        {
+            Snackbar.Add(
+                "Saving took too long. It will retry on the next sync.",
+                Severity.Warning);
+        }
+    }
+
+    // ── Universal tracker: blocks ─────────────────────────────────────────────
+
+    private void ToggleBlockCreator()
+    {
+        _showBlockCreator = !_showBlockCreator;
+        if (!_showBlockCreator)
+        {
+            _newBlockLabel = null;
+            _newBlockRounds = 1;
+            _newBlockType = WorkoutBlockType.Normal.ToString();
+        }
+    }
+
+    private void AddExerciseToBlock(WorkoutBlockResource block)
+    {
+        _formBlockId = block.Id;
+        _showBlockCreator = false;
+    }
+
+    private async Task AddBlockAsync()
+    {
+        if (_busyBlock)
+        {
+            return;
+        }
+
+        _busyBlock = true;
+        try
+        {
+            var workoutId = await EnsureTodaySessionAsync();
+            var session = _session;
+            if (session is null)
+            {
+                return;
+            }
+
+            var order = session.Blocks.Count > 0
+                ? session.Blocks.Max(block => block.Order) + 1
+                : 1;
+
+            using var response = await Http.PostAsJsonAsync(
+                $"/Workouts/{workoutId}/blocks",
+                new
+                {
+                    order,
+                    type = _newBlockType,
+                    label = string.IsNullOrWhiteSpace(_newBlockLabel)
+                        ? null
+                        : _newBlockLabel.Trim(),
+                    rounds = NeedsRounds(_newBlockType) ? _newBlockRounds : (int?)null
+                });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("The block could not be added.", Severity.Warning);
+                return;
+            }
+
+            var block = await response.Content
+                .ReadFromJsonAsync<WorkoutBlockResource>();
+            if (block is not null)
+            {
+                session.Blocks.Add(block);
+                _formBlockId = block.Id;
+            }
+
+            _showBlockCreator = false;
+            _newBlockLabel = null;
+            _newBlockRounds = 1;
+            _newBlockType = WorkoutBlockType.Normal.ToString();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("The block could not be added.", Severity.Warning);
+        }
+        catch (TaskCanceledException)
+        {
+            Snackbar.Add("Adding the block took too long. Please try again.", Severity.Warning);
+        }
+        catch (JsonException)
+        {
+            Snackbar.Add("The block response was incomplete. Please try again.", Severity.Warning);
+        }
+        finally
+        {
+            _busyBlock = false;
+        }
+    }
+
+    // ── Universal tracker: attempts ───────────────────────────────────────────
+
+    private async Task CompleteAttemptAsync(WorkoutSessionExerciseResource exercise)
+    {
+        var attempts = Math.Max(1, exercise.Attempts ?? 1);
+        var completed = Math.Min(attempts, (exercise.CompletedAttempts ?? 0) + 1);
+
+        // The row ticks first: the tap is the workout, the save is background.
+        exercise.CompletedAttempts = completed;
+
+        try
+        {
+            using var response = await Http.PutAsJsonAsync("/Exercises", new UpdateExerciseResource
+            {
+                Id = exercise.Id,
+                Series = exercise.Series,
+                Repetitions = exercise.Repetitions,
+                Weight = exercise.Weight,
+                BodyWeight = exercise.BodyWeight,
+                AddedWeight = exercise.AddedWeight,
+                Tags = exercise.Tags,
+                Attempts = attempts,
+                CompletedAttempts = completed,
+                QualityIntent = exercise.QualityIntent,
+                LoadType = exercise.LoadType
+            });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("The attempt could not be saved.", Severity.Warning);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("The attempt could not be saved. It will retry on the next sync.", Severity.Warning);
+        }
+        catch (TaskCanceledException)
+        {
+            Snackbar.Add("Saving took too long. It will retry on the next sync.", Severity.Warning);
+        }
+    }
+
+    // ── Universal tracker: closing the session ────────────────────────────────
+
+    private async Task FinishWorkout()
+    {
+        if (_session is null)
+        {
+            NavigationManager.NavigateTo("/training/history");
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            { "InitialFatigue", _session.PerceivedFatigue }
+        };
+
+        var reference = await DialogService.ShowAsync<FinishSessionDialog>(
+            string.Empty,
+            parameters,
+            new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.ExtraSmall
+            });
+
+        var result = await reference.Result;
+        if (!result.Canceled && result.Data is int fatigue)
+        {
+            _session.PerceivedFatigue = fatigue;
+            await PatchSessionAsync(new { perceivedFatigue = fatigue });
+        }
+
+        NavigationManager.NavigateTo("/training/history");
+    }
 
     private static string BuildEditRoute(Guid exerciseId)
         => $"/training/history/{exerciseId}/edit?returnUrl={Uri.EscapeDataString("/training/today")}";
-
-    private static string FormatExerciseLoad(
-        WorkoutSessionExerciseResource exercise)
-    {
-        // Sets/reps are optional: an entry logged without them invites the
-        // detail instead of showing a fake "0 x 0".
-        if (exercise.Series is null && exercise.Repetitions is null)
-        {
-            return "Add sets and reps";
-        }
-
-        var sets = exercise.Series ?? 0;
-        var repetitions = exercise.Repetitions ?? 0;
-        var load = exercise.BodyWeight.GetValueOrDefault() > 0
-            ? $" · {exercise.BodyWeight:0.#} kg BW"
-              + (exercise.AddedWeight.GetValueOrDefault() > 0
-                  ? $" + {exercise.AddedWeight:0.#} kg"
-                  : string.Empty)
-            : exercise.Weight.GetValueOrDefault() > 0
-                ? $" · {exercise.Weight:0.#} kg"
-                : string.Empty;
-
-        return $"{sets} × {repetitions}{load}";
-    }
 
 }

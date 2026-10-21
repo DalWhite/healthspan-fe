@@ -145,6 +145,11 @@
                                 }
                             </span>
 
+                            @if (HasTrackerMeta(workout))
+                            {
+                                <span class="hs-workout-tracker-meta">@FormatTrackerMeta(workout)</span>
+                            }
+
                             @if (workout.LeadingMuscles.Count > 0)
                             {
                                 <span class="hs-workout-muscles" aria-label="Leading muscles">
@@ -188,49 +193,69 @@
                                 else
                                 {
                                     <div class="hs-workout-exercise-list">
-                                        @foreach (var exercise in detail.Exercises)
+                                        @foreach (var group in GroupExercisesByBlock(detail))
                                         {
-                                            <div class="hs-workout-exercise-row">
-                                                <div class="hs-workout-exercise-copy">
-                                                    <span class="hs-workout-exercise-name">
-                                                        @(exercise.Name ?? "Exercise")
-                                                    </span>
-                                                    <span class="hs-workout-exercise-prescription">
-                                                        @FormatExercisePrescription(exercise)
-                                                    </span>
-                                                    @if (exercise.Tags.Count > 0)
+                                            @if (group.ShowHeader)
+                                            {
+                                                <div class="hs-workout-block-head">
+                                                    <span class="hs-workout-block-type">@group.Title</span>
+                                                    @if (group.Rounds is > 0)
                                                     {
-                                                        <span class="hs-training-tag-inline">
-                                                            @string.Join(" · ", exercise.Tags)
-                                                        </span>
-                                                    }
-                                                    @if (exercise.Muscles.Count > 0)
-                                                    {
-                                                        <span class="hs-workout-exercise-muscles">
-                                                            @string.Join(" · ", exercise.Muscles)
-                                                        </span>
+                                                        <span class="hs-workout-block-rounds">@group.Rounds rounds</span>
                                                     }
                                                 </div>
+                                            }
 
-                                                <div class="hs-workout-exercise-actions">
-                                                    <a class="hs-workout-edit-link"
-                                                       href="@BuildExerciseEditRoute(exercise.Id)"
-                                                       aria-label="@($"Edit {exercise.Name ?? "exercise"} entry")">
-                                                        <MudIcon Icon="@Icons.Material.Filled.Edit"
-                                                                 aria-hidden="true" />
-                                                    </a>
+                                            @foreach (var exercise in group.Exercises)
+                                            {
+                                                <div class="hs-workout-exercise-row">
+                                                    <div class="hs-workout-exercise-copy">
+                                                        <span class="hs-workout-exercise-name">
+                                                            @(exercise.Name ?? "Exercise")
+                                                        </span>
+                                                        <span class="hs-workout-exercise-prescription">
+                                                            @FormatExercisePrescription(exercise)
+                                                        </span>
+                                                        @if (exercise.Attempts is > 0)
+                                                        {
+                                                            <span class="hs-workout-exercise-attempts">
+                                                                @($"{exercise.CompletedAttempts ?? 0} of @exercise.Attempts attempts")
+                                                            </span>
+                                                        }
+                                                        @if (exercise.Tags.Count > 0)
+                                                        {
+                                                            <span class="hs-training-tag-inline">
+                                                                @string.Join(" · ", exercise.Tags)
+                                                            </span>
+                                                        }
+                                                        @if (exercise.Muscles.Count > 0)
+                                                        {
+                                                            <span class="hs-workout-exercise-muscles">
+                                                                @string.Join(" · ", exercise.Muscles)
+                                                            </span>
+                                                        }
+                                                    </div>
 
-                                                    @if (exercise.TypeId > 0)
-                                                    {
-                                                        <a class="hs-workout-progression-link"
-                                                           href="@BuildProgressionRoute(exercise.TypeId)"
-                                                           aria-label="@($"View {exercise.Name ?? "exercise"} progression")">
-                                                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp"
-                                                                 aria-hidden="true" />
+                                                    <div class="hs-workout-exercise-actions">
+                                                        <a class="hs-workout-edit-link"
+                                                           href="@BuildExerciseEditRoute(exercise.Id)"
+                                                           aria-label="@($"Edit {exercise.Name ?? "exercise"} entry")">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Edit"
+                                                                     aria-hidden="true" />
                                                         </a>
-                                                    }
+
+                                                        @if (exercise.TypeId > 0)
+                                                        {
+                                                            <a class="hs-workout-progression-link"
+                                                               href="@BuildProgressionRoute(exercise.TypeId)"
+                                                               aria-label="@($"View {exercise.Name ?? "exercise"} progression")">
+                                                                <MudIcon Icon="@Icons.Material.Filled.TrendingUp"
+                                                                         aria-hidden="true" />
+                                                            </a>
+                                                        }
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            }
                                         }
                                     </div>
                                 }
@@ -1084,6 +1109,82 @@
         }
 
         return fallback;
+    }
+
+    private static bool HasTrackerMeta(GetWorkoutResource workout)
+        => !string.IsNullOrWhiteSpace(workout.Modality)
+           || !string.IsNullOrWhiteSpace(workout.Goal)
+           || workout.PerceivedFatigue is > 0;
+
+    private static string FormatTrackerMeta(GetWorkoutResource workout)
+    {
+        var parts = new List<string>();
+
+        if (TrainingIntent.ParseModality(workout.Modality) is { } modality)
+        {
+            parts.Add(modality.Label());
+        }
+
+        if (TrainingIntent.ParseGoal(workout.Goal) is { } goal)
+        {
+            parts.Add(goal.Label());
+        }
+
+        if (workout.PerceivedFatigue is > 0)
+        {
+            parts.Add($"Fatigue {workout.PerceivedFatigue}/5");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private sealed record WorkoutBlockGroup(
+        string Title,
+        int? Rounds,
+        bool ShowHeader,
+        List<WorkoutHistoryExerciseResource> Exercises);
+
+    private static List<WorkoutBlockGroup> GroupExercisesByBlock(GetWorkoutResource detail)
+    {
+        var groups = new List<WorkoutBlockGroup>();
+
+        // No explicit blocks: the workout renders exactly as it did before.
+        if (detail.Blocks.Count == 0)
+        {
+            groups.Add(new WorkoutBlockGroup("Exercise", null, false, detail.Exercises));
+            return groups;
+        }
+
+        var claimed = new HashSet<Guid>();
+        foreach (var block in detail.Blocks)
+        {
+            var exercises = detail.Exercises.Where(exercise => exercise.BlockId == block.Id).ToList();
+            claimed.Add(block.Id);
+
+            var typeLabel = WorkoutBlockTypeLabels.Parse(block.Type) is { } type
+                ? type.Label()
+                : (block.Type ?? "Block");
+            var title = string.IsNullOrWhiteSpace(block.Label) ? typeLabel : $"{typeLabel} · {block.Label}";
+
+            // A lone implicit Normal block gets no header: same view as legacy data.
+            var showHeader = exercises.Count > 0
+                             && (detail.Blocks.Count > 1
+                                 || WorkoutBlockTypeLabels.Parse(block.Type) != WorkoutBlockType.Normal
+                                 || !string.IsNullOrWhiteSpace(block.Label)
+                                 || block.Rounds is > 0);
+
+            groups.Add(new WorkoutBlockGroup(title, block.Rounds, showHeader, exercises));
+        }
+
+        var orphans = detail.Exercises
+            .Where(exercise => exercise.BlockId is null || !claimed.Contains(exercise.BlockId.Value))
+            .ToList();
+        if (orphans.Count > 0)
+        {
+            groups.Add(new WorkoutBlockGroup("Other", null, groups.Count > 0, orphans));
+        }
+
+        return groups;
     }
 
     private static string FormatWorkoutDate(DateTime? date)

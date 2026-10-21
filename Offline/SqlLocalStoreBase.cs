@@ -178,12 +178,15 @@ public abstract class SqlLocalStoreBase : ILocalStore
         await ExecuteAsync(
             """
             INSERT OR REPLACE INTO workouts
-                (client_id, server_id, date, type, updated_at_utc, deleted)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (client_id, server_id, date, type, updated_at_utc, deleted,
+                 goal, secondary_goals, modality, perceived_fatigue)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             workout.ClientId.ToString(), workout.ServerId?.ToString(),
             workout.Date.ToString("yyyy-MM-dd"), workout.Type,
-            workout.UpdatedAtUtc.ToString("O"), workout.Deleted ? 1 : 0);
+            workout.UpdatedAtUtc.ToString("O"), workout.Deleted ? 1 : 0,
+            workout.Goal, JsonSerializer.Serialize(workout.SecondaryGoals),
+            workout.Modality, workout.PerceivedFatigue);
     }
 
     public async Task<LocalWorkout?> GetWorkoutAsync(Guid clientId)
@@ -248,7 +251,13 @@ public abstract class SqlLocalStoreBase : ILocalStore
                 row["updated_at_utc"], null,
                 System.Globalization.DateTimeStyles.RoundtripKind,
                 out var updated) ? updated : DateTime.UtcNow,
-            Deleted = row["deleted"] == "1"
+            Deleted = row["deleted"] == "1",
+            Goal = Column(row, "goal"),
+            SecondaryGoals = ParseStringList(Column(row, "secondary_goals")),
+            Modality = Column(row, "modality"),
+            PerceivedFatigue = int.TryParse(Column(row, "perceived_fatigue"), out var fatigue)
+                ? fatigue
+                : null
         };
 
     public async Task MarkWorkoutDeletedAsync(Guid clientId)
@@ -265,15 +274,19 @@ public abstract class SqlLocalStoreBase : ILocalStore
             INSERT OR REPLACE INTO exercises
                 (client_id, server_id, workout_client_id, type_id, name,
                  series, repetitions, weight, body_weight, added_weight,
-                 comments, tags, updated_at_utc, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 comments, tags, updated_at_utc, deleted,
+                 block_client_id, sort_order, attempts, completed_attempts,
+                 quality_intent, load_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             exercise.ClientId.ToString(), exercise.ServerId?.ToString(),
             exercise.WorkoutClientId.ToString(), exercise.TypeId, exercise.Name,
             exercise.Series, exercise.Repetitions, exercise.Weight,
             exercise.BodyWeight, exercise.AddedWeight, exercise.Comments,
             JsonSerializer.Serialize(exercise.Tags),
-            exercise.UpdatedAtUtc.ToString("O"), exercise.Deleted ? 1 : 0);
+            exercise.UpdatedAtUtc.ToString("O"), exercise.Deleted ? 1 : 0,
+            exercise.BlockClientId?.ToString(), exercise.Order, exercise.Attempts,
+            exercise.CompletedAttempts, exercise.QualityIntent, exercise.LoadType);
     }
 
     public async Task<LocalExercise?> GetExerciseAsync(Guid clientId)
@@ -293,7 +306,7 @@ public abstract class SqlLocalStoreBase : ILocalStore
             sql += " AND deleted = 0";
         }
 
-        sql += " ORDER BY updated_at_utc ASC";
+        sql += " ORDER BY sort_order ASC, updated_at_utc ASC";
 
         var rows = await QueryAsync(sql, workoutClientId.ToString());
         return rows.Select(MapExercise).ToList();
@@ -318,8 +331,39 @@ public abstract class SqlLocalStoreBase : ILocalStore
                 row["updated_at_utc"], null,
                 System.Globalization.DateTimeStyles.RoundtripKind,
                 out var updated) ? updated : DateTime.UtcNow,
-            Deleted = row["deleted"] == "1"
+            Deleted = row["deleted"] == "1",
+            BlockClientId = Guid.TryParse(Column(row, "block_client_id"), out var blockId)
+                ? blockId
+                : null,
+            Order = int.TryParse(Column(row, "sort_order"), out var order) ? order : 0,
+            Attempts = int.TryParse(Column(row, "attempts"), out var attempts) ? attempts : 1,
+            CompletedAttempts = int.TryParse(
+                Column(row, "completed_attempts"), out var completed) ? completed : 1,
+            QualityIntent = Column(row, "quality_intent"),
+            LoadType = Column(row, "load_type")
         };
+
+    /// <summary>Safe column read: a mirror created before the tracker columns
+    /// existed must still load, with the new fields simply unset.</summary>
+    protected static string? Column(Dictionary<string, string?> row, string key)
+        => row.TryGetValue(key, out var value) ? value : null;
+
+    protected static List<string> ParseStringList(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(value) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 
     private static double? ParseDouble(string? value)
         => double.TryParse(value, out var parsed) ? parsed : null;
@@ -355,6 +399,74 @@ public abstract class SqlLocalStoreBase : ILocalStore
             DateTime.UtcNow.ToString("O"), workoutClientId.ToString());
     }
 
+    public async Task UpsertBlockAsync(LocalBlock block)
+    {
+        await ExecuteAsync(
+            """
+            INSERT OR REPLACE INTO blocks
+                (client_id, server_id, workout_client_id, sort_order, type,
+                 label, rounds, updated_at_utc, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            block.ClientId.ToString(), block.ServerId?.ToString(),
+            block.WorkoutClientId.ToString(), block.Order, block.Type,
+            block.Label, block.Rounds, block.UpdatedAtUtc.ToString("O"),
+            block.Deleted ? 1 : 0);
+    }
+
+    public async Task<LocalBlock?> GetBlockAsync(Guid clientId)
+    {
+        var rows = await QueryAsync(
+            "SELECT * FROM blocks WHERE client_id = ?", clientId.ToString());
+        return rows.Count > 0 ? MapBlock(rows[0]) : null;
+    }
+
+    public async Task<List<LocalBlock>> GetBlocksForWorkoutAsync(
+        Guid workoutClientId,
+        bool includeDeleted = false)
+    {
+        var sql = "SELECT * FROM blocks WHERE workout_client_id = ?";
+        if (!includeDeleted)
+        {
+            sql += " AND deleted = 0";
+        }
+
+        sql += " ORDER BY sort_order ASC, updated_at_utc ASC";
+
+        var rows = await QueryAsync(sql, workoutClientId.ToString());
+        return rows.Select(MapBlock).ToList();
+    }
+
+    protected static LocalBlock MapBlock(Dictionary<string, string?> row)
+        => new()
+        {
+            ClientId = Guid.Parse(row["client_id"]!),
+            ServerId = Guid.TryParse(row["server_id"], out var serverId) ? serverId : null,
+            WorkoutClientId = Guid.Parse(row["workout_client_id"]!),
+            Order = int.TryParse(Column(row, "sort_order"), out var order) ? order : 0,
+            Type = row["type"] ?? "Normal",
+            Label = row["label"],
+            UpdatedAtUtc = DateTime.TryParse(
+                row["updated_at_utc"], null,
+                System.Globalization.DateTimeStyles.RoundtripKind,
+                out var updated) ? updated : DateTime.UtcNow,
+            Deleted = row["deleted"] == "1"
+        };
+
+    public async Task MarkBlockDeletedAsync(Guid clientId)
+    {
+        await ExecuteAsync(
+            "UPDATE blocks SET deleted = 1, updated_at_utc = ? WHERE client_id = ?",
+            DateTime.UtcNow.ToString("O"), clientId.ToString());
+    }
+
+    public async Task MarkWorkoutBlocksDeletedAsync(Guid workoutClientId)
+    {
+        await ExecuteAsync(
+            "UPDATE blocks SET deleted = 1, updated_at_utc = ? WHERE workout_client_id = ?",
+            DateTime.UtcNow.ToString("O"), workoutClientId.ToString());
+    }
+
     public async Task RemapEntityIdAsync(Guid clientEntityId, Guid serverEntityId)
     {
         await ExecuteAsync(
@@ -362,6 +474,9 @@ public abstract class SqlLocalStoreBase : ILocalStore
             serverEntityId.ToString(), clientEntityId.ToString());
         await ExecuteAsync(
             "UPDATE exercises SET server_id = ? WHERE client_id = ?",
+            serverEntityId.ToString(), clientEntityId.ToString());
+        await ExecuteAsync(
+            "UPDATE blocks SET server_id = ? WHERE client_id = ?",
             serverEntityId.ToString(), clientEntityId.ToString());
     }
 }

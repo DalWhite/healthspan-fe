@@ -109,6 +109,23 @@ public sealed class ResilientLocalStore : ILocalStore
     public Task MarkWorkoutExercisesDeletedAsync(Guid workoutClientId)
         => RunAsync(store => store.MarkWorkoutExercisesDeletedAsync(workoutClientId));
 
+    public Task UpsertBlockAsync(LocalBlock block)
+        => RunAsync(store => store.UpsertBlockAsync(block));
+
+    public Task<LocalBlock?> GetBlockAsync(Guid clientId)
+        => RunAsync(store => store.GetBlockAsync(clientId));
+
+    public Task<List<LocalBlock>> GetBlocksForWorkoutAsync(
+        Guid workoutClientId,
+        bool includeDeleted = false)
+        => RunAsync(store => store.GetBlocksForWorkoutAsync(workoutClientId, includeDeleted));
+
+    public Task MarkBlockDeletedAsync(Guid clientId)
+        => RunAsync(store => store.MarkBlockDeletedAsync(clientId));
+
+    public Task MarkWorkoutBlocksDeletedAsync(Guid workoutClientId)
+        => RunAsync(store => store.MarkWorkoutBlocksDeletedAsync(workoutClientId));
+
     public Task RemapEntityIdAsync(Guid clientEntityId, Guid serverEntityId)
         => RunAsync(store => store.RemapEntityIdAsync(clientEntityId, serverEntityId));
 }
