@@ -159,8 +159,14 @@ public class NavigationFlowTests : BlazorTestBase
         });
 
         // FAB action = quick start from any screen (DESIGN.md §3).
-        cut.Find(".hs-fab").Click();
-        navigationManager.Uri.Should().EndWith("/training/today");
+        // Re-query and re-click inside the assertion: the layout re-renders while
+        // the auth/roles round-trip completes, and a click on a superseded render
+        // frame is dropped — on slower CI machines that race used to fail this.
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find(".hs-fab").Click();
+            navigationManager.Uri.Should().EndWith("/training/today");
+        }, TimeSpan.FromSeconds(5));
     }
 
     [Theory]
