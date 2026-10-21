@@ -138,6 +138,10 @@ public class SharedVisualFoundationTests : BlazorTestBase
         cssLower.Should().NotContain("#665ac1", "the default MudBlazor accent is a second actionable colour");
         cssLower.Should().NotContain("#594ae2", "the default MudBlazor accent is a second actionable colour");
 
+        // DESIGN.md §6: the legacy teal brand gradient is off-system (login panels use canvas + accent wash).
+        cssLower.Should().NotContain("#4d9f95", "legacy teal brand colour is not part of the v1 palette");
+        cssLower.Should().NotContain("#1a3c3b", "legacy teal brand colour is not part of the v1 palette");
+
         // DESIGN.md §2: Inter is loaded by the app shell.
         index.Should().Contain("family=Inter");
         index.ToLowerInvariant().Should().NotContain("family=roboto", "Roboto is not the v1 typeface");

@@ -1925,9 +1925,13 @@ a.hs-exercise-history-row:hover {
   justify-content: center;
 }
 
+/* DESIGN.md §6: dark canvas + single accent. The old teal brand gradient is
+   off-system; the panel is now a deep accent wash over the canvas. */
 .login-left {
-  background: linear-gradient(135deg, #4d9f95, #1a3c3b);
-  color: #fff;
+  background:
+    radial-gradient(120% 90% at 20% 12%, color-mix(in srgb, var(--hs-accent) 22%, transparent), transparent 60%),
+    linear-gradient(135deg, #131A26, var(--hs-canvas));
+  color: var(--hs-t1);
   width: 50%;
   display: flex;
   align-items: center;
@@ -1977,7 +1981,7 @@ a.hs-exercise-history-row:hover {
 .login-form {
   background-color: var(--hs-color-surface);
   padding: 2rem;
-  border-radius: 15px;
+  border-radius: var(--hs-radius-card);
 }
 
 .hs-login-title {
@@ -2025,7 +2029,9 @@ a.hs-exercise-history-row:hover {
       width: 100%;
       min-height: 100dvh;
       padding: 1rem;
-      background: linear-gradient(135deg, #4d9f95, #1a3c3b);
+      background:
+          radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--hs-accent) 18%, transparent), transparent 62%),
+          var(--hs-canvas);
   }
 
   .login-container {
