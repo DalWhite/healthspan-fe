@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#0E1116; --card:#161B22; --input:#1F2630; --raised:#283040; --line:#262C36;
+  --blue:#1E6FFF; --blue-soft:#14233F; --done:#2FBF71; --gold:#F5B83D; --err:#F1545B;
+  --t1:#F2F4F8; --t2:#A9B1BE; --t3:#78818F;
+}
+*{margin:0;box-sizing:border-box;font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+body{background:#08090C;padding:26px;display:flex;gap:22px;flex-wrap:wrap}
+.phone{width:390px;height:844px;background:var(--canvas);border-radius:34px;border:1px solid #20242C;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.label{position:absolute;top:-20px;left:0;color:#6b7280;font-size:13px;font-weight:600}
+.status{display:flex;justify-content:space-between;padding:14px 22px 4px;color:var(--t2);font-size:13px;font-weight:600}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:10px 20px}
+.brand{font-weight:800;font-size:17px;color:var(--t1);letter-spacing:-.3px}
+.sync{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--done);font-weight:600}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--done);display:inline-block}
+.body{flex:1;padding:6px 18px 90px;overflow:hidden}
+.h1{font-size:30px;font-weight:800;color:var(--t1);letter-spacing:-.6px;margin:8px 0 2px}
+.sub{color:var(--t2);font-size:14px;font-weight:500;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+.cta{background:var(--blue);color:#fff;border-radius:12px;padding:15px;text-align:center;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;gap:10px}
+.cta.ghost{background:var(--blue-soft);color:var(--blue)}
+.row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.thumb{width:52px;height:52px;border-radius:10px;background:var(--input);object-fit:cover;flex-shrink:0}
+.name{font-weight:700;font-size:15px;color:var(--t1)}
+.meta{font-size:12.5px;color:var(--t2);margin-top:2px}
+.right{margin-left:auto;text-align:right;font-weight:700;color:var(--t1);font-size:15px}
+.right small{display:block;color:var(--t2);font-weight:500;font-size:11.5px}
+.chip{display:inline-block;padding:4px 10px;border-radius:8px;font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+.chip.blue{background:var(--blue-soft);color:var(--blue)}
+.chip.gold{background:rgba(245,184,61,.16);color:var(--gold)}
+.chip.done{background:rgba(47,191,113,.16);color:var(--done)}
+.chip.grey{background:var(--input);color:var(--t2)}
+.nav{position:absolute;bottom:0;left:0;right:0;height:74px;background:rgba(14,17,22,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center;padding:0 8px 12px}
+.nav div{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:var(--t3);letter-spacing:.3px}
+.nav div.on{color:var(--blue)}
+.nav svg{width:22px;height:22px}
+.nav .fab{width:46px;height:46px;border-radius:14px;background:var(--blue);display:flex;align-items:center;justify-content:center;margin-top:-14px;box-shadow:0 0 18px rgba(30,111,255,.45)}
+.timer{font-size:26px;font-weight:800;color:var(--blue);letter-spacing:-.5px}
+.settable{width:100%;border-collapse:collapse;margin-top:8px}
+.settable th{font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;text-align:center;padding:6px 4px;font-weight:700}
+.settable td{padding:9px 6px;text-align:center;font-size:15px;font-weight:600;color:var(--t1);border-top:1px solid var(--line)}
+.settable td.cell{background:var(--input);border-radius:8px}
+.settable tr.done td{background:rgba(47,191,113,.10);color:var(--done)}
+.prev{color:var(--t3);font-size:12.5px;font-weight:500}
+.blockhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.blockhead .t{font-weight:800;font-size:16px;color:var(--t1)}
+.attempt{display:flex;align-items:center;gap:10px}
+.dots{display:flex;gap:5px}
+.dots i{width:12px;height:12px;border-radius:50%;background:var(--input);border:1px solid var(--line)}
+.dots i.x{background:var(--err);border-color:var(--err)}
+.dots i.o{background:var(--gold);border-color:var(--gold)}
+.hero-num{font-size:76px;font-weight:800;letter-spacing:-3px;color:#fff;line-height:1}
+.hero-lbl{font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--t2);margin-bottom:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.tile .v{font-size:24px;font-weight:800;color:var(--t1);letter-spacing:-.5px}
+.tile .l{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t2);margin-top:2px}
+.slider{display:flex;gap:8px;margin-top:10px}
+.slider i{flex:1;height:34px;border-radius:9px;background:var(--input);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t3)}
+.slider i.on{background:rgba(47,191,113,.18);border-color:var(--done);color:var(--done)}
+.cal{display:flex;gap:6px;margin:10px 0 16px}
+.cal div{flex:1;text-align:center;padding:9px 0;border-radius:10px;font-size:12px;font-weight:700;color:var(--t2);background:var(--card);border:1px solid var(--line)}
+.cal div.on{background:var(--blue-soft);border-color:var(--blue);color:var(--blue)}
+.cal div b{display:block;font-size:15px;color:var(--t1)}
+.cal div.dot::after{content:"";display:block;width:6px;height:6px;border-radius:50%;background:var(--blue);margin:4px auto 0}
+.libgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.libcard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.libcard img{width:100%;height:110px;object-fit:cover;background:var(--input);display:block}
+.libcard .p{padding:10px 12px}
+.search{background:var(--input);border:1px solid var(--line);border-radius:11px;padding:11px 14px;color:var(--t3);font-size:14px;font-weight:500;margin-bottom:12px;display:flex;gap:8px;align-items:center}
+.radar-wrap{display:flex;justify-content:center;margin:6px 0 10px}
+.sug{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
+.sug:last-child{border:none}
+.sug .dot2{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.sug p{font-size:13.5px;color:var(--t1);font-weight:500;line-height:1.45}
+.sug p span{color:var(--t2);font-weight:500}
+</style></head><body>
+
+<!-- 1. HOY -->
+<div class="phone"><div class="label">1 · HOY (activación)</div>
+  <div class="status"><span>9:41</span><span>▮▮▮ ⌂ 87%</span></div>
+  <div class="topbar"><span class="brand">Healthspan</span><span class="sync"><i></i>Sincronizado</span></div>
+  <div class="body">
+    <div class="h1">Hoy</div><div class="sub">jueves 22 oct · ¿listo para entrenar?</div>
+    <div class="cta">▶ Empezar entreno</div>
+    <div style="height:10px"></div>
+    <div class="cta ghost">↻ Repetir «Empuje» · hace 3 días</div>
+    <div style="height:16px"></div>
+    <div class="card" style="padding:12px 16px">
+      <div class="row"><div><div class="name">Fuerza · Press banca</div><div class="meta">hace 2 días · 4×72 kg · PR ★</div></div><div class="right">72 kg<small>última serie</small></div></div>
+      <div class="row"><div><div class="name">Funcional · superserie</div><div class="meta">hace 4 días · 8 intentos muscle-up</div></div><div class="right">0/8<small>completados</small></div></div>
+    </div>
+    <div class="chip grey" style="margin-top:4px">Racha: 4 días · racha iniciada el 18 oct</div>
+  </div>
+  <div class="nav">
+    <div class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Hoy</div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Historial</div>
+    <div class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg></div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6"/></svg>Insights</div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V4H6.5A2.5 2.5 0 004 6.5v13z"/></svg>Biblioteca</div>
+  </div>
+</div>
+
+<!-- 2. ENTRENO EN CURSO -->
+<div class="phone"><div class="label">2 · ENTRENO EN CURSO (el log es la interfaz)</div>
+  <div class="status"><span>9:41</span><span>▮▮▮ ⌂ 87%</span></div>
+  <div class="topbar"><span class="timer">24:31</span><span class="chip blue">Potencia · Funcional</span></div>
+  <div class="body">
+    <div class="card">
+      <div class="blockhead"><span class="t">Superserie A</span><span class="chip blue">Ronda 2/4</span></div>
+      <div class="row" style="padding-top:4px"><img class="thumb" src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Full_Squat/0.jpg"><div><div class="name" style="color:var(--blue)">Sentadilla</div><div class="meta">100% explosividad · sin peso</div></div></div>
+      <table class="settable"><tr><th>Serie</th><th>Anterior</th><th>Reps</th><th>✓</th></tr>
+        <tr class="done"><td>1</td><td class="prev">4</td><td class="cell">4</td><td>✓</td></tr>
+        <tr><td>2</td><td class="prev">4</td><td class="cell">4</td><td>○</td></tr></table>
+      <div class="row" style="padding-top:12px"><img class="thumb" src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Box_Squat/0.jpg"><div><div class="name" style="color:var(--blue)">Salto al banco</div><div class="meta">100% explosividad</div></div></div>
+      <table class="settable"><tr><th>Serie</th><th>Anterior</th><th>Reps</th><th>✓</th></tr>
+        <tr class="done"><td>1</td><td class="prev">4</td><td class="cell">4</td><td>✓</td></tr>
+        <tr><td>2</td><td class="prev">4</td><td class="cell">—</td><td>○</td></tr></table>
+    </div>
+    <div class="card">
+      <div class="blockhead"><span class="t">Muscle-up</span><span class="chip gold">Intentos</span></div>
+      <div class="attempt"><div class="dots"><i class="x"></i><i class="x"></i><i class="x"></i><i></i><i></i><i></i><i></i><i></i></div><div class="right">3/8</div></div>
+      <div class="meta" style="margin-top:8px">técnica · lastre −5 kg</div>
+    </div>
+    <div style="text-align:center;margin-top:6px"><span class="chip done">⏸ Descanso 0:42</span></div>
+  </div>
+  <div class="nav"><div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m7 0l4-4m-4 4l4 4"/></svg>Atrás</div><div class="fab" style="background:var(--done);box-shadow:0 0 18px rgba(47,191,113,.4)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="20" height="20"><path d="M5 13l4 4L19 7"/></svg></div><div style="color:var(--t1)">Finalizar</div></div>
+</div>
+
+<!-- 3. RESUMEN -->
+<div class="phone"><div class="label">3 · RESUMEN (1 toque, sin fricción)</div>
+  <div class="status"><span>10:12</span><span>▮▮▮ ⌂ 84%</span></div>
+  <div class="topbar"><span class="brand">Entreno guardado ✓</span><span class="sync"><i></i>offline → en cola</span></div>
+  <div class="body">
+    <div class="hero-lbl">Duración</div>
+    <div class="hero-num">31:04</div>
+    <div style="height:14px"></div>
+    <div class="grid2">
+      <div class="tile"><div class="v">14</div><div class="l">Series</div></div>
+      <div class="tile"><div class="v">3/8</div><div class="l">Muscle-up</div></div>
+    </div>
+    <div style="height:10px"></div>
+    <div class="card">
+      <div class="chip gold">★ PR · Salto al banco 4 reps limpias</div>
+      <div class="hero-lbl" style="margin-top:14px">Fatiga percibida</div>
+      <div class="slider"><i>1</i><i class="on">2</i><i>3</i><i>4</i><i>5</i></div>
+      <div class="meta" style="margin-top:8px">«Bueno — técnico y explosivo»</div>
+    </div>
+    <div class="card" style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="chip blue">Potencia +8</span><span class="chip blue">Habilidad +12</span><span class="chip grey">Fuerza +8</span>
+    </div>
+    <div class="cta ghost" style="margin-top:14px">Volver a Hoy</div>
+  </div>
+  <div class="nav">
+    <div class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Hoy</div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Historial</div>
+    <div class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg></div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6"/></svg>Insights</div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V4H6.5A2.5 2.5 0 004 6.5v13z"/></svg>Biblioteca</div>
+  </div>
+</div>
+
+<!-- 4. INSIGHTS -->
+<div class="phone"><div class="label">4 · INSIGHTS (readiness + Galpin)</div>
+  <div class="status"><span>9:41</span><span>▮▮▮ ⌂ 87%</span></div>
+  <div class="topbar"><span class="brand">Insights</span><span class="chip grey">últimos 7 días</span></div>
+  <div class="body">
+    <div class="card" style="text-align:center;padding:22px">
+      <div class="hero-lbl">Readiness</div>
+      <div class="hero-num" style="color:var(--done)">72</div>
+      <div class="meta" style="margin-top:6px">Listo para entrenar potencia o fuerza</div>
+    </div>
+    <div class="card">
+      <div class="blockhead"><span class="t">Cobertura de adaptaciones</span><span class="chip grey">Galpin · 7d</span></div>
+      <div class="radar-wrap"><svg width="290" height="215" viewBox="-20 0 290 215">
+        <g stroke="#262C36" fill="none"><polygon points="125,20 180,40 209,90 199,148 154,185 96,185 51,148 41,90 70,40"/><polygon points="125,63 152,72 167,98 162,126 140,145 110,145 88,126 83,98 98,72"/><polygon points="125,84 139,89 146,101 143,116 132,125 118,125 107,116 104,101 112,89"/></g>
+        <polygon points="125,30 154,71 194,93 173,133 134,129 118,124 103,118 95,100 99,74" fill="rgba(30,111,255,.22)" stroke="#1E6FFF" stroke-width="2"/>
+        <g fill="#A9B1BE" font-size="9.5" font-weight="700" text-anchor="middle"><text x="125" y="10">HABILIDAD</text><text x="190" y="34">VELOCIDAD</text><text x="226" y="94">POTENCIA</text><text x="212" y="162">FUERZA</text><text x="158" y="202">HIPERTROFIA</text><text x="92" y="202">RESIST.MUSC.</text><text x="26" y="162">ANAERÓBICA</text><text x="26" y="94">AEROB.MÁX</text><text x="60" y="34">LARGA DUR.</text></g>
+      </svg></div>
+    </div>
+    <div class="card">
+      <div class="blockhead"><span class="t">Sugerencias</span></div>
+      <div class="sug"><span class="dot2" style="background:var(--err)"></span><p>Velocidad y capacidad aeróbica <span>sin sesiones en 14 días.</span></p></div>
+      <div class="sug"><span class="dot2" style="background:var(--gold)"></span><p>Fuerza al 50% de tu objetivo semanal — <span>1 sesión más esta semana.</span></p></div>
+      <div class="sug"><span class="dot2" style="background:var(--done)"></span><p>Habilidad y potencia cubiertas ✓ <span>no toques hipertrofia hoy (interfieren).</span></p></div>
+    </div>
+  </div>
+  <div class="nav">
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Hoy</div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Historial</div>
+    <div class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg></div>
+    <div class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6"/></svg>Insights</div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V4H6.5A2.5 2.5 0 004 6.5v13z"/></svg>Biblioteca</div>
+  </div>
+</div>
+
+<!-- 5. HISTORIAL -->
+<div class="phone"><div class="label">5 · HISTORIAL</div>
+  <div class="status"><span>9:41</span><span>▮▮▮ ⌂ 87%</span></div>
+  <div class="topbar"><span class="brand">Historial</span><span class="chip blue">octubre</span></div>
+  <div class="body">
+    <div class="cal">
+      <div class="dot"><b>15</b>l</div><div class="dot"><b>16</b>m</div><div><b>17</b>x</div><div class="dot"><b>18</b>j</div><div class="dot"><b>19</b>v</div><div class="dot"><b>20</b>s</div><div class="on"><b>21</b>d</div>
+    </div>
+    <div class="card" style="padding:6px 16px">
+      <div class="row"><div><div class="name">Fuerza · Press banca, sentadilla</div><div class="meta">hoy · 42 min · Potencia, Fuerza</div></div><div class="right">1 890 kg<small>volumen</small></div></div>
+      <div class="row"><div><div class="name">Funcional · superserie + muscle-up</div><div class="meta">ayer · 31 min · Habilidad, Potencia <span class="chip gold" style="padding:2px 6px">★ 2 PR</span></div></div><div class="right">3/8<small>intentos</small></div></div>
+      <div class="row"><div><div class="name">Jiu-Jitsu · ronda técnica</div><div class="meta">19 oct · 55 min · Habilidad</div></div><div class="right">fat 3/5<small>percibida</small></div></div>
+      <div class="row"><div><div class="name">Empuje · banca inclinada, fondos</div><div class="meta">18 oct · 38 min · Hipertrofia</div></div><div class="right">2 140 kg<small>volumen</small></div></div>
+    </div>
+    <div class="grid2" style="margin-top:4px">
+      <div class="tile"><div class="v">6</div><div class="l">Entrenos · 7d</div></div>
+      <div class="tile"><div class="v">4 🔥</div><div class="l">Racha actual</div></div>
+    </div>
+  </div>
+  <div class="nav">
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Hoy</div>
+    <div class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Historial</div>
+    <div class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg></div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6"/></svg>Insights</div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V4H6.5A2.5 2.5 0 004 6.5v13z"/></svg>Biblioteca</div>
+  </div>
+</div>
+
+<!-- 6. BIBLIOTECA -->
+<div class="phone"><div class="label">6 · BIBLIOTECA (image-first, cero ruido)</div>
+  <div class="status"><span>9:41</span><span>▮▮▮ ⌂ 87%</span></div>
+  <div class="topbar"><span class="brand">Biblioteca</span><span class="chip grey">120 canónicos</span></div>
+  <div class="body">
+    <div class="search">🔍 Buscar ejercicio…</div>
+    <div class="libgrid">
+      <div class="libcard"><img src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Full_Squat/0.jpg"><div class="p"><div class="name">Sentadilla</div><div class="meta">Pierna · barra, mancuerna · 14 variantes</div></div></div>
+      <div class="libcard"><img src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg"><div class="p"><div class="name">Press de banca</div><div class="meta">Pecho · barra, mancuerna · 22 variantes</div></div></div>
+      <div class="libcard"><img src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Band_Assisted_Pull-Up/0.jpg"><div class="p"><div class="name">Dominada</div><div class="meta">Espalda · peso corporal · 9 variantes</div></div></div>
+      <div class="libcard"><img src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Box_Squat/0.jpg"><div class="p"><div class="name">Salto al cajón</div><div class="meta">Potencia · pliométrico · 6 variantes</div></div></div>
+    </div>
+  </div>
+  <div class="nav">
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Hoy</div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Historial</div>
+    <div class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg></div>
+    <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6"/></svg>Insights</div>
+    <div class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V4H6.5A2.5 2.5 0 004 6.5v13z"/></svg>Biblioteca</div>
+  </div>
+</div>
+
+</body></html>
