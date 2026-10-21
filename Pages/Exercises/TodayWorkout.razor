@@ -213,7 +213,7 @@
                                     @BlockTypeLabel(block.Type)
                                     @if (block.Rounds is > 0)
                                     {
-                                        <span>· @($"{block.Rounds} rounds")</span>
+                                        @($" · {block.Rounds} rounds")
                                     }
                                 </span>
                                 <MudButton Variant="Variant.Text"
