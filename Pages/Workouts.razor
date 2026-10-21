@@ -13,6 +13,31 @@
 <PageShell>
     <PageHeader Title="Training History" />
 
+    <section class="hs-history-activity" aria-label="Training activity">
+        <div class="hs-history-cal">
+            @foreach (var day in CalendarDays)
+            {
+                <div class="hs-history-cal-day @day.StateClass"
+                     title="@day.Tooltip"
+                     aria-label="@day.Tooltip">
+                    <span class="hs-history-cal-num">@day.DayNumber</span>
+                    <span class="hs-history-cal-dow">@day.DayLetter</span>
+                    <span class="hs-history-cal-dot" aria-hidden="true"></span>
+                </div>
+            }
+        </div>
+        <div class="hs-history-tiles">
+            <div class="hs-history-tile">
+                <span class="hs-history-tile-value">@WeekWorkoutCount</span>
+                <span class="hs-history-tile-label">Workouts · 7d</span>
+            </div>
+            <div class="hs-history-tile">
+                <span class="hs-history-tile-value">@CurrentStreakDays</span>
+                <span class="hs-history-tile-label">Current streak</span>
+            </div>
+        </div>
+    </section>
+
     <div class="hs-history-filter-toggle">
         <MudButton Variant="Variant.Text"
                    Color="Color.Primary"
@@ -130,35 +155,25 @@
                             aria-controls="@detailsId"
                             aria-label="@($"{(isExpanded ? "Hide" : "Show")} {workout.Type ?? "workout"} workout details")"
                             @onclick="() => ToggleWorkoutAsync(workout)">
-                        <span class="hs-workout-date-block">
-                            <span class="hs-workout-date">@FormatWorkoutDate(workout.Date)</span>
-                            <span class="hs-workout-type">@(workout.Type ?? "Workout")</span>
-                        </span>
-
                         <span class="hs-workout-summary-block">
-                            <span class="hs-workout-metrics">
-                                <span>@FormatExerciseCount(workout.ExerciseCount)</span>
-                                @if (workout.TotalVolume > 0)
+                            <span class="hs-workout-name">
+                                @(workout.Type ?? "Workout")@if (workout.LeadingMuscles.Count > 0)
                                 {
-                                    <span aria-hidden="true">•</span>
-                                    <span>@FormatVolume(workout.TotalVolume)</span>
+                                    <span class="hs-workout-name-detail"> · @FormatLeadingMuscleNames(workout)</span>
                                 }
                             </span>
 
-                            @if (HasTrackerMeta(workout))
-                            {
-                                <span class="hs-workout-tracker-meta">@FormatTrackerMeta(workout)</span>
-                            }
+                            <span class="hs-workout-meta">
+                                @FormatWorkoutDate(workout.Date)@if (HasTrackerMeta(workout))
+                                {
+                                    <span class="hs-workout-meta-detail"> · @FormatTrackerMeta(workout)</span>
+                                }
+                            </span>
+                        </span>
 
-                            @if (workout.LeadingMuscles.Count > 0)
-                            {
-                                <span class="hs-workout-muscles" aria-label="Leading muscles">
-                                    @foreach (var muscle in workout.LeadingMuscles.Take(3))
-                                    {
-                                        <span class="hs-workout-muscle-chip">@muscle</span>
-                                    }
-                                </span>
-                            }
+                        <span class="hs-workout-metric-block">
+                            <span class="hs-workout-metric-value">@FormatSessionMetricValue(workout)</span>
+                            <span class="hs-workout-metric-label">@FormatSessionMetricLabel(workout)</span>
                         </span>
 
                         <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
@@ -505,6 +520,7 @@
         new(StringComparer.OrdinalIgnoreCase);
     private int _currentPage;
     private int _totalCount;
+    private List<TrainingDayActivityResource> _activityDays = [];
 
     private bool HasActiveFilters
         => !string.IsNullOrWhiteSpace(_appliedSearch)
@@ -529,8 +545,117 @@
     protected override async Task OnInitializedAsync()
     {
         TitleService.Title = "Training History";
-        await LoadHistoryAsync(append: false);
+        await Task.WhenAll(
+            LoadHistoryAsync(append: false),
+            LoadActivitySummaryAsync());
     }
+
+    private async Task LoadActivitySummaryAsync()
+    {
+        try
+        {
+            var summary = await Http.GetFromJsonAsync<WeeklyTrainingSummaryResource>(
+                "/Workouts/weekly-summary?weeks=1");
+            _activityDays = summary?.ActivityDays ?? [];
+        }
+        catch
+        {
+            // The activity strip is supplementary: the history list must stay
+            // usable when the summary call fails, so it degrades to no dots.
+            _activityDays = [];
+        }
+    }
+
+    private sealed record HistoryCalendarDay(
+        int DayNumber,
+        string DayLetter,
+        string StateClass,
+        string Tooltip);
+
+    private static readonly string[] WeekdayLetters = ["S", "M", "T", "W", "T", "F", "S"];
+
+    private List<HistoryCalendarDay> CalendarDays
+    {
+        get
+        {
+            var days = new List<HistoryCalendarDay>(7);
+            var today = DateTime.Today;
+            var activityByDate = _activityDays
+                .GroupBy(day => day.Date.Date)
+                .ToDictionary(group => group.Key, group => group.Sum(day => day.WorkoutCount));
+
+            for (var offset = 6; offset >= 0; offset--)
+            {
+                var date = today.AddDays(-offset);
+                var workoutCount = activityByDate.TryGetValue(date, out var count) ? count : 0;
+                var states = new List<string>(2);
+                if (workoutCount > 0)
+                {
+                    states.Add("is-active");
+                }
+
+                if (offset == 0)
+                {
+                    states.Add("is-today");
+                }
+
+                days.Add(new HistoryCalendarDay(
+                    date.Day,
+                    WeekdayLetters[(int)date.DayOfWeek],
+                    string.Join(" ", states),
+                    $"{date:ddd d MMM} — {(workoutCount == 1 ? "1 workout" : $"{workoutCount} workouts")}"));
+            }
+
+            return days;
+        }
+    }
+
+    private int WeekWorkoutCount
+        => _activityDays
+            .Where(day => day.Date.Date >= DateTime.Today.AddDays(-6) && day.Date.Date <= DateTime.Today)
+            .Sum(day => day.WorkoutCount);
+
+    /// <summary>
+    /// Consecutive trained days ending today. A missing today does not break the
+    /// streak (grace): the count falls back to the run ending yesterday, so the
+    /// user is encouraged to keep it rather than shown a zero.
+    /// </summary>
+    private int CurrentStreakDays
+    {
+        get
+        {
+            var trained = _activityDays
+                .Where(day => day.WorkoutCount > 0)
+                .Select(day => day.Date.Date)
+                .ToHashSet();
+
+            var cursor = trained.Contains(DateTime.Today)
+                ? DateTime.Today
+                : DateTime.Today.AddDays(-1);
+
+            var streak = 0;
+            while (trained.Contains(cursor))
+            {
+                streak++;
+                cursor = cursor.AddDays(-1);
+            }
+
+            return streak;
+        }
+    }
+
+    private static string FormatLeadingMuscleNames(GetWorkoutResource workout)
+        => string.Join(", ", workout.LeadingMuscles.Take(3));
+
+    private static string FormatSessionMetricValue(GetWorkoutResource workout)
+        => workout.TotalVolume > 0
+            ? $"{workout.TotalVolume:N0} kg"
+            : workout.ExerciseCount.ToString("N0");
+
+    private static string FormatSessionMetricLabel(GetWorkoutResource workout)
+        => workout.TotalVolume > 0
+            ? "volume"
+            : FormatExerciseCount(workout.ExerciseCount);
 
     private async Task LoadHistoryAsync(bool append)
     {

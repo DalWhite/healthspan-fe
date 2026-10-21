@@ -37,39 +37,50 @@
     <div class="login-right">
         <MudContainer MaxWidth="MaxWidth.Small"
                       Class="login-container">
-            <MudPaper Class="login-form rounded-container"
-                      Elevation="4"
-                      Style="padding: 2rem;">
+            <MudPaper Class="login-form hs-login-card rounded-container"
+                      Elevation="0">
 
                 <h1 class="hs-page-title hs-login-title">Sign in</h1>
 
-                @if (errors)
+                @* Form-level problems (Google init, failed sign-in). Field-level
+                   problems live inline under their own field. *@
+                @if (errors && errorList.Length > 0)
                 {
-                    @foreach (var error in errorList)
-                    {
-                        <MudAlert Severity="Severity.Error"
-                                  Variant="Variant.Filled">@error</MudAlert>
-                    }
+                    <div class="hs-login-formerror" role="alert">
+                        @foreach (var error in errorList)
+                        {
+                            <div class="hs-login-formerror-item">@error</div>
+                        }
+                    </div>
                 }
 
-                <MudForm>
-                    <MudTextField Placeholder="Enter your email"
+                <MudForm @ref="_form">
+                    @* On sign-in only the email is format-checked (it catches a
+                       typo before a round-trip). The password is required but
+                       never judged here: judging it on sign-in blames a user
+                       whose password is simply wrong, and the server already
+                       knows. *@
+                    <MudTextField @bind-Value="email"
+                                  Label="Email"
                                   Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
                                   Required="true"
-                                  @bind-Value="email"
+                                  RequiredError="Enter your email to sign in."
+                                  Validation="@(new Func<string, string?>(ValidateEmail))"
                                   FullWidth="true"
-                                  RequiredError="Email is required"
                                   Class="input-field text-field outlined" />
 
-                    <MudTextField Placeholder="Enter your password"
+                    <MudTextField @bind-Value="password"
+                                  Label="Password"
                                   Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
                                   InputType="@PasswordInput"
                                   Adornment="Adornment.End"
                                   AdornmentIcon="@PasswordInputIcon"
-                                  @bind-Value="password"
-                                  FullWidth="true"
                                   OnAdornmentClick="ButtonTestclick"
-                                  RequiredError="Password is required"
+                                  Required="true"
+                                  RequiredError="Enter your password to sign in."
+                                  FullWidth="true"
                                   Class="input-field text-field outlined" />
 
 
@@ -114,11 +125,33 @@
     private bool googleInitialized;
     private bool googleBusy;
     private string? googleClientId;
+    private MudForm _form = null!;
 
     [SupplyParameterFromQuery(Name = "returnUrl")]
     public string? ReturnUrl { get; set; }
 
     private bool GoogleButtonEnabled => googleInitialized && !googleBusy;
+
+    // NN/g: field errors appear after the user leaves the field, next to the
+    // field, in plain language that names the fix — never while typing, never
+    // blaming, and the typed value is always preserved.
+    private static string? ValidateEmail(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "Enter your email to sign in.";
+        }
+
+        if (!EmailPattern.IsMatch(value.Trim()))
+        {
+            return "Use an email address like name@example.com.";
+        }
+
+        return null;
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex EmailPattern =
+        new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     void ButtonTestclick()
     {
@@ -162,17 +195,11 @@
         success = errors = false;
         errorList = Array.Empty<string>();
 
-        if (string.IsNullOrWhiteSpace(email))
+        // Field errors are inline under each field; the form only blocks the
+        // call when something is actually wrong with what was typed.
+        await _form.Validate();
+        if (!_form.IsValid)
         {
-            errors = true;
-            errorList = new[] { "Email is required." };
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            errors = true;
-            errorList = new[] { "Password is required." };
             return;
         }
 
@@ -181,12 +208,34 @@
         if (result.Succeeded)
         {
             NavigateAfterLogin();
+            return;
         }
-        else
+
+        errors = true;
+        errorList = result.ErrorList.Select(DescribeSignInError).Distinct().ToArray();
+    }
+
+    // The server returns generic Identity wording. Restate the problem in plain
+    // language with the fix, without blaming the user; typed values stay put.
+    private static string DescribeSignInError(string serverError)
+    {
+        if (string.IsNullOrWhiteSpace(serverError))
         {
-            errors = true;
-            errorList = result.ErrorList.ToArray();
+            return "We couldn't sign you in. Check your email and password and try again.";
         }
+
+        if (serverError.Contains("locked", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Too many attempts. Wait a few minutes and try again.";
+        }
+
+        if (serverError.Contains("password", StringComparison.OrdinalIgnoreCase) ||
+            serverError.Contains("login attempt", StringComparison.OrdinalIgnoreCase))
+        {
+            return "We couldn't match that email and password. Check them and try again.";
+        }
+
+        return serverError;
     }
 
     private async Task StartGoogleLoginAsync()

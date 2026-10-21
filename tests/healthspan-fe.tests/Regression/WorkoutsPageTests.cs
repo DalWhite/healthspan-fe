@@ -31,10 +31,63 @@ public class WorkoutsPageTests : BlazorTestBase
             cut.FindAll(".hs-workout-session-card").Should().HaveCount(2);
             cut.Markup.Should().Contain("Push");
             cut.Markup.Should().Contain("Pull");
-            cut.Markup.Should().Contain("1 exercise");
-            cut.Markup.Should().Contain("2,560 kg volume");
+            // DESIGN.md §5.5: name line carries the leading muscles, the hero
+            // metric sits on the right as value + label.
             cut.Markup.Should().Contain("Chest");
+            cut.Find(".hs-workout-metric-value").TextContent.Trim().Should().Be("2,560 kg");
+            cut.Find(".hs-workout-metric-label").TextContent.Trim().Should().Be("volume");
             cut.Markup.Should().NotContain("fixed-create-button");
+        });
+    }
+
+    [Fact]
+    public void Renders_Activity_Calendar_Strips_And_Weekly_Tiles()
+    {
+        MockHistoryPage(SummaryJson(), totalCount: 2);
+        MockHttp.When(HttpMethod.Get, "/Workouts/weekly-summary?weeks=1")
+            .Respond("application/json", $$"""
+                {
+                  "weeks": [],
+                  "activityDays": [
+                    { "date": "{{DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd")}}T00:00:00", "workoutCount": 1, "exerciseCount": 6 },
+                    { "date": "{{DateTime.Today.ToString("yyyy-MM-dd")}}T00:00:00", "workoutCount": 2, "exerciseCount": 11 }
+                  ]
+                }
+                """);
+
+        var cut = RenderComponent<Workouts>();
+
+        cut.WaitForAssertion(() =>
+        {
+            var days = cut.FindAll(".hs-history-cal-day");
+            days.Should().HaveCount(7, "the strip is a fixed 7-day window");
+            cut.FindAll(".hs-history-cal-day.is-active").Should().HaveCount(2,
+                "trained days get the accent dot");
+            cut.FindAll(".hs-history-cal-day.is-today").Should().HaveCount(1,
+                "the current day is highlighted");
+            cut.Find(".hs-history-tile-value").TextContent.Trim().Should().Be("3",
+                "entrenos 7d sums the workoutCount of the window");
+            cut.FindAll(".hs-history-tile").Should().HaveCount(2,
+                "entrenos 7d + current streak");
+        });
+    }
+
+    [Fact]
+    public void Activity_Calendar_Degrades_When_Weekly_Summary_Fails()
+    {
+        MockHistoryPage(SummaryJson(), totalCount: 2);
+        MockHttp.When(HttpMethod.Get, "/Workouts/weekly-summary?weeks=1")
+            .Respond(HttpStatusCode.InternalServerError);
+
+        var cut = RenderComponent<Workouts>();
+
+        // The strip is supplementary: a failed summary must not take the
+        // history list down with it.
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll(".hs-workout-session-card").Should().HaveCount(2);
+            cut.FindAll(".hs-history-cal-day").Should().HaveCount(7);
+            cut.FindAll(".hs-history-cal-day.is-active").Should().BeEmpty();
         });
     }
 
