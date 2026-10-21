@@ -21,9 +21,13 @@ public class NavigationFlowTests : BlazorTestBase
         var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
         navigationManager.NavigateTo("https://localhost/");
 
-        RenderComponent<MainLayout>();
+        var cut = RenderComponent<MainLayout>();
 
-        navigationManager.Uri.Should().EndWith("/training/insights");
+        // The redirect happens after the async auth/roles round-trip, so wait
+        // for it instead of racing the continuation.
+        cut.WaitForAssertion(
+            () => navigationManager.Uri.Should().EndWith("/training/insights"),
+            TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -110,9 +114,10 @@ public class NavigationFlowTests : BlazorTestBase
         {
             cut.Markup.Should().Contain("Health");
             cut.Markup.Should().Contain("Training");
-            cut.Markup.Should().Contain("Train");
-            cut.Markup.Should().Contain("Training History");
-            cut.Markup.Should().Contain("Exercise Library");
+            // DESIGN.md §4: user-task terminology, no internal concepts.
+            cut.Markup.Should().Contain("Hoy");
+            cut.Markup.Should().Contain("Historial");
+            cut.Markup.Should().Contain("Biblioteca");
             cut.Markup.Should().Contain("Personal Profile");
             cut.Markup.Should().Contain("Insights");
             cut.Markup.Should().Contain("Account &amp; Settings");
@@ -126,32 +131,36 @@ public class NavigationFlowTests : BlazorTestBase
     }
 
     [Fact]
-    public void Main_Layout_Provides_Left_Aligned_Menu_Launcher_In_Mobile_Navigation()
+    public void Main_Layout_Renders_The_V1_Bottom_Nav_With_A_Central_Fab()
     {
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo("https://localhost/training/insights");
+
         var cut = RenderComponent<MainLayout>();
 
         cut.WaitForAssertion(() =>
         {
-            var links = cut.FindAll(".hs-mobile-bottom-nav a");
+            // DESIGN.md §4: five slots — Hoy · Historial · FAB · Insights · Biblioteca.
+            var items = cut.FindAll(".hs-bottom-nav > *");
+            items.Should().HaveCount(5);
+
+            var links = cut.FindAll(".hs-bottom-nav a");
             links.Should().HaveCount(4);
             links.Should().Contain(link => link.GetAttribute("href") == "/training/today");
             links.Should().Contain(link => link.GetAttribute("href") == "/training/history");
+            links.Should().Contain(link => link.GetAttribute("href") == "/training/insights");
             links.Should().Contain(link => link.GetAttribute("href") == "/training/library");
 
-            var items = cut.FindAll(".hs-mobile-bottom-nav > *");
-            items.Should().HaveCount(5);
-            items[0].ClassList.Should().Contain("hs-mobile-nav-menu");
-            items[0].TextContent.Should().Contain("Menu");
-            items[0].GetAttribute("aria-controls").Should().Be("app-navigation-drawer");
+            var fab = cut.Find(".hs-fab");
+            fab.GetAttribute("aria-label").Should().Be("Registrar entreno");
+
+            // Desktop shell carries the same destinations; CSS swaps the two.
+            cut.Find(".hs-sidebar .hs-nav-menu");
         });
 
-        var initialExpandedState = cut.Find(".hs-mobile-nav-menu")
-            .GetAttribute("aria-expanded");
-        initialExpandedState.Should().BeOneOf("true", "false");
-        cut.Find(".hs-mobile-nav-menu").Click();
-        cut.Find(".hs-mobile-nav-menu")
-            .GetAttribute("aria-expanded").Should().Be(
-                initialExpandedState == "true" ? "false" : "true");
+        // FAB action = quick start from any screen (DESIGN.md §3).
+        cut.Find(".hs-fab").Click();
+        navigationManager.Uri.Should().EndWith("/training/today");
     }
 
     [Theory]

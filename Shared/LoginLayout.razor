@@ -1,5 +1,4 @@
 @inherits LayoutComponentBase
-@inject Blazored.LocalStorage.ISyncLocalStorageService LocalStorage
 @inject ThemeState ThemeState
 @implements IDisposable
 
@@ -15,9 +14,6 @@
     protected override void OnInitialized()
     {
         ThemeState.Changed += HandleThemeChanged;
-
-        if (LocalStorage.ContainKey("_isDarkMode"))
-            ThemeState.SetDarkMode(LocalStorage.GetItem<bool>("_isDarkMode"));
     }
 
     private void HandleThemeChanged()

@@ -532,8 +532,8 @@
                    ?? response.Points.FirstOrDefault()?.Unit
                    ?? marker.Unit,
             Color = IsOutsideRange(marker)
-                ? "#b42318"
-                : "#0f5f67",
+                ? "#F1545B"
+                : "#2FBF71",
             Points = response.Points
                 .Select(point => new TrendPointResource
                 {

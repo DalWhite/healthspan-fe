@@ -412,7 +412,7 @@
             Curve = Curve.Smooth,
             Width = 3
         };
-        _chartOptions.Colors = ["#AE1D0D"];
+        _chartOptions.Colors = ["#1E6FFF"];
         _chartOptions.Tooltip = new Tooltip
         {
             Shared = false,
@@ -636,12 +636,8 @@
         _selectedTrendMetric = metric == VolumeTrendMetric
             ? VolumeTrendMetric
             : RmTrendMetric;
-        _chartOptions.Colors =
-        [
-            _selectedTrendMetric == VolumeTrendMetric
-                ? "#035960"
-                : "#AE1D0D"
-        ];
+        // Single accent (DESIGN.md §1): both trend metrics render in accent.
+        _chartOptions.Colors = ["#1E6FFF"];
     }
 
     private void ApplyTrainingTagFilter()

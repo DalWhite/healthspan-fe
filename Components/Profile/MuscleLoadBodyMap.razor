@@ -195,7 +195,7 @@
     {
         if (!_regionsByKey.TryGetValue(key, out var region) || region.RelativeLoad <= 0)
         {
-            return "#d7dfe2";
+            return "#262C36";
         }
 
         return InterpolateColor(Math.Min(1d, region.RelativeLoad + 0.12d));
@@ -204,8 +204,8 @@
     private static string InterpolateColor(double value)
     {
         var clamped = Math.Clamp(value, 0d, 1d);
-        var start = (R: 233d, G: 239d, B: 240d);
-        var end = (R: 174d, G: 29d, B: 13d);
+        var start = (R: 22, G: 27, B: 34);   // --hs-card (no load)
+        var end = (R: 30, G: 111, B: 255);   // --hs-accent (max load)
 
         var r = (int)Math.Round(start.R + ((end.R - start.R) * clamped));
         var g = (int)Math.Round(start.G + ((end.G - start.G) * clamped));
