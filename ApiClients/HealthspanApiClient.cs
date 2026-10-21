@@ -155,6 +155,36 @@ public class HealthspanApiClient
     public Task<GetHealthDashboardSummaryResource?> GetDashboardSummaryAsync(CancellationToken cancellationToken = default)
         => _httpClient.GetFromJsonAsync<GetHealthDashboardSummaryResource>(HealthRoutes.DashboardSummary, cancellationToken);
 
+    public Task<AdaptationCoverageResource?> GetAdaptationCoverageAsync(
+        DateOnly from,
+        DateOnly to,
+        string? traineeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = BuildPath(TrainingTrackerRoutes.AdaptationCoverage, new Dictionary<string, string?>
+        {
+            ["from"] = from.ToString("yyyy-MM-dd"),
+            ["to"] = to.ToString("yyyy-MM-dd"),
+            ["traineeId"] = traineeId
+        });
+
+        return _httpClient.GetFromJsonAsync<AdaptationCoverageResource>(path, cancellationToken);
+    }
+
+    public Task<ReadinessResource?> GetReadinessAsync(
+        DateOnly? date = null,
+        string? traineeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var path = BuildPath(TrainingTrackerRoutes.Readiness, new Dictionary<string, string?>
+        {
+            ["date"] = date?.ToString("yyyy-MM-dd"),
+            ["traineeId"] = traineeId
+        });
+
+        return _httpClient.GetFromJsonAsync<ReadinessResource>(path, cancellationToken);
+    }
+
     public async Task<HealthProfileResource> GetHealthProfileAsync(
         CancellationToken cancellationToken = default)
         => await _httpClient.GetFromJsonAsync<HealthProfileResource>(

@@ -23,6 +23,7 @@ public class DashboardPageTests : BlazorTestBase
                     "latestAssessmentAverageScore": 7.5
                 }
             """);
+        StubTrainingReads();
         MockHttp.When("/BloodTests")
             .Respond("application/json", """
                 [
@@ -65,6 +66,7 @@ public class DashboardPageTests : BlazorTestBase
             .Respond("application/json", "[]");
         MockHttp.When("/HealthProfile")
             .Respond("application/json", "{}");
+        StubTrainingReads();
 
         var cut = RenderComponent<Dashboard>();
 
@@ -89,6 +91,7 @@ public class DashboardPageTests : BlazorTestBase
                     "latestAssessmentAverageScore": null
                 }
             """);
+        StubTrainingReads();
         MockHttp.When("/BloodTests")
             .Respond("application/json", "[]");
         MockHttp.When("/BloodTests/markers/latest")
@@ -108,5 +111,24 @@ public class DashboardPageTests : BlazorTestBase
             cut.Markup.Should().Contain("Add first report");
             cut.Markup.Should().Contain("Record baseline");
         });
+    }
+
+    private void StubTrainingReads()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var currentUrl = "/Adaptations/coverage"
+                         + $"?from={today.AddDays(-6):yyyy-MM-dd}"
+                         + $"&to={today:yyyy-MM-dd}";
+        var previousUrl = "/Adaptations/coverage"
+                          + $"?from={today.AddDays(-13):yyyy-MM-dd}"
+                          + $"&to={today.AddDays(-7):yyyy-MM-dd}";
+        const string EmptyCoverage =
+            """{ "from": "2025-05-25", "to": "2025-06-01", "sessions": 0, "items": [] }""";
+
+        MockHttp.When(currentUrl).Respond("application/json", EmptyCoverage);
+        MockHttp.When(previousUrl).Respond("application/json", EmptyCoverage);
+        MockHttp.When("/Readiness")
+            .Respond("application/json",
+                """{ "date": "2025-06-01", "score": 10, "sessions7d": 0, "perAdaptation": [], "suggestions": [] }""");
     }
 }

@@ -1,0 +1,274 @@
+@* Weekly coverage radar: the 9 Galpin adaptations in canonical order (1-9,
+   clockwise from the top). One axis unit = one week's target, so the outer
+   ring IS the goal; the filled polygon is what the user actually trained. *@
+
+<div class="hs-coverage-radar-shell">
+    <svg viewBox="0 0 460 430"
+         class="hs-coverage-radar-svg"
+         role="img"
+         aria-label="@AriaLabel">
+        @for (var ring = 1; ring <= RingCount; ring++)
+        {
+            var scale = ring / (double)RingCount;
+            <polygon points="@BuildRingPoints(scale)"
+                     class="@(ring == RingCount ? "hs-coverage-radar-target-ring" : "hs-coverage-radar-ring")"></polygon>
+        }
+
+        @for (var axisIndex = 0; axisIndex < Axes.Count; axisIndex++)
+        {
+            var point = GetPoint(axisIndex, 1d);
+            <line x1="@CenterX" y1="@CenterY" x2="@point.X" y2="@point.Y" class="hs-coverage-radar-axis"></line>
+            @((MarkupString)BuildAxisLabel(axisIndex))
+        }
+
+        @if (PreviousPoints is not null)
+        {
+            <polygon points="@PreviousPoints" class="hs-coverage-radar-previous"></polygon>
+        }
+
+        <polygon points="@CurrentPoints" class="hs-coverage-radar-current"></polygon>
+
+        @for (var axisIndex = 0; axisIndex < Axes.Count; axisIndex++)
+        {
+            var item = Axes[axisIndex];
+            var point = GetPoint(axisIndex, ClampedRatio(item));
+            <circle cx="@point.X"
+                    cy="@point.Y"
+                    r="@(item.CoverageRatio >= 1d ? 5.5 : 4)"
+                    fill="@item.Color"
+                    stroke="white"
+                    stroke-width="1.5"></circle>
+        }
+    </svg>
+
+    <div class="hs-coverage-radar-legend">
+        <span class="hs-coverage-radar-legend-item">
+            <i class="hs-coverage-radar-swatch is-current"></i>Esta semana
+        </span>
+        @if (PreviousPoints is not null)
+        {
+            <span class="hs-coverage-radar-legend-item">
+                <i class="hs-coverage-radar-swatch is-previous"></i>Semana anterior
+            </span>
+        }
+        <span class="hs-coverage-radar-legend-item">
+            <i class="hs-coverage-radar-swatch is-target"></i>Objetivo
+        </span>
+    </div>
+
+    <div class="hs-coverage-radar-summary">@SummaryLine</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<AdaptationCoverageItemResource> Current { get; set; } = Array.Empty<AdaptationCoverageItemResource>();
+    [Parameter] public IReadOnlyList<AdaptationCoverageItemResource>? Previous { get; set; }
+
+    private const double CenterX = 230d;
+    private const double CenterY = 212d;
+    private const double Radius = 116d;
+    private const int RingCount = 4;
+
+    private List<AdaptationCoverageItemResource> Axes = [];
+    private string CurrentPoints = string.Empty;
+    private string? PreviousPoints;
+
+    protected override void OnParametersSet()
+    {
+        Axes = (Current ?? Array.Empty<AdaptationCoverageItemResource>())
+            .OrderBy(item => item.Order)
+            .ThenBy(item => item.AdaptationId)
+            .ToList();
+
+        CurrentPoints = BuildSeriesPoints(Axes);
+        PreviousPoints = BuildPreviousPoints();
+    }
+
+    private string? BuildPreviousPoints()
+    {
+        if (Previous is null || Axes.Count == 0)
+        {
+            return null;
+        }
+
+        var byId = Previous.ToDictionary(item => item.AdaptationId);
+        var ordered = Axes
+            .Select(axis => byId.TryGetValue(axis.AdaptationId, out var match) ? match : null)
+            .ToList();
+
+        if (ordered.Any(item => item is null))
+        {
+            return null;
+        }
+
+        return BuildSeriesPoints(ordered.Select(item => item!).ToList());
+    }
+
+    private string BuildSeriesPoints(IReadOnlyList<AdaptationCoverageItemResource> items)
+    {
+        var points = new List<string>(items.Count);
+
+        for (var axisIndex = 0; axisIndex < items.Count; axisIndex++)
+        {
+            var point = GetPoint(axisIndex, ClampedRatio(items[axisIndex]));
+            points.Add($"{point.X:0.##},{point.Y:0.##}");
+        }
+
+        return string.Join(" ", points);
+    }
+
+    private string BuildRingPoints(double scale)
+    {
+        var points = new List<string>(Axes.Count);
+
+        for (var axisIndex = 0; axisIndex < Axes.Count; axisIndex++)
+        {
+            var point = GetPoint(axisIndex, scale);
+            points.Add($"{point.X:0.##},{point.Y:0.##}");
+        }
+
+        return string.Join(" ", points);
+    }
+
+    private string BuildAxisLabel(int axisIndex)
+    {
+        var lines = GetLabelLines(AdaptationNames.Short(Axes[axisIndex].Type, Axes[axisIndex].Name));
+        // Two-word names need more clearance from the goal ring than single words.
+        var labelPoint = GetPoint(axisIndex, lines.Count > 1 ? 1.28d : 1.2d);
+
+        // tspans stack downwards, so a label above the centre would grow INTO the
+        // chart; lift it so the whole block sits outside the outer ring.
+        var baselineY = labelPoint.Y < CenterY
+            ? labelPoint.Y - (lines.Count - 1) * 11d
+            : labelPoint.Y;
+
+        var tspans = new List<string>(lines.Count);
+
+        for (var lineIndex = 0; lineIndex < lines.Count; lineIndex++)
+        {
+            var dy = lineIndex == 0 ? "0" : "1.05em";
+            tspans.Add($"<tspan x=\"{labelPoint.X:0.##}\" dy=\"{dy}\">{System.Net.WebUtility.HtmlEncode(lines[lineIndex])}</tspan>");
+        }
+
+        return $"<text x=\"{labelPoint.X:0.##}\" y=\"{baselineY:0.##}\" text-anchor=\"{GetTextAnchor(labelPoint.X)}\" class=\"hs-coverage-radar-axis-label\">{string.Join(string.Empty, tspans)}</text>";
+    }
+
+    private static double ClampedRatio(AdaptationCoverageItemResource item)
+        => Math.Clamp(item.CoverageRatio, 0d, 1d);
+
+    private (double X, double Y) GetPoint(int axisIndex, double scale)
+    {
+        if (Axes.Count == 0)
+        {
+            return (CenterX, CenterY);
+        }
+
+        // Canonical Galpin order runs clockwise from the top: axis 1 (Habilidad)
+        // at 12 o'clock, axis 9 (Larga duración) just left of it.
+        var angle = (-90d + ((360d / Axes.Count) * axisIndex)) * Math.PI / 180d;
+        var radius = Radius * Math.Clamp(scale, 0d, 1.2d);
+
+        return (
+            CenterX + (Math.Cos(angle) * radius),
+            CenterY + (Math.Sin(angle) * radius));
+    }
+
+    private static string GetTextAnchor(double x)
+    {
+        if (x < CenterX - 8)
+        {
+            return "end";
+        }
+
+        if (x > CenterX + 8)
+        {
+            return "start";
+        }
+
+        return "middle";
+    }
+
+    private static IReadOnlyList<string> GetLabelLines(string label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return Array.Empty<string>();
+        }
+
+        var words = label.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 1 && label.Length <= 16)
+        {
+            return new[] { label };
+        }
+
+        var lines = new List<string>();
+        var current = string.Empty;
+
+        foreach (var word in words)
+        {
+            var candidate = string.IsNullOrEmpty(current) ? word : $"{current} {word}";
+            if (candidate.Length > 15 && !string.IsNullOrEmpty(current))
+            {
+                lines.Add(current);
+                current = word;
+            }
+            else
+            {
+                current = candidate;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(current))
+        {
+            lines.Add(current);
+        }
+
+        return lines;
+    }
+
+    private int AtTargetCount
+        => Axes.Count(item => item.TargetSessionsPerWeek > 0
+            && item.Sessions >= item.TargetSessionsPerWeek);
+
+    private AdaptationCoverageItemResource? WeakestAxis
+        => Axes
+            .OrderBy(item => item.TargetSessionsPerWeek > 0
+                ? item.CoverageRatio
+                : double.MaxValue)
+            .ThenBy(item => item.Order)
+            .FirstOrDefault(item => item.TargetSessionsPerWeek > 0);
+
+    private string SummaryLine
+    {
+        get
+        {
+            if (Axes.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var weakest = WeakestAxis;
+            if (weakest is null)
+            {
+                return $"{Axes.Count} ejes";
+            }
+
+            var weakestName = AdaptationNames.Short(weakest.Type, weakest.Name);
+
+            return AtTargetCount == Axes.Count
+                ? $"Los {Axes.Count} ejes en su objetivo"
+                : $"{AtTargetCount} de {Axes.Count} ejes en objetivo · más débil: {weakestName} ({weakest.Sessions}/{weakest.TargetSessionsPerWeek})";
+        }
+    }
+
+    private string AriaLabel
+    {
+        get
+        {
+            var weakest = WeakestAxis;
+
+            return weakest is null
+                ? "Adaptation coverage radar"
+                : $"Adaptation coverage radar. {AtTargetCount} of {Axes.Count} axes at target. Lowest: {AdaptationNames.Short(weakest.Type, weakest.Name)}.";
+        }
+    }
+}

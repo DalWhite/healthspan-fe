@@ -1,0 +1,105 @@
+@* Readiness card: one glanceable score (0-10) plus what to train next and a
+   one-line "why" built from the same numbers the API used. *@
+
+<div class="hs-readiness-card">
+    <div class="hs-section-heading">
+        <MudText Typo="Typo.h6">Readiness</MudText>
+        <MudText Typo="Typo.body2" Class="hs-muted-copy">@WindowLabel</MudText>
+    </div>
+
+    <div class="hs-readiness-score">
+        <strong aria-label="Readiness score out of 10">@Readiness.Score.ToString("0.0")</strong>
+        <span>/10</span>
+        <MudChip T="string"
+                Size="Size.Small"
+                Variant="Variant.Outlined"
+                Color="@StatusColor">@StatusWord</MudChip>
+    </div>
+
+    @if (Readiness.Suggestions.Count > 0)
+    {
+        <div class="hs-readiness-suggestions">
+            @foreach (var suggestion in Readiness.Suggestions.Take(2))
+            {
+                <div class="hs-readiness-suggestion">
+                    <span class="hs-readiness-suggestion-arrow" aria-hidden="true">→</span>
+                    <div>
+                        <strong>@AdaptationNames.Short(suggestion.Type, suggestion.Name)</strong>
+                        <span>@suggestion.Reason</span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="hs-readiness-suggestion">
+            <span class="hs-readiness-suggestion-arrow" aria-hidden="true">✓</span>
+            <div>
+                <strong>Sin huecos que llenar</strong>
+                <span>Los ejes compatibles con tu fatiga actual están cubiertos.</span>
+            </div>
+        </div>
+    }
+
+    <div class="hs-readiness-why">@WhyLine</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ReadinessResource Readiness { get; set; } = new();
+    [Parameter] public IReadOnlyList<AdaptationCoverageItemResource>? Coverage { get; set; }
+
+    private string WindowLabel
+        => Readiness.Date == default || Readiness.Date.Date == DateTime.Today
+            ? "hoy"
+            : Readiness.Date.ToString("dd MMM");
+
+    private string StatusWord
+        => Readiness.Score switch
+        {
+            >= 7 => "Listo para entrenar",
+            >= 4 => "Entrenar con cabeza",
+            _ => "Mejor descansar"
+        };
+
+    private MudBlazor.Color StatusColor
+        => Readiness.Score switch
+        {
+            >= 7 => MudBlazor.Color.Success,
+            >= 4 => MudBlazor.Color.Info,
+            _ => MudBlazor.Color.Warning
+        };
+
+    private string WhyLine
+    {
+        get
+        {
+            var parts = new List<string>
+            {
+                $"fatiga {Readiness.FatigueLoad7d.ToString("0.#")}/5",
+                Readiness.Sessions7d == 1
+                    ? "1 sesión en 7 días"
+                    : $"{Readiness.Sessions7d} sesiones en 7 días"
+            };
+
+            var below = (Coverage ?? Array.Empty<AdaptationCoverageItemResource>())
+                .Where(item => item.TargetSessionsPerWeek > 0 && item.Sessions < item.TargetSessionsPerWeek)
+                .OrderBy(item => item.CoverageRatio)
+                .ThenBy(item => item.Order)
+                .Take(2)
+                .Select(item => AdaptationNames.Short(item.Type, item.Name))
+                .ToList();
+
+            if (below.Count > 0)
+            {
+                parts.Add($"{string.Join(" y ", below)} por debajo del objetivo");
+            }
+            else if (Coverage is { Count: > 0 })
+            {
+                parts.Add("todos los ejes en su objetivo");
+            }
+
+            return $"Por qué: {string.Join(" · ", parts)}.";
+        }
+    }
+}

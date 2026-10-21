@@ -31,6 +31,52 @@
     }
     else
     {
+        <section class="hs-training-overview" aria-label="Training readiness and coverage">
+            @if (HasTrainingData)
+            {
+                <div class="hs-training-overview-grid">
+                    @if (_coverage is not null)
+                    {
+                        <section class="hs-health-panel hs-coverage-panel">
+                            <div class="hs-section-heading">
+                                <MudText Typo="Typo.h6">Cobertura de adaptaciones</MudText>
+                                <span>@_coverage.Sessions sesiones</span>
+                            </div>
+                            <AdaptationCoverageRadar Current="@_coverage.Items"
+                                                     Previous="@_previousCoverage?.Items" />
+                        </section>
+                    }
+
+                    @if (_readiness is not null)
+                    {
+                        <section class="hs-health-panel hs-readiness-panel">
+                            <ReadinessCard Readiness="@_readiness"
+                                           Coverage="@_coverage?.Items" />
+                        </section>
+                    }
+                </div>
+            }
+            else if (_trainingFailed)
+            {
+                <section class="hs-health-panel">
+                    <ErrorState Title="Training overview unavailable"
+                                Message="Coverage and readiness could not be loaded."
+                                ActionLabel="Retry"
+                                OnAction="LoadTrainingAsync" />
+                </section>
+            }
+            else
+            {
+                <section class="hs-health-panel hs-coverage-panel">
+                    <EmptyState Icon="@Icons.Material.Filled.Radar"
+                                Title="Aún no hay entrenos registrados"
+                                Subtitle="Registra un entreno y el radar mostrará cómo equilibra tu semana las nueve adaptaciones."
+                                ActionLabel="Registra tu primer entreno"
+                                OnAction="OpenTodayTraining" />
+                </section>
+            }
+        </section>
+
         @if (NeedsAttention.Count > 0)
         {
             <section class="hs-health-panel hs-attention-panel">
@@ -157,8 +203,18 @@
     private HealthProfileResource? _profile;
     private readonly List<BloodTestSummaryResource> _bloodTests = [];
     private readonly List<LatestMarkerSnapshotResource> _markers = [];
+    private AdaptationCoverageResource? _coverage;
+    private AdaptationCoverageResource? _previousCoverage;
+    private ReadinessResource? _readiness;
+    private bool _trainingFailed;
     private bool _isLoading = true;
     private string? _errorMessage;
+
+    private bool HasTrainingData
+        => (_coverage is not null
+                && _coverage.Items.Any(item => item.Sessions > 0))
+           || (_readiness is not null
+                && _readiness.Sessions7d > 0);
 
     private List<BloodTestSummaryResource> NeedsAttention
         => _bloodTests
@@ -237,6 +293,8 @@
             _bloodTests.AddRange(testsTask.Result);
             _markers.Clear();
             _markers.AddRange(markersTask.Result);
+
+            await LoadTrainingAsync();
         }
         catch
         {
@@ -248,6 +306,47 @@
             _isLoading = false;
         }
     }
+
+    // Training reads degrade on their own: a coverage or readiness failure
+    // must not blank the health panels, and vice versa.
+    private async Task LoadTrainingAsync()
+    {
+        _trainingFailed = false;
+
+        var to = DateOnly.FromDateTime(DateTime.Today);
+        var from = to.AddDays(-6);
+        var previousFrom = to.AddDays(-13);
+        var previousTo = to.AddDays(-7);
+
+        var coverageTask =
+            ApiClient.GetAdaptationCoverageAsync(from, to);
+        var previousTask =
+            ApiClient.GetAdaptationCoverageAsync(previousFrom, previousTo);
+        var readinessTask = ApiClient.GetReadinessAsync();
+
+        _coverage = await TryCompleteAsync(coverageTask);
+        _previousCoverage = await TryCompleteAsync(previousTask);
+        _readiness = await TryCompleteAsync(readinessTask);
+
+        _trainingFailed = _coverage is null && _readiness is null;
+    }
+
+    private static async Task<T?> TryCompleteAsync<T>(Task<T?> task)
+        where T : class
+    {
+        try
+        {
+            return await task;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void OpenTodayTraining()
+        => NavigationManager.NavigateTo(
+            "/training/today");
 
     private void OpenUpload()
         => NavigationManager.NavigateTo(

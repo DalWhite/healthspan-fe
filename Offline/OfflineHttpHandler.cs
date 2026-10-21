@@ -12,7 +12,10 @@ public sealed class OfflineHttpHandler : DelegatingHandler
 {
     private static readonly string[] CacheablePrefixes =
     [
-        "workouts", "exercises", "exercisetypes", "api/muscles", "users"
+        "workouts", "exercises", "exercisetypes", "api/muscles", "users",
+        // Derived training reads: cached so the dashboard radar and the
+        // readiness card still render offline or on a slow network.
+        "adaptations", "readiness"
     ];
 
     private static readonly string[] MirrorPrefixes =
