@@ -103,24 +103,54 @@ public class TodayTrackerUiTests : BlazorTestBase
             .Respond("application/json", "[]");
         MockHttp.When(HttpMethod.Get, "/workouts*")
             .Respond("application/json", "[]");
+        // Today re-reads the session after every write, so the fake server must
+        // carry the block once it exists — otherwise the refresh wipes it and the
+        // test asserts against a markup that was never meant to lose it.
+        var blockId = Guid.NewGuid();
+        var blockOnServer = false;
+
+        string TodayPayload(bool withBlock) => $$"""
+            [
+                {
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [],
+                    "blocks": [
+                        { "id": "{{blockId}}", "order": 1, "type": "Superset", "label": null, "rounds": 4, "exercises": [] }
+                    ],
+                    "recentExerciseTypeIds": []
+                }
+            ]
+            """;
+
+        string TodayPayloadEmpty() => $$"""
+            [
+                {
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [],
+                    "blocks": [],
+                    "recentExerciseTypeIds": []
+                }
+            ]
+            """;
+
         MockHttp.When(HttpMethod.Get, $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond("application/json", $$"""
-                [
-                    {
-                        "id": "{{workoutId}}",
-                        "date": "{{DateTime.Today:yyyy-MM-dd}}",
-                        "type": "Training",
-                        "exercises": [],
-                        "blocks": [],
-                        "recentExerciseTypeIds": []
-                    }
-                ]
-                """);
+            .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    blockOnServer ? TodayPayload(true) : TodayPayloadEmpty(), Encoding.UTF8, "application/json")
+            });
         var blockCall = MockHttp.When(HttpMethod.Post, $"/Workouts/{workoutId}/blocks")
             .Respond(request =>
             {
                 var body = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
                 body.Should().Contain("\"type\":\"Superset\"");
+                blockOnServer = true;
+                // The API answers a block create with the whole session (MapSession),
+                // so the mock must too: the FE adopts the session, not a lone block.
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent($$"""
@@ -130,7 +160,7 @@ public class TodayTrackerUiTests : BlazorTestBase
                             "type": "Training",
                             "exercises": [],
                             "blocks": [
-                                { "id": "{{Guid.NewGuid()}}", "order": 1, "type": "Superset", "label": null, "rounds": 4, "exercises": [] }
+                                { "id": "{{blockId}}", "order": 1, "type": "Superset", "label": null, "rounds": 4, "exercises": [] }
                             ],
                             "recentExerciseTypeIds": []
                         }

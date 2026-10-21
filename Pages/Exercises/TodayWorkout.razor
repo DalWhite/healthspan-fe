@@ -793,12 +793,16 @@
                 return;
             }
 
-            var block = await response.Content
-                .ReadFromJsonAsync<WorkoutBlockResource>();
-            if (block is not null)
+            // Both the API and the offline mirror answer a block create with the
+            // whole session, so the session is what we adopt — never a lone block.
+            var updated = await response.Content
+                .ReadFromJsonAsync<WorkoutSessionResource>();
+            if (updated?.Blocks is { Count: > 0 } blocks)
             {
-                session.Blocks.Add(block);
-                _formBlockId = block.Id;
+                session.Blocks = blocks;
+                _formBlockId = blocks
+                    .OrderBy(block => block.Order)
+                    .Last().Id;
             }
 
             _showBlockCreator = false;
