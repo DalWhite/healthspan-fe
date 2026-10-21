@@ -6,6 +6,7 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject TitleService TitleService
+@inject ISnackbar Snackbar
 
 <PageTitle>@_title</PageTitle>
 
@@ -31,6 +32,36 @@
     }
     else if (_exerciseType is not null)
     {
+        <article class="hs-exercise-hero hs-surface">
+            <div class="hs-exercise-hero-media">
+                <img src="@HeroImageUrl"
+                     alt="@(_exerciseType.Name ?? "Exercise")"
+                     loading="lazy"
+                     decoding="async"
+                     onerror="this.remove()" />
+            </div>
+            <div class="hs-exercise-hero-body">
+                <div class="hs-exercise-hero-meta">@HeroMetaLine</div>
+                @if (string.IsNullOrWhiteSpace(TraineeId))
+                {
+                    <div class="hs-exercise-hero-actions">
+                        <MudButton Variant="Variant.Outlined"
+                                   Size="MudBlazor.Size.Small"
+                                   StartIcon="@(_exerciseType.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)"
+                                   OnClick="ToggleFavouriteAsync">
+                            @(_exerciseType.IsFavourite ? "Favourite" : "Add to favourites")
+                        </MudButton>
+                        <MudButton Variant="Variant.Text"
+                                   Size="MudBlazor.Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Edit"
+                                   OnClick="GoToEditExerciseType">
+                            Edit
+                        </MudButton>
+                    </div>
+                }
+            </div>
+        </article>
+
         <nav class="hs-exercise-detail-tabs" aria-label="Exercise details">
             @foreach (var tab in DetailSections)
             {
@@ -394,6 +425,86 @@
             .Where(variation => variation.Id != ExerciseTypeId)
             .OrderBy(variation => variation.Name)
             .ToList();
+
+    private string HeroImageUrl
+        => _exerciseType is null
+            ? string.Empty
+            : !string.IsNullOrEmpty(_exerciseType.ImageRoute)
+                ? _exerciseType.ImageRoute
+                : $"ExerciseImages/{_exerciseType.Name}.jpg";
+
+    // Hero meta line: muscle · equipment · variation count. Segments are omitted when
+    // unknown (never "—" and never an empty "· ·").
+    private string HeroMetaLine
+    {
+        get
+        {
+            if (_exerciseType is null)
+            {
+                return string.Empty;
+            }
+
+            var segments = new List<string>();
+
+            var muscle = AppState.FormatExerciseTypeMuscleLine(_exerciseType, fallback: string.Empty);
+            if (!string.IsNullOrWhiteSpace(muscle))
+            {
+                segments.Add(muscle);
+            }
+
+            var equipment = (_exerciseType.Tags ?? [])
+                .Where(tag => string.Equals(tag.Category, "equipment", StringComparison.OrdinalIgnoreCase))
+                .Select(tag => tag.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (equipment.Count > 0)
+            {
+                segments.Add(string.Join(", ", equipment));
+            }
+
+            var variationCount = RelatedVariations.Count;
+            if (variationCount > 0)
+            {
+                segments.Add(variationCount == 1 ? "1 variation" : $"{variationCount} variations");
+            }
+
+            return string.Join(" · ", segments);
+        }
+    }
+
+    private void GoToEditExerciseType()
+        => NavigationManager.NavigateTo(
+            $"/training/library/{ExerciseTypeId}/edit?returnUrl={Uri.EscapeDataString(BuildCurrentDetailReturnUrl(_activeSection))}");
+
+    private async Task ToggleFavouriteAsync()
+    {
+        if (_exerciseType is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var isFavourite = !_exerciseType.IsFavourite;
+            var response = await Http.PutAsJsonAsync(
+                $"/ExerciseTypes/{_exerciseType.Id}/favourite",
+                new SetExerciseTypeFavouriteResource { IsFavourite = isFavourite });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Couldn't update the favourite. Try again.", Severity.Error);
+                return;
+            }
+
+            _exerciseType.IsFavourite = isFavourite;
+            AppState.InvalidateExerciseTypes();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Couldn't update the favourite. Check your connection.", Severity.Error);
+        }
+    }
 
     protected override void OnInitialized()
     {

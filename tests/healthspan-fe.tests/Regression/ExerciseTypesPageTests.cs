@@ -26,16 +26,30 @@ public class ExerciseTypesPageTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("Sit Up");
-            cut.Markup.Should().Contain("Romanian Sit Up");
             cut.Markup.Should().Contain("bodyweight");
-            cut.FindAll(".exercise-card").Should().HaveCount(1);
-            cut.Find(".exercise-card").GetAttribute("role").Should().Be("link");
-            cut.Find(".exercise-card").GetAttribute("tabindex").Should().Be("0");
             cut.Markup.Should().Contain("1 exercise");
             cut.Markup.Should().Contain("Filters");
-            cut.FindAll("button[aria-label='View stats']").Should().HaveCount(1);
+            cut.FindAll(".exercise-card").Should().HaveCount(1);
+
+            // DESIGN.md §5.6: the card is one tap target — photo, canonical
+            // name and a single meta line. No chips, no buttons, no menus.
+            var card = cut.Find(".exercise-card");
+            card.GetAttribute("role").Should().Be("link");
+            card.GetAttribute("tabindex").Should().Be("0");
+            card.QuerySelectorAll("button").Should().BeEmpty(
+                "the library card must not carry controls; the detail page owns them");
+            card.QuerySelectorAll(".mud-chip").Should().BeEmpty();
+            card.QuerySelector("img").GetAttribute("loading").Should().Be("lazy");
+            card.QuerySelector("img").GetAttribute("decoding").Should().Be("async");
+            cut.Find(".hs-et-card-meta").TextContent
+                .Should().Contain("1 variation", "variation count, not variation chips");
+
+            cut.FindAll("button[aria-label='View stats']").Should().BeEmpty();
+            cut.FindAll(".hs-et-card-menu").Should().BeEmpty();
+            cut.FindAll(".hs-et-variation-toggle").Should().BeEmpty();
             cut.FindAll("button[aria-label='Create exercise for today']").Should().BeEmpty();
-            cut.FindAll(".hs-et-card-menu").Should().HaveCount(1);
+            cut.FindAll("button[aria-label='Add to favorites'], button[aria-label='Remove from favorites']")
+                .Should().BeEmpty("favouriting lives on the exercise detail hero, not on the card");
         }, timeout: TimeSpan.FromSeconds(3));
     }
 
@@ -53,25 +67,6 @@ public class ExerciseTypesPageTests : BlazorTestBase
             cut.Markup.Should().Contain("No matching exercises");
             cut.Markup.Should().Contain("Clear filters");
             cut.FindAll(".exercise-card").Should().BeEmpty();
-        });
-    }
-
-    [Fact]
-    public void Favourite_Button_UsesFocusedEndpoint()
-    {
-        ConfigureCatalogResponses();
-        var cut = RenderComponent<healthspan_fe_wasm_pwa.Pages.ExerciseTypes.ExerciseTypes>();
-        var favoriteButton = cut.WaitForElement("button[aria-label='Remove from favorites']");
-
-        MockHttp.Expect(HttpMethod.Put, "/ExerciseTypes/1/favourite")
-            .Respond(HttpStatusCode.NoContent);
-
-        favoriteButton.Click();
-
-        cut.WaitForAssertion(() =>
-        {
-            cut.FindAll("button[aria-label='Add to favorites']").Should().HaveCount(1);
-            MockHttp.VerifyNoOutstandingExpectation();
         });
     }
 

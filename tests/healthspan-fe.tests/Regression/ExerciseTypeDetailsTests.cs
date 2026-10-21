@@ -260,6 +260,35 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         }, timeout: TimeSpan.FromSeconds(10));
     }
 
+    [Fact]
+    public void Hero_Owns_The_Favourite_Control_And_Uses_The_Focused_Endpoint()
+    {
+        ConfigureWeightedExercise();
+        var cut = RenderComponent<ExerciseTypeDetails>(parameters => parameters
+            .Add(p => p.ExerciseTypeId, 21));
+
+        cut.WaitForElement(".hs-exercise-hero");
+
+        // DESIGN.md §5.6: the detail hero carries the photo, the meta line and
+        // the controls the library card deliberately dropped.
+        cut.Find(".hs-exercise-hero-media img").GetAttribute("loading").Should().Be("lazy");
+        cut.Find(".hs-exercise-hero-meta").TextContent.Should().Contain("barbell");
+        cut.Find(".hs-exercise-hero-meta").TextContent.Should().Contain("1 variation");
+
+        var button = cut.WaitForElement("button:contains('Add to favourites')");
+
+        MockHttp.Expect(HttpMethod.Put, "/ExerciseTypes/21/favourite")
+            .Respond(HttpStatusCode.NoContent);
+
+        button.Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find("button:contains('Favourite')").Should().NotBeNull();
+            MockHttp.VerifyNoOutstandingExpectation();
+        });
+    }
+
     private void ConfigureWeightedExercise()
     {
         MockHttp.When("/ExerciseTypes/21")
