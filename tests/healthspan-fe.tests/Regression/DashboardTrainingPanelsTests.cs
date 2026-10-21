@@ -92,6 +92,38 @@ public class DashboardTrainingPanelsTests : BlazorTestBase
     }
 
     [Fact]
+    public void Dashboard_RadarOmitsPreviousWeek_WhenPreviousWindowIsAllZero()
+    {
+        MockHttp.When("/Dashboard/summary").Respond("application/json", "{}");
+        MockHttp.When("/BloodTests").Respond("application/json", "[]");
+        MockHttp.When("/BloodTests/markers/latest").Respond("application/json", "[]");
+        MockHttp.When("/HealthProfile").Respond("application/json", "null");
+        MockHttp.When(CurrentCoverageUrl).Respond("application/json", CoverageJson(CoverageItems(
+            ("Skill", 2, 1, 0.5), ("Speed", 1, 1, 1.0), ("Power", 1, 0, 0.0),
+            ("Strength", 2, 0, 0.0), ("Hypertrophy", 2, 0, 0.0),
+            ("MuscularEndurance", 2, 0, 0.0), ("AnaerobicCapacity", 1, 0, 0.0),
+            ("MaximalAerobicPower", 1, 0, 0.0), ("LongDurationEndurance", 2, 0, 0.0))));
+        // The API answers the previous window with every axis at zero (qa5-like
+        // prod data): a ghost polygon there is a dot at the centre, not a trend.
+        MockHttp.When(PreviousCoverageUrl).Respond("application/json", CoverageJson(CoverageItems(
+            ("Skill", 2, 0, 0.0), ("Speed", 1, 0, 0.0), ("Power", 1, 0, 0.0),
+            ("Strength", 2, 0, 0.0), ("Hypertrophy", 2, 0, 0.0),
+            ("MuscularEndurance", 2, 0, 0.0), ("AnaerobicCapacity", 1, 0, 0.0),
+            ("MaximalAerobicPower", 1, 0, 0.0), ("LongDurationEndurance", 2, 0, 0.0))));
+        MockHttp.When("/Readiness").Respond("application/json", ReadinessJson(10, 0, 1));
+
+        var cut = RenderComponent<Dashboard>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal(9, cut.FindAll(".hs-coverage-radar-axis-label").Count);
+            Assert.Empty(cut.FindAll(".hs-coverage-radar-previous"));
+            Assert.DoesNotContain("Semana anterior", cut.Markup);
+            Assert.Single(cut.FindAll(".hs-coverage-radar-current"));
+        });
+    }
+
+    [Fact]
     public void Dashboard_ReadinessCard_ShowsScoreStatusAndTopTwoSuggestions()
     {
         MockHttp.When("/Dashboard/summary").Respond("application/json", "{}");

@@ -100,6 +100,13 @@
             return null;
         }
 
+        // An all-zero previous week collapses into a dot at the centre: there is
+        // nothing to compare, so the ghost and its legend entry are dropped.
+        if (!ordered.Any(item => item!.CoverageRatio > 0d))
+        {
+            return null;
+        }
+
         return BuildSeriesPoints(ordered.Select(item => item!).ToList());
     }
 
