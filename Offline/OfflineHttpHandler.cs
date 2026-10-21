@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace Healthspan.Offline;
 
 /// <summary>
@@ -34,18 +36,21 @@ public sealed class OfflineHttpHandler : DelegatingHandler
     private readonly LocalMutator _mutator;
     private readonly SyncStatusService _status;
     private readonly SyncCoordinator _coordinator;
+    private readonly ILogger<OfflineHttpHandler>? _logger;
     private HttpClient? _forward;
 
     public OfflineHttpHandler(
         ILocalStore store,
         LocalMutator mutator,
         SyncStatusService status,
-        SyncCoordinator coordinator)
+        SyncCoordinator coordinator,
+        ILogger<OfflineHttpHandler>? logger = null)
     {
         _store = store;
         _mutator = mutator;
         _status = status;
         _coordinator = coordinator;
+        _logger = logger;
     }
 
     public Task<HttpResponseMessage> ProcessAsync(
@@ -76,6 +81,30 @@ public sealed class OfflineHttpHandler : DelegatingHandler
             ? _forward.SendAsync(request, cancellationToken)
             : base.SendAsync(request, cancellationToken);
 
+    /// <summary>
+    /// Local mirror attempt that can never break the user's action: a mirror
+    /// failure (schema drift, a broken OPFS file, a worker that died) falls
+    /// back to the network path instead of throwing out of the handler, which
+    /// would leave the page with no response and no error message.
+    /// </summary>
+    private async Task<HttpResponseMessage?> TryLocalAsync(HttpRequestMessage request)
+    {
+        try
+        {
+            return await _mutator.TryHandleAsync(request);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(
+                ex,
+                "Local mirror could not handle {Method} {Path}; falling back to the network.",
+                request.Method.Method,
+                request.RequestUri?.AbsolutePath);
+
+            return null;
+        }
+    }
+
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
@@ -98,7 +127,7 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         // never blocked by the network and never lost when it fails.
         if (storeReady && !isGet && isTraining)
         {
-            var local = await _mutator.TryHandleAsync(request);
+            var local = await TryLocalAsync(request);
             if (local is not null)
             {
                 if (_status.IsOnline)
@@ -114,7 +143,7 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         // changes for that entity (otherwise the server is the fresher copy).
         if (storeReady && isGet && isTraining && await HasLocalChangesAsync(path))
         {
-            var local = await _mutator.TryHandleAsync(request);
+            var local = await TryLocalAsync(request);
             if (local is not null)
             {
                 return local;
@@ -129,7 +158,7 @@ public sealed class OfflineHttpHandler : DelegatingHandler
                 return cached;
             }
 
-            var local = await _mutator.TryHandleAsync(request);
+            var local = await TryLocalAsync(request);
             if (local is not null)
             {
                 return local;

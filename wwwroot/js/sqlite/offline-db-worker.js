@@ -63,6 +63,7 @@ const SCHEMA = `
         sort_order INTEGER NOT NULL DEFAULT 0,
         type TEXT NOT NULL DEFAULT 'Normal',
         label TEXT,
+        rounds INTEGER,
         updated_at_utc TEXT NOT NULL,
         deleted INTEGER NOT NULL DEFAULT 0
     );
@@ -92,6 +93,7 @@ const MIGRATIONS = [
     'ALTER TABLE exercises ADD COLUMN completed_attempts INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE exercises ADD COLUMN quality_intent INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE exercises ADD COLUMN load_type TEXT',
+    'ALTER TABLE blocks ADD COLUMN rounds INTEGER',
 ];
 
 let db = null;

@@ -446,6 +446,9 @@ public abstract class SqlLocalStoreBase : ILocalStore
             Order = int.TryParse(Column(row, "sort_order"), out var order) ? order : 0,
             Type = row["type"] ?? "Normal",
             Label = row["label"],
+            Rounds = int.TryParse(Column(row, "rounds"), out var rounds)
+                ? rounds
+                : null,
             UpdatedAtUtc = DateTime.TryParse(
                 row["updated_at_utc"], null,
                 System.Globalization.DateTimeStyles.RoundtripKind,
