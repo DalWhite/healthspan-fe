@@ -1,99 +1,94 @@
 ﻿@inherits LayoutComponentBase
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
-@inject Blazored.LocalStorage.ISyncLocalStorageService LocalStorage
 @inject ThemeState ThemeState
 @inject IJSRuntime JS
 @inject Healthspan.Offline.SyncStatusService SyncStatus
 @inject Healthspan.Offline.SyncCoordinator SyncCoordinator
 @inject Healthspan.Offline.SyncEngine SyncEngine
+@inject AppStateService AppState
 @implements IDisposable
 
 <MudThemeProvider IsDarkMode="@ThemeState.IsDarkMode" Theme="@HealthspanTheme.Default" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<MudLayout>
-    <MudAppBar Elevation="0" Class="hs-appbar">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu"
-                       Color="MudBlazor.Color.Inherit"
-                       Edge="Edge.Start"
-                       aria-label="Toggle navigation"
-                       OnClick="ToggleDrawer" />
+<div class="hs-shell">
+    <header class="hs-topbar">
+        <MudText Typo="Typo.subtitle2" Class="hs-topbar-brand">Healthspan</MudText>
         <MudSpacer />
         <SyncStatusIndicator />
-        <MudButton Variant="Variant.Filled"
-                   Color="MudBlazor.Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   Class="hs-appbar-primary-action"
-                   OnClick="GoToToday">
-            Log workout
-        </MudButton>
-    </MudAppBar>
+        <MudMenu AnchorOrigin="Origin.BottomRight"
+                 TransformOrigin="Origin.TopRight"
+                 Icon="@Icons.Material.Filled.Person"
+                 AriaLabel="Account and health sections"
+                 Class="hs-topbar-account">
+            <MudMenuItem OnClick='@(() => Go("/health/dashboard"))'>Health dashboard</MudMenuItem>
+            <MudMenuItem OnClick='@(() => Go("/health/blood-tests"))'>Blood Tests</MudMenuItem>
+            <MudMenuItem OnClick='@(() => Go("/health/biomarkers"))'>Biomarkers</MudMenuItem>
+            <MudMenuItem OnClick='@(() => Go("/health/assessments"))'>Assessments</MudMenuItem>
+            <MudMenuItem OnClick='@(() => Go("/health/profile"))'>Personal Profile</MudMenuItem>
+            @if (_isTrainer)
+            {
+                <MudMenuItem OnClick='@(() => Go("/trainees"))'>Trainees</MudMenuItem>
+            }
+            <MudMenuItem OnClick='@(() => Go("/settings"))'>Account &amp; Settings</MudMenuItem>
+        </MudMenu>
+    </header>
 
-    <MudDrawer @bind-Open="@_drawerOpen"
-               id="app-navigation-drawer"
-               Elevation="0"
-               Variant="@DrawerVariant.Responsive"
-               Breakpoint="@Breakpoint.Md"
-               Class="hs-app-drawer">
-        <MudDrawerHeader Class="hs-drawer-header">
-            <div class="hs-brand-mark">H</div>
+    <aside class="hs-sidebar" aria-label="Primary navigation">
+        <div class="hs-sidebar-brand">
+            <div class="hs-brand-mark" aria-hidden="true">H</div>
             <div>
                 <MudText Typo="Typo.h6" Class="hs-brand-name">Healthspan</MudText>
                 <MudText Typo="Typo.caption" Class="hs-brand-caption">Health + training</MudText>
             </div>
-            <MudSpacer />
-            <MudIconButton Icon="@Icons.Material.Filled.Close"
-                           Class="hs-drawer-close"
-                           aria-label="Close navigation menu"
-                           OnClick="ToggleDrawer" />
-        </MudDrawerHeader>
+        </div>
+        <MudButton Variant="Variant.Filled"
+                   Color="MudBlazor.Color.Primary"
+                   FullWidth="true"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Class="hs-sidebar-cta"
+                   OnClick="GoToToday">
+            Registrar entreno
+        </MudButton>
         <NavMenu />
+    </aside>
 
-        <MudSpacer />
-    </MudDrawer>
-
-    <MudMainContent Class="main-content hs-main-content">
+    <main class="main-content hs-main-content">
         <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="hs-app-content">
             @Body
         </MudContainer>
-    </MudMainContent>
+    </main>
 
-    <nav class="hs-mobile-bottom-nav" aria-label="Primary navigation">
-        <button type="button"
-                class="hs-mobile-nav-link hs-mobile-nav-menu"
-                aria-label="@(_drawerOpen ? "Close navigation menu" : "Open navigation menu")"
-                aria-controls="app-navigation-drawer"
-                aria-expanded="@_drawerOpen.ToString().ToLowerInvariant()"
-                @onclick="ToggleDrawer">
-            <MudIcon Icon="@Icons.Material.Filled.Menu" Size="MudBlazor.Size.Small" />
-            <span>Menu</span>
-        </button>
-        <NavLink href="/health/dashboard" class="hs-mobile-nav-link" Match="NavLinkMatch.Prefix">
-            <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" Size="MudBlazor.Size.Small" />
-            <span>Health</span>
+    <nav class="hs-bottom-nav" aria-label="Primary navigation">
+        <NavLink href="/training/today" class="hs-bottom-nav-link" Match="NavLinkMatch.All">
+            <MudIcon Icon="@Icons.Material.Filled.Home" Size="MudBlazor.Size.Small" />
+            <span>Hoy</span>
         </NavLink>
-        <NavLink href="/training/today" class="hs-mobile-nav-link hs-mobile-nav-primary" Match="NavLinkMatch.All">
-            <MudIcon Icon="@Icons.Material.Filled.AddCircle" Size="MudBlazor.Size.Small" />
-            <span>Train</span>
-        </NavLink>
-        <NavLink href="/training/history" class="hs-mobile-nav-link" Match="NavLinkMatch.Prefix">
+        <NavLink href="/training/history" class="hs-bottom-nav-link" Match="NavLinkMatch.Prefix">
             <MudIcon Icon="@Icons.Material.Filled.History" Size="MudBlazor.Size.Small" />
-            <span>History</span>
+            <span>Historial</span>
         </NavLink>
-        <NavLink href="/training/library" class="hs-mobile-nav-link" Match="NavLinkMatch.Prefix">
+        <button type="button" class="hs-fab" aria-label="Registrar entreno" @onclick="GoToToday">
+            <MudIcon Icon="@Icons.Material.Filled.Add" Size="MudBlazor.Size.Medium" />
+        </button>
+        <NavLink href="/training/insights" class="hs-bottom-nav-link" Match="NavLinkMatch.All">
+            <MudIcon Icon="@Icons.Material.Filled.Insights" Size="MudBlazor.Size.Small" />
+            <span>Insights</span>
+        </NavLink>
+        <NavLink href="/training/library" class="hs-bottom-nav-link" Match="NavLinkMatch.Prefix">
             <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="MudBlazor.Size.Small" />
-            <span>Library</span>
+            <span>Biblioteca</span>
         </NavLink>
     </nav>
-</MudLayout>
+</div>
 
 @code {
     private bool _jsBridgeRegistered;
     private DotNetObjectReference<MainLayout>? _selfRef;
 
-    private bool _drawerOpen = true;
+    private bool _isTrainer;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -129,9 +124,6 @@
     {
         ThemeState.Changed += HandleThemeChanged;
 
-        if (LocalStorage.ContainKey("_isDarkMode"))
-            ThemeState.SetDarkMode(LocalStorage.GetItem<bool>("_isDarkMode"));
-
         // Redirect based on auth state
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
@@ -139,6 +131,9 @@
 
         if (authState.User.Identity?.IsAuthenticated == true)
         {
+            var roles = await AppState.GetUserRolesAsync();
+            _isTrainer = roles.Contains("Trainer");
+
             if (isRoot)
                 NavigationManager.NavigateTo("/training/insights");
         }
@@ -163,7 +158,7 @@
         relativePath.StartsWith("login", StringComparison.OrdinalIgnoreCase) ||
         relativePath.StartsWith("register", StringComparison.OrdinalIgnoreCase);
 
-    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void Go(string route) => NavigationManager.NavigateTo(route);
     private void GoToToday() => NavigationManager.NavigateTo("/training/today");
 
     private void HandleThemeChanged()
@@ -177,5 +172,4 @@
         _selfRef?.Dispose();
         _selfRef = null;
     }
-
 }

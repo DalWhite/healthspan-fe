@@ -47,7 +47,7 @@ else
                 Labels = new YAxisLabels { Formatter = BuildFormatter() }
             }
         };
-        _options.Colors = Series.Select(x => x.Color ?? "#0f5f67").Distinct().ToList();
+        _options.Colors = Series.Select(x => x.Color ?? "#1E6FFF").Distinct().ToList();
     }
 
     private decimal AverageValues(IEnumerable<TrendPointResource> points)

@@ -68,17 +68,95 @@ public class SharedVisualFoundationTests : BlazorTestBase
     }
 
     [Fact]
-    public void ThemeState_Notifies_Only_When_The_Mode_Changes()
+    public void ThemeState_Is_Dark_Only_And_Notifies_Only_On_An_Actual_Change()
     {
         var themeState = new ThemeState();
         var notifications = 0;
         themeState.Changed += () => notifications++;
 
-        themeState.SetDarkMode(true);
-        themeState.SetDarkMode(true);
-
+        // DESIGN.md §6: dark-only by default, so re-asserting dark is a no-op.
         themeState.IsDarkMode.Should().BeTrue();
+        themeState.SetDarkMode(true);
+        themeState.SetDarkMode(true);
+        notifications.Should().Be(0);
+
+        themeState.SetDarkMode(false);
         notifications.Should().Be(1);
-        HealthspanTheme.Default.PaletteDark.Surface.Value.Should().Be("#172b2eff");
+    }
+
+    [Fact]
+    public void Theme_Uses_The_Design_System_V1_Palette_And_Inter()
+    {
+        var palette = HealthspanTheme.Default.PaletteDark;
+
+        // MudColor normalizes to lowercase #RRGGBBAA.
+        palette.Primary.Value.Should().Be("#1e6fffff");
+        palette.Secondary.Value.Should().Be("#1e6fffff");
+        palette.Background.Value.Should().Be("#0e1116ff");
+        palette.Surface.Value.Should().Be("#161b22ff");
+        palette.DrawerBackground.Value.Should().Be("#161b22ff");
+        palette.AppbarBackground.Value.Should().Be("#161b22ff");
+        palette.LinesDefault.Value.Should().Be("#262c36ff");
+        palette.Success.Value.Should().Be("#2fbf71ff");
+        palette.Error.Value.Should().Be("#f1545bff");
+
+        // DESIGN.md §2: Inter replaces MudBlazor's Roboto default.
+        HealthspanTheme.Default.Typography.Default.FontFamily.Should().Contain("Inter");
+        HealthspanTheme.Default.Typography.Body1.FontFamily.Should().Contain("Inter");
+        HealthspanTheme.Default.Typography.Button.FontFamily.Should().Contain("Inter");
+    }
+
+    [Fact]
+    public void Stylesheet_Keeps_The_Design_System_V1_Token_Contract()
+    {
+        var css = RepoFile(Path.Combine("wwwroot", "css", "app.css"));
+        var index = RepoFile(Path.Combine("wwwroot", "index.html"));
+
+        foreach (var token in new[]
+                 {
+                     "--hs-canvas: #0E1116", "--hs-card: #161B22", "--hs-accent: #1E6FFF",
+                     "--hs-done: #2FBF71", "--hs-pr: #F5B83D", "--hs-err: #F1545B",
+                     "--hs-t1: #F2F4F8", "--hs-t2: #A9B1BE", "--hs-t3: #78818F"
+                 })
+        {
+            css.Should().Contain(token, $"{token} is a v1 token the screens build on");
+        }
+
+        // DESIGN.md §2: tabular numbers globally, §3: the shared component classes.
+        css.Should().Contain("font-variant-numeric: tabular-nums");
+        foreach (var componentClass in new[] { ".hs-chip", ".hs-settable", ".hs-fab", ".hs-hero" })
+        {
+            css.Should().Contain(componentClass);
+        }
+
+        // No drop shadows in v1 (DESIGN.md §1): depth comes from the surface ladder.
+        css.Should().Contain("--hs-shadow-card: none");
+        css.Should().Contain("--hs-shadow-panel: none");
+
+        // Single accent: MudBlazor's default indigo must not survive anywhere.
+        var cssLower = css.ToLowerInvariant();
+        cssLower.Should().NotContain("#665ac1", "the default MudBlazor accent is a second actionable colour");
+        cssLower.Should().NotContain("#594ae2", "the default MudBlazor accent is a second actionable colour");
+
+        // DESIGN.md §2: Inter is loaded by the app shell.
+        index.Should().Contain("family=Inter");
+        index.ToLowerInvariant().Should().NotContain("family=roboto", "Roboto is not the v1 typeface");
+    }
+
+    private static string RepoFile(string relative)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir.FullName, relative);
+            if (File.Exists(candidate))
+            {
+                return File.ReadAllText(candidate);
+            }
+
+            dir = dir.Parent;
+        }
+
+        throw new FileNotFoundException($"{relative} was not found above the test assembly.");
     }
 }

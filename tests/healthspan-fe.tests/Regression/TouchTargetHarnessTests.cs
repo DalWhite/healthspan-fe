@@ -36,7 +36,9 @@ public class TouchTargetHarnessTests : BlazorTestBase
     {
         var markup = RenderTrainingMarkup();
 
-        markup["appbar"].Should().Contain("hs-appbar-primary-action");
+        markup["shell"].Should().Contain("hs-bottom-nav");
+        markup["shell"].Should().Contain("hs-fab");
+        markup["shell"].Should().Contain("hs-sidebar-cta");
         markup["today"].Should().Contain("hs-today-exercise-edit-link");
         markup["today"].Should().Contain("hs-today-session-switcher");
         markup["entryform"].Should().Contain("hs-exercise-quick-button");
@@ -68,7 +70,8 @@ public class TouchTargetHarnessTests : BlazorTestBase
 
         foreach (var shell in new[]
                  {
-                     ".hs-appbar", ".hs-page-shell", ".hs-health-shell",
+                     ".hs-topbar", ".hs-bottom-nav", ".hs-sidebar", ".hs-settable",
+                     ".hs-page-shell", ".hs-health-shell",
                      ".hs-page-toolbar", ".hs-login-layout"
                  })
         {
@@ -139,7 +142,7 @@ public class TouchTargetHarnessTests : BlazorTestBase
         var rendered = new Dictionary<string, string>();
 
         var layout = RenderComponent<MainLayout>();
-        rendered["appbar"] = layout.Markup;
+        rendered["shell"] = layout.Markup;
 
         var today = RenderComponent<TodayWorkout>();
         today.WaitForAssertion(
