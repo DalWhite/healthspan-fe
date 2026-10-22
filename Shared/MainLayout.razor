@@ -21,19 +21,32 @@
         <SyncStatusIndicator />
         <MudMenu AnchorOrigin="Origin.BottomRight"
                  TransformOrigin="Origin.TopRight"
-                 Icon="@Icons.Material.Filled.Person"
-                 AriaLabel="Account and health sections"
+                 PopoverClass="hs-account-sheet"
                  Class="hs-topbar-account">
-            <MudMenuItem OnClick='@(() => Go("/health/dashboard"))'>Health dashboard</MudMenuItem>
-            <MudMenuItem OnClick='@(() => Go("/health/blood-tests"))'>Blood Tests</MudMenuItem>
-            <MudMenuItem OnClick='@(() => Go("/health/biomarkers"))'>Biomarkers</MudMenuItem>
-            <MudMenuItem OnClick='@(() => Go("/health/assessments"))'>Assessments</MudMenuItem>
-            <MudMenuItem OnClick='@(() => Go("/health/profile"))'>Personal Profile</MudMenuItem>
-            @if (_isTrainer)
-            {
-                <MudMenuItem OnClick='@(() => Go("/trainees"))'>Trainees</MudMenuItem>
-            }
-            <MudMenuItem OnClick='@(() => Go("/settings"))'>Account &amp; Settings</MudMenuItem>
+            <ActivatorContent>
+                @* MudMenu has no AriaLabel parameter: the string was landing as an
+                   unmatched attribute on the wrapper div, so the icon-only account
+                   button had no accessible name. aria-label splats onto the button. *@
+                <MudIconButton Icon="@Icons.Material.Filled.Person"
+                               aria-label="Account and health sections" />
+            </ActivatorContent>
+            @* Href, not OnClick: MudMenuItem handles a tap through its touch path
+               (@ontouchend), and that path only honours Href or OnTouch — an OnClick-only
+               item closes the sheet on a phone without ever navigating. Href is SPA
+               navigation (NavigationManager under the hood) and works for click and tap. *@
+            <ChildContent>
+                <MudMenuItem Href="/health/dashboard">Health dashboard</MudMenuItem>
+                <MudMenuItem Href="/health/blood-tests">Blood Tests</MudMenuItem>
+                <MudMenuItem Href="/health/biomarkers">Biomarkers</MudMenuItem>
+                <MudMenuItem Href="/health/assessments">Assessments</MudMenuItem>
+                <MudMenuItem Href="/health/profile">Personal Profile</MudMenuItem>
+                @if (_isTrainer)
+                {
+                    <MudMenuItem Href="/trainees">Trainees</MudMenuItem>
+                }
+                <MudMenuItem Href="/settings">Account &amp; Settings</MudMenuItem>
+                <MudMenuItem Href="/logout">Cerrar sesión</MudMenuItem>
+            </ChildContent>
         </MudMenu>
     </header>
 
@@ -171,7 +184,6 @@
         relativePath.StartsWith("login", StringComparison.OrdinalIgnoreCase) ||
         relativePath.StartsWith("register", StringComparison.OrdinalIgnoreCase);
 
-    private void Go(string route) => NavigationManager.NavigateTo(route);
     private void GoToToday() => NavigationManager.NavigateTo("/training/today");
 
     // The FAB and the "Hoy" tab are not the same affordance: "Hoy" is the day
