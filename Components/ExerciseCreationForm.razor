@@ -513,12 +513,8 @@
             }
 
             var endpoint = UseWorkoutSessionEndpoint
-                ? string.IsNullOrWhiteSpace(TraineeId)
-                    ? $"/Workouts/{workoutId}/exercises"
-                    : $"/Workouts/{workoutId}/exercises?traineeId={Uri.EscapeDataString(TraineeId)}"
-                : string.IsNullOrWhiteSpace(TraineeId)
-                    ? "/Exercises"
-                    : $"/Exercises?userId={Uri.EscapeDataString(TraineeId)}";
+                ? $"/Workouts/{workoutId}/exercises{TraineeRoute.TraineeQuery(TraineeId)}"
+                : $"/Exercises{TraineeRoute.ApiUserQuery(TraineeId)}";
             using var response = await Http.PostAsJsonAsync(endpoint, _exercise);
 
             if (!response.IsSuccessStatusCode)
@@ -629,7 +625,7 @@
 
     private async Task<Guid> ResolveWorkoutIdAsync(DateTime? date)
     {
-        var url = TraineeId != null ? $"/workouts?traineeId={TraineeId}" : "/workouts";
+        var url = $"/workouts{TraineeRoute.TraineeQuery(TraineeId)}";
         var workouts = await Http.GetFromJsonAsync<GetWorkoutResource[]>(url);
 
         var existing = workouts?.FirstOrDefault(w =>
