@@ -1,9 +1,13 @@
+using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Components;
 using System.Net;
 using System.Text;
 using Bunit;
 using Bunit.TestDoubles;
 using FluentAssertions;
 using healthspan_fe.tests.Infrastructure;
+using healthspan_fe_wasm_pwa.Components;
 using healthspan_fe_wasm_pwa.Pages.Exercises;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
@@ -551,6 +555,66 @@ public class TodayWorkoutTests : BlazorTestBase
             TimeSpan.FromSeconds(10));
     }
 
+    [Fact]
+    public void Today_Renders_The_Summary_When_Finish_Comes_From_The_Shell_Fab()
+    {
+        // t_745b4960 regression: the FAB finish is an event owned by MainLayout
+        // (ActiveSession.FinishAsync), so only the layout re-renders by default.
+        // The page must render its own summary after the dialog closes, otherwise
+        // the DOM stays frozen on the log view and the user never sees the result.
+        var workoutId = Guid.NewGuid();
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=14")
+            .Respond("application/json", "[]");
+        var startCall = MockHttp.When(HttpMethod.Post, "/Workouts/today")
+            .Respond(HttpStatusCode.Created, "application/json", $$"""
+                {
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [],
+                    "recentExerciseTypeIds": []
+                }
+                """);
+
+        Services.AddSingleton<IDialogService, ImmediateDialogService>();
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(
+            () => cut.FindAll("button")
+                .Should().Contain(button => button.TextContent.Contains("Empezar entreno")),
+            TimeSpan.FromSeconds(10));
+        cut.FindAll("button")
+            .Single(button => button.TextContent.Contains("Empezar entreno"))
+            .Click();
+        cut.WaitForAssertion(
+            () => MockHttp.GetMatchCount(startCall).Should().Be(1),
+            TimeSpan.FromSeconds(10));
+        // The POST continuation hops to the thread pool; wait until the log
+        // view is actually rendered, otherwise FinishAsync races StartWorkout.
+        cut.WaitForAssertion(
+            () => cut.FindAll(".hs-today-timer").Should().NotBeEmpty(),
+            TimeSpan.FromSeconds(10));
+
+        // Shell FAB path: the click belongs to MainLayout, not to the page.
+        var active = Services.GetRequiredService<ActiveSessionState>();
+        active.FinishAsync().GetAwaiter().GetResult();
+
+        cut.WaitForAssertion(
+            () => cut.FindAll(".hs-summary-hero").Should().HaveCount(1),
+            TimeSpan.FromSeconds(10));
+        cut.FindAll("button")
+            .Should().Contain(button => button.TextContent.Contains("Volver a Hoy"));
+        active.SessionId.Should().BeNull();
+    }
+
     private static string TodaySessionJson(Guid workoutId, Guid exerciseId)
         => $$"""
             [{
@@ -570,4 +634,64 @@ public class TodayWorkoutTests : BlazorTestBase
                 "recentExerciseTypeIds": [1]
             }]
             """;
+
+
+
+    // MudBlazor dialogs do not render in bUnit (MudDialogProvider limitation),
+    // so the shell-FAB regression test stubs the dialog: the finish handler
+    // proceeds as if the user confirmed without fatigue data.
+    private sealed class ImmediateDialogService : IDialogService
+    {
+        public event Action<IDialogReference> OnDialogInstanceAdded { add { } remove { } }
+        public event Action<IDialogReference, DialogResult> OnDialogCloseRequested { add { } remove { } }
+
+        public IDialogReference Show<T>() where T : IComponent => Show(typeof(T), string.Empty, new DialogParameters(), new DialogOptions());
+        public IDialogReference Show<T>(string title) where T : IComponent => Show(typeof(T), title, new DialogParameters(), new DialogOptions());
+        public IDialogReference Show<T>(string title, DialogOptions options) where T : IComponent => Show(typeof(T), title, new DialogParameters(), options);
+        public IDialogReference Show<T>(string title, DialogParameters parameters) where T : IComponent => Show(typeof(T), title, parameters, new DialogOptions());
+        public IDialogReference Show<T>(string title, DialogParameters parameters, DialogOptions options) where T : IComponent => Show(typeof(T), title, parameters, options);
+        public IDialogReference Show(Type contentComponent) => Show(contentComponent, string.Empty, new DialogParameters(), new DialogOptions());
+        public IDialogReference Show(Type contentComponent, string title) => Show(contentComponent, title, new DialogParameters(), new DialogOptions());
+        public IDialogReference Show(Type contentComponent, string title, DialogOptions options) => Show(contentComponent, title, new DialogParameters(), options);
+        public IDialogReference Show(Type contentComponent, string title, DialogParameters parameters) => Show(contentComponent, title, parameters, new DialogOptions());
+        public IDialogReference Show(Type contentComponent, string title, DialogParameters parameters, DialogOptions options) => new ImmediateDialogReference();
+
+        public Task<IDialogReference> ShowAsync<T>() where T : IComponent => Task.FromResult(Show<T>());
+        public Task<IDialogReference> ShowAsync<T>(string title) where T : IComponent => Task.FromResult(Show<T>(title));
+        public Task<IDialogReference> ShowAsync<T>(string title, DialogOptions options) where T : IComponent => Task.FromResult(Show<T>(title, options));
+        public Task<IDialogReference> ShowAsync<T>(string title, DialogParameters parameters) where T : IComponent => Task.FromResult(Show<T>(title, parameters));
+        public Task<IDialogReference> ShowAsync<T>(string title, DialogParameters parameters, DialogOptions options) where T : IComponent => Task.FromResult(Show<T>(title, parameters, options));
+        public Task<IDialogReference> ShowAsync(Type contentComponent) => Task.FromResult(Show(contentComponent));
+        public Task<IDialogReference> ShowAsync(Type contentComponent, string title) => Task.FromResult(Show(contentComponent, title));
+        public Task<IDialogReference> ShowAsync(Type contentComponent, string title, DialogOptions options) => Task.FromResult(Show(contentComponent, title, options));
+        public Task<IDialogReference> ShowAsync(Type contentComponent, string title, DialogParameters parameters) => Task.FromResult(Show(contentComponent, title, parameters));
+        public Task<IDialogReference> ShowAsync(Type contentComponent, string title, DialogParameters parameters, DialogOptions options) => Task.FromResult(Show(contentComponent, title, parameters, options));
+
+        public IDialogReference CreateReference() => new ImmediateDialogReference();
+        public Task<bool?> ShowMessageBox(string title, string message, string yesText = "OK", string noText = "Cancel", string cancelText = "Cancel", DialogOptions options = null) => Task.FromResult<bool?>(true);
+        public Task<bool?> ShowMessageBox(string title, Microsoft.AspNetCore.Components.MarkupString message, string yesText = "OK", string noText = "Cancel", string cancelText = "Cancel", DialogOptions options = null) => Task.FromResult<bool?>(true);
+        public Task<bool?> ShowMessageBox(MessageBoxOptions messageBoxOptions, DialogOptions options = null) => Task.FromResult<bool?>(true);
+        public void Close(DialogReference dialog) { }
+        public void Close(DialogReference dialog, DialogResult result) { }
+    }
+
+    private sealed class ImmediateDialogReference : IDialogReference
+    {
+        public Guid Id { get; } = Guid.NewGuid();
+        public RenderFragment RenderFragment { get; set; }
+        public bool AreParametersRendered { get; set; }
+        public Task<DialogResult> Result { get; } = Task.FromResult(DialogResult.Ok<object>(null));
+        public TaskCompletionSource<bool> RenderCompleteTaskCompletionSource { get; } = new TaskCompletionSource<bool>();
+        public object Dialog { get; } = null;
+
+        public ImmediateDialogReference() => RenderCompleteTaskCompletionSource.TrySetResult(true);
+
+        public void Close() => Result.GetType();
+        public void Close(DialogResult result) { }
+        public bool Dismiss(DialogResult result) => true;
+        public void InjectRenderFragment(RenderFragment rf) { }
+        public void InjectDialog(object inst) { }
+        public Task<T> GetReturnValueAsync<T>() => Result.ContinueWith(r => r.Result.Data is T typed ? typed : default);
+    }
+
 }

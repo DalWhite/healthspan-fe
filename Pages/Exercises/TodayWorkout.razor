@@ -1249,6 +1249,13 @@
         _restRemaining = TimeSpan.Zero;
         ActiveSession.SetSession(null);
         StopTicker();
+        // When finish is triggered from the shell FAB (ActiveSession.FinishAsync),
+        // the event belongs to MainLayout and only the layout re-renders; the page
+        // must render its own summary explicitly (t_745b4960 regression). The
+        // continuation after the dialog can resume off the Blazor dispatcher, so
+        // the render must be marshalled through InvokeAsync or it throws and the
+        // summary never appears.
+        await InvokeAsync(StateHasChanged);
         await ClearSessionClockAsync(session.Id);
     }
 
