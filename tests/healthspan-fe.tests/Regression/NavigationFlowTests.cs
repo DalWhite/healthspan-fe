@@ -16,7 +16,7 @@ namespace healthspan_fe.tests.Regression;
 public class NavigationFlowTests : BlazorTestBase
 {
     [Fact]
-    public void RootRedirect_Sends_Authorized_User_To_Training_Insights()
+    public void RootRedirect_Sends_Authorized_User_To_Training_Today()
     {
         var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
         navigationManager.NavigateTo("https://localhost/");
@@ -26,7 +26,7 @@ public class NavigationFlowTests : BlazorTestBase
         // The redirect happens after the async auth/roles round-trip, so wait
         // for it instead of racing the continuation.
         cut.WaitForAssertion(
-            () => navigationManager.Uri.Should().EndWith("/training/insights"),
+            () => navigationManager.Uri.Should().EndWith("/training/today"),
             TimeSpan.FromSeconds(5));
     }
 

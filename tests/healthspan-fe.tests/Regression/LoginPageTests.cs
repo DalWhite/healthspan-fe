@@ -63,7 +63,7 @@ public class LoginPageTests : BlazorTestBase
 
         await cut.InvokeAsync(() => cut.Instance.HandleGoogleCredentialAsync("google-credential"));
 
-        navigationManager.Uri.Should().EndWith("/training/insights");
+        navigationManager.Uri.Should().EndWith("/training/today");
     }
 
     [Fact]

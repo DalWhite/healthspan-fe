@@ -135,7 +135,7 @@
             _isTrainer = roles.Contains("Trainer");
 
             if (isRoot)
-                NavigationManager.NavigateTo("/training/insights");
+                NavigationManager.NavigateTo("/training/today");
         }
         else if (!IsAnonymousRoute(relativePath))
         {
