@@ -18,6 +18,11 @@ namespace healthspan_fe.tests.Regression;
 
 public class TodayWorkoutTests : BlazorTestBase
 {
+    static string BodyOf(System.Net.Http.HttpRequestMessage request) =>
+        request.Content is null
+            ? string.Empty
+            : request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+
     [Fact]
     public void Today_Logs_The_First_Exercise_Without_A_Start_Session_Tap()
     {
@@ -705,6 +710,65 @@ public class TodayWorkoutTests : BlazorTestBase
     // ------------------------------------------------- t_0f19c744 regressions
 
     [Fact]
+    public void Summary_Fatigue_Tap_Patches_The_Closed_Session()
+    {
+        // FinishWorkout nulls _session before the summary renders, so the
+        // fatigue tap there must PATCH the closed session id. Before the fix
+        // PatchSessionAsync saw a null _session and silently no-oped: the
+        // picked fatigue never reached the API.
+        var workoutId = Guid.NewGuid();
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=14")
+            .Respond("application/json", "[]");
+        var startCall = MockHttp.When(HttpMethod.Post, "/Workouts/today")
+            .Respond(HttpStatusCode.Created, "application/json", $$"""
+                {
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [],
+                    "recentExerciseTypeIds": []
+                }
+                """);
+        var fatiguePatch = MockHttp
+            .When(HttpMethod.Patch, $"/Workouts/{workoutId}")
+            .With(request => BodyOf(request).Contains("\"perceivedFatigue\":3"))
+            .Respond("application/json", "{}");
+
+        Services.AddSingleton<IDialogService, ImmediateDialogService>();
+        Services.GetRequiredService<FakeNavigationManager>()
+            .NavigateTo("/training/today?start=1");
+
+        var cut = RenderComponent<TodayWorkout>();
+        cut.WaitForAssertion(
+            () => MockHttp.GetMatchCount(startCall).Should().Be(1),
+            TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(
+            () => cut.FindAll(".hs-today-session-bar").Should().NotBeEmpty(),
+            TimeSpan.FromSeconds(10));
+
+        Services.GetRequiredService<ActiveSessionState>()
+            .FinishAsync().GetAwaiter().GetResult();
+        cut.WaitForAssertion(
+            () => cut.FindAll(".hs-summary-hero").Should().HaveCount(1),
+            TimeSpan.FromSeconds(10));
+
+        var chip = cut.FindAll(".hs-today-chip-row button")
+            .Single(button => button.TextContent.Trim() == "3");
+        chip.Click();
+
+        cut.WaitForAssertion(
+            () => MockHttp.GetMatchCount(fatiguePatch).Should().Be(1),
+            TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
     public void Each_Series_Is_Its_Own_Row_And_Saves_On_Its_Own()
     {
         var workoutId = Guid.NewGuid();
@@ -736,11 +800,6 @@ public class TodayWorkoutTests : BlazorTestBase
                     "recentExerciseTypeIds": [1]
                 }]
                 """);
-
-        static string BodyOf(System.Net.Http.HttpRequestMessage request) =>
-            request.Content is null
-                ? string.Empty
-                : request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
 
         // A save that targets any OTHER row would be a bug: the matchers split the
         // PUTs by the exercise id they carry.

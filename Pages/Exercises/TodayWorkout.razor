@@ -955,9 +955,13 @@
         return PatchSessionAsync(new { secondaryGoals = _session.SecondaryGoals });
     }
 
-    private async Task PatchSessionAsync(object payload)
+    // sessionId lets the post-finish summary patch the session it closed:
+    // FinishWorkout nulls _session before the summary renders, so a fatigue
+    // tap there must patch the closed session, not the (now null) live one.
+    private async Task PatchSessionAsync(object payload, Guid? sessionId = null)
     {
-        if (_session is null)
+        var targetId = sessionId ?? _session?.Id;
+        if (targetId is null)
         {
             return;
         }
@@ -965,7 +969,7 @@
         try
         {
             using var response = await Http.PatchAsJsonAsync(
-                $"/Workouts/{_session.Id}",
+                $"/Workouts/{targetId}",
                 payload);
             if (!response.IsSuccessStatusCode)
             {
@@ -1167,7 +1171,7 @@
         }
 
         _summarySession.PerceivedFatigue = fatigue;
-        await PatchSessionAsync(new { perceivedFatigue = fatigue });
+        await PatchSessionAsync(new { perceivedFatigue = fatigue }, _summarySession.Id);
     }
 
     // A PR is this session beating the load logged in the previous one.
