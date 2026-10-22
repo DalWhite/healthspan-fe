@@ -141,9 +141,8 @@ else
             {
                 var variations = GetVariationsFor(exercise).ToList();
                 var equipmentTags = GetTagNames(exercise, "equipment").ToList();
-                var typeTags = GetTagNames(exercise, "type").ToList();
 
-                <MudItem xs="12" sm="6" lg="4">
+                <MudItem xs="6" sm="6" lg="4">
                     <MudCard Class="exercise-card hs-et-card"
                              role="link"
                              tabindex="0"
@@ -158,113 +157,14 @@ else
                                      decoding="async"
                                      onerror="this.remove()" />
                             </div>
-
-                            <div class="hs-et-media-overlay">
-                                <div class="hs-et-media-top">
-                                    <span class="hs-et-muscle-pill">@GetMuscleLine(exercise)</span>
-                                </div>
-
-                                @if (typeTags.Count > 0)
-                                {
-                                    <span class="hs-et-type-pill">@string.Join(" · ", typeTags.Take(2))</span>
-                                }
-                            </div>
                         </div>
 
                         <MudCardContent Class="hs-et-card-content">
-                            <div class="hs-et-card-header">
-                                <MudText Typo="Typo.h6" Class="hs-et-card-title">@exercise.Name</MudText>
-
-                                @if (TraineeId is null)
-                                {
-                                    <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
-                                        <MudIconButton Icon="@(exercise.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)"
-                                                       Color="@(exercise.IsFavourite ? Color.Error : Color.Default)"
-                                                       Class="hs-favourite-btn"
-                                                       aria-label="@(exercise.IsFavourite ? "Remove from favorites" : "Add to favorites")"
-                                                       OnClick="@((e) => ToggleFavourite(e, exercise))" />
-                                    </span>
-                                }
+                            <MudText Typo="Typo.h6" Class="hs-et-card-title">@exercise.Name</MudText>
+                            <div class="hs-et-card-meta">
+                                @FormatCardMetaLine(exercise, variations, equipmentTags)
                             </div>
-
-                            @if (equipmentTags.Count > 0)
-                            {
-                                <div class="hs-card-tags">
-                                    @foreach (var tag in equipmentTags.Take(3))
-                                    {
-                                        <MudChip Size="MudBlazor.Size.Small"
-                                                 Variant="Variant.Outlined"
-                                                 Color="Color.Secondary">
-                                            @tag
-                                        </MudChip>
-                                    }
-                                </div>
-                            }
-
-                            @if (variations.Count > 0)
-                            {
-                                <div class="hs-et-variation-block">
-                                    <MudText Typo="Typo.caption" Class="hs-muted-copy hs-et-section-label">
-                                        @FormatVariationSummary(variations.Count)
-                                    </MudText>
-
-                                    <div class="hs-card-tags hs-et-variation-tags">
-                                        @foreach (var variation in GetVisibleVariations(exercise, variations))
-                                        {
-                                            <span @onclick="@(args => OnVariationClick(args, variation))"
-                                                  @onclick:stopPropagation="true">
-                                                <MudChip Size="MudBlazor.Size.Small"
-                                                         Variant="Variant.Filled"
-                                                         Color="Color.Primary">
-                                                    @variation.Name
-                                                </MudChip>
-                                            </span>
-                                        }
-
-                                        @if (variations.Count > 4)
-                                        {
-                                            <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
-                                                <MudButton Variant="Variant.Text"
-                                                           Size="MudBlazor.Size.Small"
-                                                           OnClick="@(() => ToggleVariations(exercise.Id))"
-                                                           Class="hs-et-variation-toggle">
-                                                    @(_expandedVariationGroups.Contains(exercise.Id) ? "Show less" : $"+{variations.Count - 4} more")
-                                                </MudButton>
-                                            </span>
-                                        }
-                                    </div>
-                                </div>
-                            }
                         </MudCardContent>
-
-                        <MudCardActions Class="hs-et-card-actions">
-                            <span class="hs-et-action-slot" @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
-                                <MudIconButton Icon="@Icons.Material.Filled.TrendingUp"
-                                               Color="MudBlazor.Color.Primary"
-                                               Size="MudBlazor.Size.Small"
-                                               Variant="Variant.Filled"
-                                               OnClick="@(() => OpenStats(exercise))"
-                                               Title="View stats"
-                                               aria-label="View stats"
-                                               Class="hs-et-action-icon" />
-                            </span>
-
-                            @if (TraineeId is null)
-                            {
-                                <span class="hs-et-action-slot" title="Exercise options" @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
-                                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                                             Size="MudBlazor.Size.Small"
-                                             Color="Color.Default"
-                                             Variant="Variant.Text"
-                                             Class="hs-et-card-menu">
-                                        <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                                     OnClick="@(() => GoToEditExerciseType(exercise))">
-                                            Edit exercise
-                                        </MudMenuItem>
-                                    </MudMenu>
-                                </span>
-                            }
-                        </MudCardActions>
                     </MudCard>
                 </MudItem>
             }
@@ -305,7 +205,6 @@ else
     private List<string> _muscleGroups = new();
     private List<string> _equipmentOptions = new();
     private List<string> _movementOptions = new();
-    private HashSet<int> _expandedVariationGroups = new();
     private bool _isLoading = true;
     private bool _showFilters;
     private bool _favouritesOnlyFilter;
@@ -420,19 +319,6 @@ else
     private IEnumerable<GetExerciseTypeResource> ExerciseFamily(GetExerciseTypeResource mainExercise)
         => new[] { mainExercise }.Concat(GetVariationsFor(mainExercise));
 
-    private IEnumerable<GetExerciseTypeResource> GetVisibleVariations(
-        GetExerciseTypeResource mainExercise,
-        IReadOnlyCollection<GetExerciseTypeResource> variations)
-        => _expandedVariationGroups.Contains(mainExercise.Id) ? variations : variations.Take(4);
-
-    private void ToggleVariations(int mainExerciseId)
-    {
-        if (!_expandedVariationGroups.Add(mainExerciseId))
-        {
-            _expandedVariationGroups.Remove(mainExerciseId);
-        }
-    }
-
     private bool MatchesTagFilter(GetExerciseTypeResource mainExercise, string category, string? selectedValue)
         => string.IsNullOrWhiteSpace(selectedValue)
            || ExerciseFamily(mainExercise).Any(exercise => GetTagNames(exercise, category)
@@ -472,10 +358,37 @@ else
             : $"ExerciseImages/{exercise.Name}.jpg";
 
     private string GetMuscleLine(GetExerciseTypeResource exercise)
-        => AppState.FormatExerciseTypeMuscleLine(exercise);
+        => AppState.FormatExerciseTypeMuscleLine(exercise, fallback: string.Empty);
 
-    private static string FormatVariationSummary(int variationCount)
-        => variationCount == 1 ? "1 variation ready to track" : $"{variationCount} variations ready to track";
+    // Card meta line: one discreet line, segments omitted when unknown (never "—" or "· ·").
+    private string FormatCardMetaLine(
+        GetExerciseTypeResource exercise,
+        IReadOnlyCollection<GetExerciseTypeResource> variations,
+        IReadOnlyCollection<string> equipmentTags)
+    {
+        var segments = new List<string>();
+
+        var muscle = GetMuscleLine(exercise);
+        if (!string.IsNullOrWhiteSpace(muscle) && muscle != "—")
+        {
+            segments.Add(muscle);
+        }
+
+        if (equipmentTags.Count > 0)
+        {
+            segments.Add(string.Join(", ", equipmentTags.Take(2)));
+        }
+
+        if (variations.Count > 0)
+        {
+            segments.Add(FormatVariationCount(variations.Count));
+        }
+
+        return string.Join(" · ", segments);
+    }
+
+    private static string FormatVariationCount(int variationCount)
+        => variationCount == 1 ? "1 variation" : $"{variationCount} variations";
 
     private string FormatResultCount(int count)
     {
@@ -532,18 +445,8 @@ else
         OpenStats(exercise);
     }
 
-    private Task OnVariationClick(MouseEventArgs _, GetExerciseTypeResource variation)
-    {
-        OpenStats(variation);
-        return Task.CompletedTask;
-    }
-
     private void OpenStats(GetExerciseTypeResource exercise)
         => NavigationManager.NavigateTo(GetStatsRoute(exercise));
-
-    private void GoToEditExerciseType(GetExerciseTypeResource exercise)
-        => NavigationManager.NavigateTo(
-            $"/training/library/{exercise.Id}/edit?returnUrl={Uri.EscapeDataString(GetCurrentRelativeUrl())}");
 
     private string GetStatsRoute(GetExerciseTypeResource exercise)
     {
@@ -552,32 +455,6 @@ else
             : $"/training/library/{exercise.Id}";
         var currentRoute = GetCurrentRelativeUrl();
         return $"{baseRoute}?returnUrl={Uri.EscapeDataString(currentRoute)}";
-    }
-
-    private async Task ToggleFavourite(MouseEventArgs _, GetExerciseTypeResource exercise)
-    {
-        try
-        {
-            var isFavourite = !exercise.IsFavourite;
-            var response = await Http.PutAsJsonAsync(
-                $"/ExerciseTypes/{exercise.Id}/favourite",
-                new SetExerciseTypeFavouriteResource { IsFavourite = isFavourite });
-
-            if (!response.IsSuccessStatusCode)
-            {
-                Snackbar.Add("Failed to update favourite.", Severity.Error);
-                return;
-            }
-
-            exercise.IsFavourite = isFavourite;
-            AppState.InvalidateExerciseTypes();
-            ApplyFilter();
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
-        }
     }
 
     private void ToggleFilters()

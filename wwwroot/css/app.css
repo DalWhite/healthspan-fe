@@ -8,6 +8,9 @@
   --hs-border: #262C36;
   --hs-accent: #1E6FFF;
   --hs-accent-soft: #14233F;
+  /* Accent as TEXT needs the lightened ink: raw #1E6FFF on an accent wash is
+     3.3:1, below AA for the 11.5px chip labels (DESIGN.md §6). */
+  --hs-accent-ink: color-mix(in srgb, var(--hs-accent) 45%, #FFFFFF);
   --hs-done: #2FBF71;
   --hs-pr: #F5B83D;
   --hs-err: #F1545B;
@@ -294,6 +297,18 @@ body {
   flex: 0 0 auto;
   align-items: center;
   gap: var(--hs-space-2);
+}
+
+/* Page subtitle (the Today date, section subtitles): MudBlazor's caption typo
+   renders it at 10px in a legacy teal that is unreadable on the dark canvas
+   (prod QA). DESIGN.md §2 puts secondary copy at --t2 and >=13px. */
+.hs-page-subtitle {
+  margin-top: 4px;
+  color: var(--hs-t2) !important;
+  font-size: 0.85rem !important;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .hs-surface {
@@ -603,6 +618,98 @@ body {
   font-size: var(--hs-font-size-sm);
 }
 
+.hs-history-activity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+  width: 100%;
+  max-width: 920px;
+  margin-inline: auto;
+}
+
+.hs-history-cal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--hs-space-2);
+}
+
+.hs-history-cal-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--hs-space-2) 0 var(--hs-space-3);
+  border: 1px solid var(--hs-border);
+  border-radius: 10px;
+  background: var(--hs-card);
+}
+
+.hs-history-cal-num {
+  color: var(--hs-t1);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.hs-history-cal-dow {
+  color: var(--hs-t3);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hs-history-cal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.hs-history-cal-day.is-active .hs-history-cal-dot {
+  background: var(--hs-accent);
+}
+
+.hs-history-cal-day.is-today {
+  border-color: var(--hs-accent);
+  background: var(--hs-accent-soft);
+}
+
+.hs-history-cal-day.is-today .hs-history-cal-num {
+  color: var(--hs-accent);
+}
+
+.hs-history-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hs-space-3);
+}
+
+.hs-history-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--hs-space-4);
+  border: 1px solid var(--hs-border);
+  border-radius: var(--hs-radius-card);
+  background: var(--hs-card);
+}
+
+.hs-history-tile-value {
+  color: var(--hs-t1);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.hs-history-tile-label {
+  color: var(--hs-t2);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .hs-workout-history-list {
   display: flex;
   flex-direction: column;
@@ -624,12 +731,11 @@ body {
 
 .hs-workout-session-toggle {
   width: 100%;
-  min-height: 88px;
+  min-height: var(--hs-touch-target);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: var(--hs-space-2) var(--hs-space-3);
+  gap: var(--hs-space-3);
   padding: var(--hs-space-4);
   border: 0;
   background: transparent;
@@ -639,7 +745,6 @@ body {
   cursor: pointer;
 }
 
-.hs-workout-date-block,
 .hs-workout-summary-block {
   min-width: 0;
   display: flex;
@@ -647,44 +752,60 @@ body {
   gap: var(--hs-space-1);
 }
 
-.hs-workout-date {
-  color: var(--hs-color-ink);
-  font-size: var(--hs-font-size-lg);
-  font-weight: 720;
-  letter-spacing: -0.015em;
+.hs-workout-name {
+  color: var(--hs-t1);
+  font-size: var(--hs-font-size-base);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
 
-.hs-workout-type,
-.hs-workout-metrics,
+.hs-workout-name-detail {
+  color: var(--hs-t2);
+  font-weight: 500;
+}
+
+.hs-workout-meta {
+  color: var(--hs-t2);
+  font-size: 0.78125rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hs-workout-meta-detail {
+  color: var(--hs-t3);
+}
+
+.hs-workout-metric-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.hs-workout-metric-value {
+  color: var(--hs-t1);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.hs-workout-metric-label {
+  color: var(--hs-t3);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .hs-workout-exercise-prescription,
 .hs-workout-exercise-muscles {
   color: var(--hs-color-muted);
   font-size: var(--hs-font-size-sm);
 }
 
-.hs-workout-metrics,
-.hs-workout-muscles {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--hs-space-2);
-}
-
-.hs-workout-muscle-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 2px 9px;
-  border-radius: var(--hs-radius-chip);
-  background: color-mix(in srgb, var(--mud-palette-secondary) 12%, transparent);
-  color: var(--mud-palette-secondary);
-  font-size: 0.75rem;
-  font-weight: 650;
-}
-
 .hs-workout-expand-icon {
-  grid-column: 2;
-  grid-row: 1 / span 2;
   color: var(--hs-color-muted);
 }
 
@@ -977,16 +1098,8 @@ body {
   }
 
   .hs-workout-session-toggle {
-    grid-template-columns: minmax(180px, 0.7fr) minmax(280px, 1.3fr) auto;
-    grid-template-rows: auto;
+    grid-template-columns: minmax(280px, 1fr) auto auto;
     padding: var(--hs-space-4) var(--hs-space-5);
-  }
-
-  .hs-workout-summary-block {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--hs-space-4);
   }
 
   .hs-workout-expand-icon {
@@ -1648,20 +1761,25 @@ a.hs-exercise-history-row:hover {
   padding: 0 !important;
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid var(--mud-palette-lines-default);
-  background: var(--mud-palette-surface);
-  box-shadow: 0 12px 30px rgba(8, 36, 55, 0.1);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  border: 1px solid var(--hs-border);
+  border-radius: var(--hs-radius-card);
+  background: var(--hs-card);
+  box-shadow: none;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+/* DESIGN.md: no shadows — the surface ladder + 1px borders carry depth. */
+.exercise-card.hs-et-card {
+  box-shadow: none;
 }
 
 .hs-et-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 18px 42px rgba(8, 36, 55, 0.16);
-  border-color: rgba(174, 29, 13, 0.18);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--hs-accent) 55%, var(--hs-border));
 }
 
 .hs-et-card:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--mud-palette-primary) 48%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--hs-accent) 48%, transparent);
   outline-offset: 3px;
 }
 
@@ -1669,14 +1787,17 @@ a.hs-exercise-history-row:hover {
   position: relative;
 }
 
+/* Glanceable full-width photo, 110px tall (DESIGN.md §5.6); the app icon is
+   the fallback background when the exercise has no image (the img removes
+   itself on error). */
 .hs-et-card-photo {
-  height: 190px;
+  height: 110px;
   overflow: hidden;
-  background-color: color-mix(in srgb, var(--mud-palette-primary) 8%, var(--mud-palette-surface));
+  background-color: var(--hs-card);
   background-image: url('/icon-512.png');
   background-position: center;
   background-repeat: no-repeat;
-  background-size: 64px;
+  background-size: 56px;
 }
 
 /* Lazy-loaded card photo: only cards near the viewport fetch their remote image. */
@@ -1687,131 +1808,95 @@ a.hs-exercise-history-row:hover {
   object-fit: cover;
 }
 
-.hs-et-media-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 14px;
-  background: linear-gradient(180deg, rgba(9, 23, 38, 0.08) 0%, rgba(9, 23, 38, 0.72) 100%);
-  pointer-events: none;
-}
-
-.hs-et-media-top {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.hs-et-muscle-pill,
-.hs-et-type-pill {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  padding: 6px 10px;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.1;
-  backdrop-filter: blur(10px);
-}
-
-.hs-et-muscle-pill {
-  background: rgba(8, 36, 55, 0.48);
-}
-
-.hs-et-type-pill {
-  background: rgba(174, 29, 13, 0.72);
-}
-
 .hs-et-card-content {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px 16px 12px !important;
-}
-
-.hs-et-card-header {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  justify-content: space-between;
+  gap: 4px;
+  padding: var(--hs-space-4) !important;
 }
 
 .hs-et-card-title {
   margin: 0;
   min-width: 0;
-  font-size: 1.08rem;
+  color: var(--hs-t1);
+  font-size: var(--hs-font-size-base);
   font-weight: 700;
-  line-height: 1.2;
-  flex: 1 1 auto;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
 
-.hs-card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 0;
-}
-
-.hs-card-tags .mud-chip-root {
-  border-radius: 999px;
-}
-
-.hs-et-variation-block {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.hs-et-section-label {
-  letter-spacing: 0.02em;
-}
-
-.hs-et-variation-tags .mud-chip-root {
-  background: rgba(174, 29, 13, 0.08);
-  border: 1px solid rgba(174, 29, 13, 0.14);
-}
-
-.hs-et-variation-toggle {
-  min-width: var(--hs-touch-target) !important;
-  min-height: var(--hs-touch-target) !important;
-  padding-inline: 6px !important;
-}
-
-.hs-et-card-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  align-items: center;
-  padding: 0 16px 16px !important;
-}
-
-.hs-et-action-slot {
-  display: flex;
-  flex: 0 0 auto;
-}
-
-.hs-et-action-icon {
-  border-radius: 12px !important;
-}
-
-.hs-et-card-menu .mud-button-root {
-  min-width: var(--hs-touch-target);
-  border-radius: 12px;
-}
-
-.hs-favourite-btn {
-  padding: 4px !important;
-  background: rgba(174, 29, 13, 0.08);
-  border: 1px solid rgba(174, 29, 13, 0.12);
+/* One discreet meta line: muscle · equipment · variation count. */
+.hs-et-card-meta {
+  color: var(--hs-t2);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .hs-tag-more {
   opacity: 0.6;
+}
+
+/* ── Exercise detail hero (ExerciseTypeDetails.razor) ───────────────────── */
+.hs-exercise-hero {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+  gap: var(--hs-space-4);
+  align-items: center;
+  margin-bottom: var(--hs-space-4);
+  padding: var(--hs-space-4);
+  border: 1px solid var(--hs-border);
+  border-radius: var(--hs-radius-card);
+  background: var(--hs-card);
+  box-shadow: none;
+}
+
+.hs-exercise-hero-media {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--hs-border);
+  border-radius: 12px;
+  background-color: var(--hs-canvas);
+  background-image: url('/icon-512.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 56px;
+}
+
+.hs-exercise-hero-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hs-exercise-hero-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+}
+
+.hs-exercise-hero-meta {
+  color: var(--hs-t2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hs-exercise-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hs-space-2);
+}
+
+@media (max-width: 699px) {
+  .hs-exercise-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ── Library pagination (ExerciseTypeGrid) ──────────────────────────────── */
@@ -1842,30 +1927,6 @@ a.hs-exercise-history-row:hover {
     align-items: center;
   }
 }
-
-@media (max-width: 699px) {
-  .hs-et-card-photo {
-    height: 176px;
-  }
-
-  .hs-et-card-actions {
-    justify-content: flex-end;
-  }
-}
-
-/* ── Filters Section (ExerciseTypes.razor) ──────────────────────────────── */
-.hs-filters-section {
-  background: linear-gradient(135deg, #035960, #01474d);
-  color: #fff;
-  border-radius: var(--hs-radius-card);
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 8px 24px rgba(3, 89, 96, 0.2);
-}
-
-.hs-filters-section :deep input::placeholder { color: rgba(255,255,255,0.7); }
-.hs-filters-section :deep .mud-input-outlined { color: #fff; }
-.hs-filters-section :deep .mud-input-outlined-border { border-color: rgba(255,255,255,0.5); }
 
 /* ── Settings Page ──────────────────────────────────────────────────────── */
 .hs-image-preview {
@@ -1902,8 +1963,14 @@ a.hs-exercise-history-row:hover {
 }
 
 /* Consistent rounding for input fields */
-.input-field, .rounded-button, .google-button {
-  border-radius: 15px !important;
+/* DESIGN.md §3: inputs radius 8, CTA radius 12 (token --hs-radius-button). */
+.input-field {
+  border-radius: var(--hs-radius-input) !important;
+}
+
+.rounded-button,
+.google-button {
+  border-radius: var(--hs-radius-button) !important;
 }
 
 /* Login Page Styling */
@@ -1978,26 +2045,57 @@ a.hs-exercise-history-row:hover {
   padding: 2rem;
 }
 
-.login-form {
-  background-color: var(--hs-color-surface);
+/* DESIGN.md §3: card = surface 1 + 1px border + radius token, no shadow. */
+.login-form,
+.hs-login-card {
+  background-color: var(--hs-card);
+  border: 1px solid var(--hs-border);
   padding: 2rem;
   border-radius: var(--hs-radius-card);
+  box-shadow: none;
 }
 
 .hs-login-title {
   margin-bottom: var(--hs-space-5);
 }
 
+/* Form-level notice (Google init, failed sign-in). Field-level errors are the
+   MudBlazor inline error under each field. */
+.hs-login-formerror {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-2);
+  margin-bottom: var(--hs-space-4);
+  padding: var(--hs-space-3) var(--hs-space-4);
+  border: 1px solid color-mix(in srgb, var(--hs-err) 45%, var(--hs-border));
+  border-radius: var(--hs-radius-input);
+  background: color-mix(in srgb, var(--hs-err) 12%, transparent);
+}
+
+.hs-login-formerror-item {
+  color: var(--hs-t1);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 .input-field {
   margin-bottom: 15px;
   background-color: var(--hs-color-background);
-  border: none;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--hs-border);
+  box-shadow: none;
 }
 
 /* Input Padding for Consistency */
 .input-field input {
   padding: 10px 15px;
+}
+
+/* DESIGN.md §6: 44px minimum touch targets on the login CTA. */
+.login-form .mud-button-root.mud-button-filled,
+.login-form .mud-button-root.mud-button-outlined {
+  min-height: var(--hs-touch-target, 44px);
+  font-weight: 700;
 }
 
 .google-button {
@@ -2227,7 +2325,7 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-muted-copy {
-  color: rgba(22, 48, 54, 0.68);
+  color: var(--hs-t2);
 }
 
 .hs-filter-stack {
@@ -3624,16 +3722,16 @@ a.hs-exercise-history-row:hover {
 .hs-today-session,
 .hs-today-add {
   padding: var(--hs-space-4);
-  border: 1px solid rgba(15, 95, 103, 0.1);
+  border: 1px solid var(--hs-border);
   border-radius: var(--hs-radius-card);
 }
 
 .hs-today-session {
-  background: color-mix(in srgb, var(--hs-color-secondary) 2%, var(--hs-color-surface));
+  background: var(--hs-card);
 }
 
 .hs-today-add {
-  box-shadow: 0 5px 18px rgba(8, 36, 55, 0.055);
+  background: var(--hs-card);
 }
 
 .hs-today-session-summary {
@@ -3756,14 +3854,14 @@ a.hs-exercise-history-row:hover {
 .hs-chip-selected {
   border-color: var(--hs-accent);
   background: color-mix(in srgb, var(--hs-accent) 16%, var(--hs-card));
-  color: var(--hs-accent);
+  color: var(--hs-accent-ink);
 }
 
 /* Semantic wash variants — colour only when it carries meaning (DESIGN.md §6). */
 .hs-chip-accent {
   border-color: color-mix(in srgb, var(--hs-accent) 45%, var(--hs-border));
   background: color-mix(in srgb, var(--hs-accent) 16%, var(--hs-card));
-  color: var(--hs-accent);
+  color: var(--hs-accent-ink);
 }
 
 .hs-chip-done {
@@ -3786,9 +3884,9 @@ a.hs-exercise-history-row:hover {
 .hs-today-block {
   margin-top: var(--hs-space-3);
   padding: 10px 12px 12px;
-  border: 1px solid rgba(15, 95, 103, 0.14);
+  border: 1px solid var(--hs-border);
   border-radius: var(--hs-radius-card);
-  background: var(--hs-color-surface);
+  background: var(--hs-input);
 }
 
 .hs-today-block-head {
@@ -3824,7 +3922,7 @@ a.hs-exercise-history-row:hover {
   gap: var(--hs-space-2);
   margin-top: var(--hs-space-3);
   padding: 12px;
-  border: 1px dashed rgba(15, 95, 103, 0.25);
+  border: 1px dashed var(--hs-border);
   border-radius: var(--hs-radius-card);
 }
 
@@ -3972,9 +4070,9 @@ a.hs-exercise-history-row:hover {
   max-width: 190px;
   padding: 7px 11px;
   overflow: hidden;
-  border: 1px solid rgba(15, 95, 103, 0.16);
+  border: 1px solid var(--hs-border);
   border-radius: 999px;
-  background: rgba(15, 95, 103, 0.06);
+  background: var(--hs-input);
   color: var(--mud-palette-text-primary);
   cursor: pointer;
   font: inherit;

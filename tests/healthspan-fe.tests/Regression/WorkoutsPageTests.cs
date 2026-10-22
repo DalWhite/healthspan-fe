@@ -31,8 +31,11 @@ public class WorkoutsPageTests : BlazorTestBase
             cut.FindAll(".hs-workout-session-card").Should().HaveCount(2);
             cut.Markup.Should().Contain("Push");
             cut.Markup.Should().Contain("Pull");
-            cut.Markup.Should().Contain("1 exercise");
-            cut.Markup.Should().Contain("2,560 kg volume");
+            // The card carries the session metric as value + label (DESIGN.md
+            // hero-number pattern), so the two halves are separate runs.
+            cut.Find(".hs-workout-metric-value").TextContent.Should().Contain("2,560 kg");
+            cut.Find(".hs-workout-metric-label").TextContent.Should().Contain("volume");
+            cut.FindAll(".hs-workout-metric-value")[1].TextContent.Should().Contain("3,000 kg");
             cut.Markup.Should().Contain("Chest");
             cut.Markup.Should().NotContain("fixed-create-button");
         });

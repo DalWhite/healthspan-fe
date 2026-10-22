@@ -80,8 +80,8 @@ public class TodayTrackerUiTests : BlazorTestBase
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Build muscle"), TimeSpan.FromSeconds(10));
 
         // Progressive disclosure: the common training types are upfront, the long
-        // tail is behind one "Other" tap instead of a 10-chip wall.
-        cut.FindAll("button").Should().Contain(button => button.TextContent.Trim() == "Other");
+        // tail is behind one "Otros" tap instead of a 10-chip wall.
+        cut.FindAll("button").Should().Contain(button => button.TextContent.Trim() == "Otros");
 
         ClickButtonUntil(
             cut,
@@ -172,30 +172,29 @@ public class TodayTrackerUiTests : BlazorTestBase
 
         // Wait for the loaded session, not just the form: Today still has a request
         // in flight before that, and its render would replace the clicked node.
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("New session"), TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Nueva sesión"), TimeSpan.FromSeconds(10));
 
         // Rule 3: the block machinery is not on screen until it is asked for.
-        cut.FindAll("button").Should().NotContain(button =>
-            button.TextContent.Trim() == "Add block");
+        cut.FindAll(".hs-today-block-creator").Should().BeEmpty();
 
         ClickButtonUntil(
             cut,
-            "Block",
+            "Bloque",
             () => cut.FindAll("button").Any(button =>
-                button.TextContent.Trim() == "Superset"));
+                button.TextContent.Trim() == "Superserie"));
 
         cut.FindAll("button").Should().Contain(button =>
-            button.TextContent.Trim() == "Circuit");
+            button.TextContent.Trim() == "Circuito");
 
         cut.FindAll("button")
-            .Single(button => button.TextContent.Trim() == "Superset")
+            .Single(button => button.TextContent.Trim() == "Superserie")
             .Click();
         cut.FindAll("button")
-            .Single(button => button.TextContent.Trim() == "Add block")
+            .Single(button => button.TextContent.Trim() == "Añadir bloque")
             .Click();
 
         cut.WaitForAssertion(() => MockHttp.GetMatchCount(blockCall).Should().Be(1), TimeSpan.FromSeconds(10));
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Superset"), TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Superserie"), TimeSpan.FromSeconds(10));
     }
 
     [Fact]
@@ -252,15 +251,14 @@ public class TodayTrackerUiTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             // The count is the status: no progress bar, no dialog.
-            cut.Markup.Should().Contain("3/8 done");
+            cut.Markup.Should().Contain("3/8");
             cut.Markup.Should().Contain("Explosive");
             cut.Markup.Should().Contain("Bodyweight");
         }, TimeSpan.FromSeconds(10));
 
-        ClickButtonUntil(
-            cut,
-            "+1 done",
-            () => cut.Markup.Contains("4/8 done"));
+        cut.Find(".hs-today-attempt-plus").Click();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("4/8"), TimeSpan.FromSeconds(10));
 
         cut.WaitForAssertion(() =>
         {
@@ -305,12 +303,20 @@ public class TodayTrackerUiTests : BlazorTestBase
 
         var cut = RenderComponent<TodayWorkout>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("3 × 10"), TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(() =>
+        {
+            // The set table is the log: one row per series, reps and load inline.
+            var rows = cut.FindAll(".hs-settable-row");
+            rows.Should().HaveCount(3);
+            cut.FindAll(".hs-settable-input")
+                .Select(input => input.GetAttribute("value"))
+                .Should().Contain("10");
+        }, TimeSpan.FromSeconds(10));
 
         // Backward compatibility: an old session must not grow new controls.
         cut.FindAll("button").Should().NotContain(button =>
             button.TextContent.Trim() == "+1 done");
-        cut.FindAll(".hs-today-exercise-attempts").Should().BeEmpty();
+        cut.FindAll(".hs-today-attempt-row").Should().BeEmpty();
     }
 
     [Fact]

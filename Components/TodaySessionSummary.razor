@@ -1,0 +1,134 @@
+@using System.Globalization
+
+@*
+    Post-workout summary (DESIGN.md §5.3). The user lands here — not on a
+    catalogue — right after closing a session: duration hero, the two numbers
+    that matter (series, attempts), the PR badge when one happened, perceived
+    fatigue asked once, and the adaptation deltas of what was just trained.
+*@
+<section class="hs-summary" aria-label="Resumen del entreno">
+    <div class="hs-summary-hero">
+        <span class="hs-hero">
+            <span class="hs-hero-value">@DurationLabel</span>
+            <span class="hs-hero-label">Duración</span>
+        </span>
+        <div class="hs-summary-tiles">
+            <div class="hs-tile">
+                <span class="hs-tile-value">@TotalSets</span>
+                <span class="hs-tile-label">Series</span>
+            </div>
+            <div class="hs-tile">
+                <span class="hs-tile-value">@AttemptSummary</span>
+                <span class="hs-tile-label">Intentos</span>
+            </div>
+        </div>
+    </div>
+
+    @if (Records.Count > 0)
+    {
+        <div class="hs-summary-records" role="status">
+            @foreach (var record in Records)
+            {
+                <span class="hs-chip hs-chip-pr">★ @record</span>
+            }
+        </div>
+    }
+
+    <div class="hs-summary-block">
+        <span class="hs-micro-label">Fatiga percibida</span>
+        <div class="hs-today-chip-row" role="group" aria-label="Fatiga percibida">
+            @foreach (var value in Enumerable.Range(PerceivedFatigue.Min, PerceivedFatigue.Max - PerceivedFatigue.Min + 1))
+            {
+                <button type="button"
+                        class="@(FatigueChipClass(value))"
+                        aria-pressed="@(Session.PerceivedFatigue == value)"
+                        aria-label="@($"Fatiga {value}: {FatigueLabel(value)}")"
+                        @onclick="() => PickFatigueAsync(value)">@value</button>
+            }
+        </div>
+        <span class="hs-summary-hint">@FatigueHint</span>
+    </div>
+
+    @if (AdaptationDeltas.Count > 0)
+    {
+        <div class="hs-summary-block">
+            <span class="hs-micro-label">Series por adaptación</span>
+            <div class="hs-today-chip-row">
+                @foreach (var (name, sets) in AdaptationDeltas)
+                {
+                    <span class="hs-chip hs-chip-accent">@($"{name} +{sets}")</span>
+                }
+            </div>
+        </div>
+    }
+
+    <button type="button"
+            class="hs-cta hs-cta-primary hs-summary-back"
+            @onclick="BackToTodayAsync">Volver a Hoy</button>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public WorkoutSessionResource Session { get; set; } = default!;
+    [Parameter] public TimeSpan Duration { get; set; }
+    [Parameter] public IReadOnlyList<string> Records { get; set; } = Array.Empty<string>();
+    [Parameter] public IReadOnlyDictionary<string, int> AdaptationDeltas { get; set; }
+        = new Dictionary<string, int>();
+    [Parameter] public EventCallback<int> OnFatigueSelected { get; set; }
+    [Parameter] public EventCallback OnBackToToday { get; set; }
+
+    private int TotalSets => Session.Exercises.Sum(exercise => exercise.Series ?? 0);
+
+    private string AttemptSummary
+    {
+        get
+        {
+            var attempts = Session.Exercises
+                .Where(exercise => (exercise.Attempts ?? 1) > 1)
+                .ToList();
+            if (attempts.Count == 0)
+            {
+                return "—";
+            }
+
+            var completed = attempts.Sum(exercise => exercise.CompletedAttempts ?? 0);
+            var planned = attempts.Sum(exercise => Math.Max(1, exercise.Attempts ?? 1));
+            return $"{completed}/{planned}";
+        }
+    }
+
+    private string DurationLabel
+    {
+        get
+        {
+            var duration = Duration < TimeSpan.Zero ? TimeSpan.Zero : Duration;
+            return duration.TotalHours >= 1
+                ? $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}"
+                : $"{duration.Minutes:00}:{duration.Seconds:00}";
+        }
+    }
+
+    private string FatigueHint
+        => Session.PerceivedFatigue is { } value
+            ? PerceivedFatigue.Label(value)
+            : "Toca un número para guardarlo";
+
+    private static string FatigueLabel(int value) => value switch
+    {
+        1 => "muy fácil",
+        2 => "fácil",
+        3 => "moderada",
+        4 => "dura",
+        5 => "esfuerzo máximo",
+        _ => "sin definir"
+    };
+
+    private static string FatigueChipClass(int value)
+        => value switch
+        {
+            5 => "hs-chip hs-chip-pr",
+            _ => "hs-chip hs-chip-done"
+        };
+
+    private Task PickFatigueAsync(int value) => OnFatigueSelected.InvokeAsync(value);
+    private Task BackToTodayAsync() => OnBackToToday.InvokeAsync();
+}

@@ -35,7 +35,7 @@ public class TodayWorkoutTests : BlazorTestBase
                 HttpMethod.Get,
                 $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
             .Respond("application/json", "[]");
-        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=10")
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=14")
             .Respond("application/json", "[]");
         var startCall = MockHttp.When(HttpMethod.Post, "/Workouts/today")
             .Respond(HttpStatusCode.Created, "application/json", $$"""
@@ -73,7 +73,7 @@ public class TodayWorkoutTests : BlazorTestBase
         // any decision is asked. No "Start workout" gate, no session needed.
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Add exercise");
+            cut.Markup.Should().Contain("Añadir ejercicio");
             cut.FindAll("button")
                 .Should().NotContain(button =>
                     button.TextContent.Contains("Start workout"));
@@ -88,7 +88,7 @@ public class TodayWorkoutTests : BlazorTestBase
             .Single(button => button.TextContent.Contains("Bench Press"))
             .Click();
         cut.FindAll("button")
-            .Single(button => button.TextContent.Trim() == "Add exercise")
+            .Single(button => button.TextContent.Trim() == "Añadir ejercicio")
             .Click();
 
         cut.WaitForAssertion(() =>
@@ -98,11 +98,15 @@ public class TodayWorkoutTests : BlazorTestBase
             MockHttp.GetMatchCount(addCall).Should().Be(1);
 
             cut.Markup.Should().Contain("Bench Press");
-            cut.Markup.Should().Contain("3 × 10");
+
+            // The log is the interface: 3 prefilled set rows, each carrying 10 reps.
+            cut.FindAll(".hs-settable tbody tr").Should().HaveCount(3);
+            cut.Find("input[aria-label='Repeticiones de Bench Press']")
+                .GetAttribute("value").Should().Be("10");
 
             Services.GetRequiredService<ISnackbar>()
                 .ShownSnackbars
-                .Should().Contain(snackbar => snackbar.Message == "Exercise added.");
+                .Should().Contain(snackbar => snackbar.Message == "Ejercicio añadido.");
         }, TimeSpan.FromSeconds(10));
     }
 
@@ -150,10 +154,18 @@ public class TodayWorkoutTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("Bench Press");
-            cut.Markup.Should().Contain("1 exercise · 3 sets");
-            cut.Markup.Should().Contain("3 × 8 · 80 kg");
+            cut.Markup.Should().Contain("1 ejercicio · 3 series");
             cut.Markup.Should().Contain("Favourites");
-            cut.Find("a[aria-label='Edit Bench Press entry']")
+
+            // The set table is the log: 3 rows carrying the logged 8 reps @ 80 kg.
+            cut.FindAll(".hs-settable tbody tr").Should().HaveCount(3);
+            cut.Find("input[aria-label='Repeticiones de Bench Press']")
+                .GetAttribute("value").Should().Be("8");
+            cut.Find("input[aria-label='Peso en kg de Bench Press']")
+                .GetAttribute("value").Should().Be("80");
+
+            // The accent exercise name IS the edit affordance (DESIGN.md §2).
+            cut.Find("a[aria-label='Editar Bench Press']")
                 .GetAttribute("href")
                 .Should().Be(
                     $"/training/history/{exerciseId}/edit?returnUrl=%2Ftraining%2Ftoday");
@@ -197,8 +209,13 @@ public class TodayWorkoutTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("Weighted Pull-up");
-            cut.Markup.Should().Contain(
-                "3 × 5 · 80 kg BW + 5 kg");
+
+            // Bodyweight work logs the extra load, never a misleading total.
+            cut.Find("input[aria-label='Repeticiones de Weighted Pull-up']")
+                .GetAttribute("value").Should().Be("5");
+            cut.Find("input[aria-label='Peso añadido en kg de Weighted Pull-up']")
+                .GetAttribute("value").Should().Be("5");
+            cut.Find(".hs-settable-unit").TextContent.Should().Be("kg extra");
         });
     }
 
@@ -218,15 +235,15 @@ public class TodayWorkoutTests : BlazorTestBase
 
         var cut = RenderComponent<TodayWorkout>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("New session"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Nueva sesión"));
         cut.FindAll("button")
-            .Single(button => button.TextContent.Contains("New session"))
+            .Single(button => button.TextContent.Contains("Nueva sesión"))
             .Click();
 
         cut.WaitForAssertion(() =>
         {
             cut.FindAll(".mud-alert").Should().ContainSingle();
-            cut.Markup.Should().Contain("workout response was incomplete");
+            cut.Markup.Should().Contain("estaba incompleta");
         });
     }
 
@@ -246,15 +263,15 @@ public class TodayWorkoutTests : BlazorTestBase
 
         var cut = RenderComponent<TodayWorkout>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("New session"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Nueva sesión"));
         cut.FindAll("button")
-            .Single(button => button.TextContent.Contains("New session"))
+            .Single(button => button.TextContent.Contains("Nueva sesión"))
             .Click();
 
         cut.WaitForAssertion(() =>
         {
             cut.FindAll(".mud-alert").Should().ContainSingle();
-            cut.Markup.Should().Contain("Starting took too long");
+            cut.Markup.Should().Contain("Tardó demasiado");
         });
     }
 
@@ -273,8 +290,8 @@ public class TodayWorkoutTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             cut.FindAll(".mud-alert").Should().ContainSingle();
-            cut.Markup.Should().Contain("workout response was incomplete");
-            cut.Markup.Should().Contain("Retry");
+            cut.Markup.Should().Contain("estaba incompleta");
+            cut.Markup.Should().Contain("Reintentar");
         });
     }
 
@@ -291,7 +308,7 @@ public class TodayWorkoutTests : BlazorTestBase
                 HttpMethod.Get,
                 $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
             .Respond("application/json", "[]"); // no session for today
-        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=10")
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=14")
             .Respond("application/json", $$"""
                 [
                     {
@@ -319,10 +336,12 @@ public class TodayWorkoutTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            cut.FindAll("button")
-                .Should().ContainSingle(btn => btn.TextContent.Trim() == "Repeat last workout");
-            cut.Markup.Should().Contain($"From {lastWorkoutDate:ddd, d MMM}");
-            cut.Markup.Should().Contain("2 exercises");
+            var repeat = cut.FindAll("button")
+                .Single(btn => btn.GetAttribute("class")?.Contains("hs-cta-secondary") == true);
+            // The CTA names what it repeats and when it happened (DESIGN.md §5.1).
+            repeat.TextContent.Should().Contain("Repetir");
+            cut.Markup.Should().Contain("7 días");
+            cut.Markup.Should().Contain("2 ejercicios");
         }, TimeSpan.FromSeconds(10));
     }
 
@@ -352,7 +371,7 @@ public class TodayWorkoutTests : BlazorTestBase
                     Content = new StringContent(body, Encoding.UTF8, "application/json")
                 };
             });
-        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=10")
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=14")
             .Respond("application/json", $$"""
                 [{
                     "id": "{{lastWorkoutId}}",
@@ -383,10 +402,11 @@ public class TodayWorkoutTests : BlazorTestBase
                 """);
 
         var cut = RenderComponent<TodayWorkout>();
+        cut.WaitForState(() => !cut.Markup.Contains("Cargando"), TimeSpan.FromSeconds(8));
 
         cut.WaitForAssertion(() =>
             cut.FindAll("button")
-                .Single(btn => btn.TextContent.Trim() == "Repeat last workout")
+                .Single(btn => btn.GetAttribute("class")?.Contains("hs-cta-secondary") == true)
                 .Click(), TimeSpan.FromSeconds(10));
 
         cut.WaitForAssertion(() =>
@@ -397,12 +417,12 @@ public class TodayWorkoutTests : BlazorTestBase
             // with the copied exercises ready to edit, not on a catalog.
             navigationManager.Uri.Should().EndWith("/training/today");
             cut.Markup.Should().Contain("Bike");
-            cut.Markup.Should().Contain("Add exercise");
-            cut.Markup.Should().NotContain("Repeat last workout");
+            cut.Markup.Should().Contain("Añadir ejercicio");
+            cut.Markup.Should().NotContain("hs-cta-secondary");
 
             Services.GetRequiredService<ISnackbar>()
                 .ShownSnackbars
-                .Should().Contain(snackbar => snackbar.Message == "Last workout copied to today.");
+                .Should().Contain(snackbar => snackbar.Message == "Entreno anterior copiado a hoy.");
         }, TimeSpan.FromSeconds(10));
     }
 
@@ -419,7 +439,7 @@ public class TodayWorkoutTests : BlazorTestBase
                 HttpMethod.Get,
                 $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
             .Respond("application/json", "[]");
-        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=10")
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=14")
             .Respond("application/json", $$"""
                 [{
                     "id": "{{lastWorkoutId}}",
@@ -437,16 +457,17 @@ public class TodayWorkoutTests : BlazorTestBase
             .Respond(HttpStatusCode.BadRequest, "application/json", "{}");
 
         var cut = RenderComponent<TodayWorkout>();
+        cut.WaitForState(() => !cut.Markup.Contains("Cargando"), TimeSpan.FromSeconds(8));
 
         cut.WaitForAssertion(() =>
             cut.FindAll("button")
-                .Single(btn => btn.TextContent.Trim() == "Repeat last workout")
+                .Single(btn => btn.GetAttribute("class")?.Contains("hs-cta-secondary") == true)
                 .Click(), TimeSpan.FromSeconds(10));
 
         cut.WaitForAssertion(() =>
         {
             navigationManager.Uri.Should().EndWith("/training/today");
-            cut.Markup.Should().Contain("could not be repeated");
+            cut.Markup.Should().Contain("No se pudo repetir el entreno.");
         }, TimeSpan.FromSeconds(10));
     }
 
@@ -485,10 +506,49 @@ public class TodayWorkoutTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             // A logged entry without numbers never reads as a fake "0 x 0".
-            cut.Markup.Should().Contain("Add sets and reps");
+            cut.Markup.Should().Contain("Sin ajustes");
             cut.Markup.Should().NotContain("0 × 0");
-            cut.Find("a[aria-label='Edit Bench Press entry']");
+            cut.Find("a[aria-label='Editar Bench Press']");
         });
+    }
+
+    [Fact]
+    public void Quick_Start_Flag_Opens_The_Session_Without_Any_Tap()
+    {
+        var workoutId = Guid.NewGuid();
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, "/workouts*")
+            .Respond("application/json", "[]");
+        var startCall = MockHttp.When(HttpMethod.Post, "/Workouts/today")
+            .Respond("application/json", $$"""
+                {
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [],
+                    "blocks": [],
+                    "recentExerciseTypeIds": []
+                }
+                """);
+
+        // The shell FAB lands here (MainLayout quick start): Hoy must open the
+        // session by itself, not show the activation CTA and wait for a tap.
+        Services.GetRequiredService<FakeNavigationManager>()
+            .NavigateTo("/training/today?start=1");
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() => MockHttp.GetMatchCount(startCall).Should().Be(1), TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(
+            () => cut.FindAll(".hs-today-block-add").Should().HaveCount(1),
+            TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(
+            () => Services.GetRequiredService<FakeNavigationManager>().Uri.Should().NotContain("start=1"),
+            TimeSpan.FromSeconds(10));
     }
 
     private static string TodaySessionJson(Guid workoutId, Guid exerciseId)

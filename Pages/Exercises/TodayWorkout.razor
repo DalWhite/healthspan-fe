@@ -5,26 +5,26 @@
 @inject ISnackbar Snackbar
 @inject TitleService TitleService
 @inject IDialogService DialogService
+@inject IJSRuntime JS
+@inject ActiveSessionState ActiveSession
 @using System.Net
+@using System.Globalization
 @using System.Text.Json
+@using System.Timers
+@implements IDisposable
 
-<PageTitle>Train</PageTitle>
+<PageTitle>Hoy</PageTitle>
 
 <PageShell Narrow="true" Class="hs-today-page">
-    <PageHeader Title="Training" Subtitle="@DateLabel">
+    <PageHeader Title="Hoy" Subtitle="@DateLabel">
         <Actions>
-            @if (_session is not null)
+            @if (_session is not null && !_showSummary)
             {
                 <MudButton Variant="Variant.Outlined"
                            Color="MudBlazor.Color.Primary"
                            Disabled="@_isStarting"
                            OnClick="StartWorkout">
-                    New session
-                </MudButton>
-                <MudButton Variant="Variant.Text"
-                           Color="MudBlazor.Color.Primary"
-                           OnClick="FinishWorkout">
-                    Finish
+                    Nueva sesión
                 </MudButton>
             }
         </Actions>
@@ -32,7 +32,7 @@
 
     @if (_isLoading)
     {
-        <LoadingState Message="Loading training sessions..." />
+        <LoadingState Message="Cargando tus entrenos..." />
     }
     else if (!string.IsNullOrWhiteSpace(_error))
     {
@@ -41,29 +41,63 @@
                    Color="MudBlazor.Color.Primary"
                    Class="mt-3"
                    OnClick="LoadPageAsync">
-            Retry
+            Reintentar
         </MudButton>
     }
-    else if (_session is null && _lastWorkout is not null)
+
+    @* The three screens of the flow (DESIGN.md §5.1-5.3): activation, the log
+       in progress, and the summary. Only one is on screen at a time. *@
+    @if (_showSummary && _summarySession is not null)
     {
-        <MudPaper Class="hs-surface hs-today-start" Elevation="0">
-            <MudIcon Icon="@Icons.Material.Filled.FitnessCenter"
-                     Color="MudBlazor.Color.Primary"
-                     Size="MudBlazor.Size.Large" />
-            <MudButton Variant="Variant.Outlined"
-                       Color="MudBlazor.Color.Primary"
-                       FullWidth="true"
-                       StartIcon="@Icons.Material.Filled.Replay"
-                       Loading="@_isRepeating"
-                       Disabled="@_isRepeating"
-                       OnClick="RepeatLastWorkout">
-                Repeat last workout
-            </MudButton>
-            <MudText Typo="Typo.caption" Class="hs-muted-copy">@LastWorkoutLabel</MudText>
-        </MudPaper>
+        <TodaySessionSummary Session="@_summarySession"
+                             Duration="@_summaryDuration"
+                             Records="@_summaryRecords"
+                             AdaptationDeltas="@_summaryAdaptations"
+                             OnFatigueSelected="SaveFatigueAsync"
+                             OnBackToToday="BackToTodayAsync" />
+    }
+    else if (_session is null)
+    {
+        <section class="hs-today-activation" aria-label="Empezar">
+            <button type="button"
+                    class="hs-cta hs-cta-primary"
+                    disabled="@_isStarting"
+                    @onclick="StartWorkout">▶ Empezar entreno</button>
+            @if (_lastWorkout is not null)
+            {
+                <button type="button"
+                        class="hs-cta hs-cta-secondary"
+                        disabled="@_isRepeating"
+                        @onclick="RepeatLastWorkout">@($"↻ Repetir «{LastWorkoutName}» · {LastWorkoutWhen}")</button>
+            }
+            @if (RecentSessionRows.Count > 0)
+            {
+                <MudPaper Class="hs-surface hs-today-recent" Elevation="0">
+                    <span class="hs-micro-label">Últimos entrenos</span>
+                    @foreach (var row in RecentSessionRows)
+                    {
+                        <div class="hs-today-recent-row">
+                            <div>
+                                <div class="hs-today-recent-name">@row.Name</div>
+                                <div class="hs-today-recent-meta">@row.Meta</div>
+                            </div>
+                            <div class="hs-today-recent-metric">
+                                <span class="hs-today-recent-metric-value">@row.Metric</span>
+                                <small>@row.MetricLabel</small>
+                            </div>
+                        </div>
+                    }
+                </MudPaper>
+            }
+            @if (_streakDays >= 1)
+            {
+                <span class="hs-chip hs-today-streak"
+                      aria-label="@($"Racha de {_streakDays} días")">@($"Racha: {_streakDays} días")</span>
+            }
+        </section>
     }
 
-    @if (_session is not null)
+    else
     {
         var current = _session;
 
@@ -71,7 +105,7 @@
         {
             <div class="hs-today-session-switcher"
                  role="tablist"
-                 aria-label="Training sessions">
+                 aria-label="Entrenos de hoy">
                 @for (var index = 0; index < _sessions.Count; index++)
                 {
                     var session = _sessions[index];
@@ -81,27 +115,27 @@
                             aria-selected="@((_session?.Id == session.Id).ToString().ToLowerInvariant())"
                             class="@(_session?.Id == session.Id ? "is-active" : null)"
                             @onclick="() => SelectSession(session)">
-                        Session @sessionNumber
+                        Sesión @sessionNumber
                         <span>@session.Exercises.Count</span>
                     </button>
                 }
             </div>
         }
 
-        <section class="hs-today-session" aria-label="Current workout">
-            <div class="hs-today-session-summary">
-                <span>@ExerciseSummary</span>
-                <MudButton Variant="Variant.Text"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.ViewAgenda"
-                           aria-label="Add block"
-                           OnClick="ToggleBlockCreator">
-                    Block
-                </MudButton>
+        <section class="hs-today-session" aria-label="Entreno en curso">
+            <div class="hs-today-timer">
+                <span class="hs-today-timer-value"
+                      aria-label="Tiempo de entreno">@TimerLabel</span>
+                <span class="hs-chip hs-chip-accent hs-today-timer-chip">@SessionIntentLabel</span>
+                <span class="hs-today-session-summary">@ExerciseSummary</span>
+                <button type="button"
+                        class="hs-chip hs-today-block-add"
+                        aria-label="Añadir bloque"
+                        @onclick="ToggleBlockCreator">Bloque</button>
             </div>
 
-            <div class="hs-today-intent" aria-label="Training intent">
-                <div class="hs-today-chip-row" role="group" aria-label="Training type">
+            <div class="hs-today-intent" aria-label="Intención del entreno">
+                <div class="hs-today-chip-row" role="group" aria-label="Tipo de entreno">
                     @foreach (var modality in ModalityChoices)
                     {
                         <button type="button"
@@ -116,11 +150,11 @@
                         <button type="button"
                                 class="hs-chip hs-chip-more"
                                 @onclick="@(() => _showAllModalities = true)">
-                            Other
+                            Otros
                         </button>
                     }
                 </div>
-                <div class="hs-today-chip-row" role="group" aria-label="Main goal">
+                <div class="hs-today-chip-row" role="group" aria-label="Objetivo principal">
                     @foreach (var goal in TrainingIntent.GoalOrder)
                     {
                         <button type="button"
@@ -133,8 +167,8 @@
                 </div>
                 @if (_showSecondaryGoals || current.SecondaryGoals.Count > 0)
                 {
-                    <div class="hs-today-chip-row" role="group" aria-label="Secondary goals">
-                        <span class="hs-today-chip-label">Also for</span>
+                    <div class="hs-today-chip-row" role="group" aria-label="Objetivos secundarios">
+                        <span class="hs-today-chip-label">También para</span>
                         @foreach (var goal in TrainingIntent.GoalOrder)
                         {
                             <button type="button"
@@ -152,25 +186,25 @@
                                Size="Size.Small"
                                StartIcon="@Icons.Material.Filled.Add"
                                OnClick="@(() => _showSecondaryGoals = true)">
-                        Also training for
+                        También entrenas para
                     </MudButton>
                 }
             </div>
 
             @if (_showBlockCreator)
             {
-                <div class="hs-today-block-creator" role="group" aria-label="New block">
+                <div class="hs-today-block-creator" role="group" aria-label="Nuevo bloque">
                     @foreach (var blockType in WorkoutBlockTypeLabels.PickerOrder)
                     {
                         <button type="button"
                                 class="@IntentChipClass(_newBlockType == blockType.ToString())"
                                 aria-pressed="@(_newBlockType == blockType.ToString())"
                                 @onclick="() => _newBlockType = blockType.ToString()">
-                            @blockType.Label()
+                            @SpanishBlockTypeLabel(blockType)
                         </button>
                     }
                     <MudTextField @bind-Value="_newBlockLabel"
-                                  Placeholder="Name (optional)"
+                                  Placeholder="Nombre (opcional)"
                                   MaxLength="120"
                                   Variant="Variant.Outlined"
                                   Margin="Margin.Dense" />
@@ -179,7 +213,7 @@
                         <MudNumericField T="int"
                                          Value="_newBlockRounds"
                                          ValueChanged="@(value => _newBlockRounds = value)"
-                                         Label="Rounds"
+                                         Label="Rondas"
                                          Min="1"
                                          Max="50"
                                          Variant="Variant.Outlined"
@@ -190,14 +224,17 @@
                                Size="Size.Small"
                                Disabled="@_busyBlock"
                                OnClick="AddBlockAsync">
-                        Add block
+                        Añadir bloque
                     </MudButton>
                 </div>
             }
 
             @if (current.Exercises.Count == 0 && current.Blocks.Count == 0)
             {
-                <div class="hs-today-empty-session">No exercises yet.</div>
+                <div class="hs-today-empty-session">
+                    <p>Toca «+ serie» para registrar tu primera serie.</p>
+                    <p class="hs-today-empty-hint">¿Repetir el entreno de ayer? Toca <strong>Repetir</strong> en Hoy.</p>
+                </div>
             }
             else if (current.Blocks.Count > 0)
             {
@@ -206,30 +243,33 @@
                     {
                         <article class="hs-today-block">
                             <header class="hs-today-block-head">
-                                <span class="hs-today-block-title">
-                                    @(string.IsNullOrWhiteSpace(block.Label) ? BlockTypeLabel(block.Type) : block.Label)
-                                </span>
-                                <span class="hs-today-block-meta">
-                                    @BlockTypeLabel(block.Type)
-                                    @if (block.Rounds is > 0)
-                                    {
-                                        @($" · {block.Rounds} rounds")
-                                    }
-                                </span>
+                                <span class="hs-today-block-title">@BlockName(block)</span>
+                                <span class="hs-chip hs-chip-accent hs-today-block-chip">@BlockTypeLabel(block.Type)</span>
+                                @if (block.Rounds is > 0)
+                                {
+                                    <span class="hs-chip hs-today-block-chip">@($"{block.Rounds} rondas")</span>
+                                }
+                                <span class="hs-today-block-spacer"></span>
                                 <MudButton Variant="Variant.Text"
                                            Size="Size.Small"
                                            StartIcon="@Icons.Material.Filled.Add"
-                                           aria-label="Add exercise to this block"
+                                           aria-label="Añadir ejercicio a este bloque"
                                            OnClick="@(() => AddExerciseToBlock(block))">
-                                    Exercise
+                                    Ejercicio
                                 </MudButton>
                             </header>
                             <div class="hs-today-exercise-list">
                                 @foreach (var exercise in block.Exercises)
                                 {
-                                    <TodayExerciseItem Exercise="exercise"
-                                                       EditRoute="@BuildEditRoute(exercise.Id)"
-                                                       OnCompleteAttempt="CompleteAttemptAsync" />
+                                    <TodayExerciseLog Exercise="exercise"
+                                                      DisplayName="@ExerciseDisplayName(exercise)"
+                                                      ThumbUrl="@ExerciseThumbUrl(exercise)"
+                                                      PreviousText="@PreviousTextFor(exercise)"
+                                                      IsRecord="@IsRecordFor(exercise)"
+                                                      RecordLabel="@RecordLabelFor(exercise)"
+                                                      EditRoute="@BuildEditRoute(exercise.Id)"
+                                                      OnSetsChanged="SaveExerciseAsync"
+                                                      OnCompleteAttempt="CompleteAttemptAsync" />
                                 }
                             </div>
                         </article>
@@ -239,9 +279,15 @@
                         <div class="hs-today-exercise-list">
                             @foreach (var exercise in UnassignedExercises)
                             {
-                                <TodayExerciseItem Exercise="exercise"
-                                                   EditRoute="@BuildEditRoute(exercise.Id)"
-                                                   OnCompleteAttempt="CompleteAttemptAsync" />
+                                <TodayExerciseLog Exercise="exercise"
+                                                  DisplayName="@ExerciseDisplayName(exercise)"
+                                                  ThumbUrl="@ExerciseThumbUrl(exercise)"
+                                                  PreviousText="@PreviousTextFor(exercise)"
+                                                  IsRecord="@IsRecordFor(exercise)"
+                                                  RecordLabel="@RecordLabelFor(exercise)"
+                                                  EditRoute="@BuildEditRoute(exercise.Id)"
+                                                  OnSetsChanged="SaveExerciseAsync"
+                                                  OnCompleteAttempt="CompleteAttemptAsync" />
                             }
                         </div>
                     }
@@ -252,24 +298,39 @@
                 <div class="hs-today-exercise-list">
                     @foreach (var exercise in current.Exercises)
                     {
-                        <TodayExerciseItem Exercise="exercise"
-                                           EditRoute="@BuildEditRoute(exercise.Id)"
-                                           OnCompleteAttempt="CompleteAttemptAsync" />
+                        <TodayExerciseLog Exercise="exercise"
+                                          DisplayName="@ExerciseDisplayName(exercise)"
+                                          ThumbUrl="@ExerciseThumbUrl(exercise)"
+                                          PreviousText="@PreviousTextFor(exercise)"
+                                          IsRecord="@IsRecordFor(exercise)"
+                                          RecordLabel="@RecordLabelFor(exercise)"
+                                          EditRoute="@BuildEditRoute(exercise.Id)"
+                                          OnSetsChanged="SaveExerciseAsync"
+                                          OnCompleteAttempt="CompleteAttemptAsync" />
                     }
+                </div>
+            }
+
+            @if (_restRemaining > TimeSpan.Zero)
+            {
+                <div class="hs-today-rest" role="status" aria-live="polite">
+                    <span class="hs-micro-label">Descanso</span>
+                    <span class="hs-today-rest-value">@FormatStopwatch(_restRemaining)</span>
+                    <button type="button" class="hs-chip" @onclick="SkipRest">Saltar</button>
                 </div>
             }
         </section>
     }
 
     <MudPaper Class="hs-surface hs-today-add" Elevation="0">
-        <MudText Typo="Typo.h6" Class="hs-today-add-title">Add exercise</MudText>
+        <MudText Typo="Typo.h6" Class="hs-today-add-title">Añadir ejercicio</MudText>
         <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
                               CurrentUserBodyWeight="@_currentUserBodyWeight"
                               WorkoutId="@(_session?.Id ?? Guid.Empty)"
                               ShowDatePicker="false"
                               ShowQuickPicks="true"
                               UseWorkoutSessionEndpoint="true"
-                              SubmitLabel="Add exercise"
+                              SubmitLabel="Añadir ejercicio"
                               RecentExerciseTypeIds="@(_session?.RecentExerciseTypeIds ?? (IReadOnlyCollection<int>)Array.Empty<int>())"
                               PrescriptionHints="@_session?.Exercises"
                               Blocks="@(_session?.Blocks)"
@@ -282,9 +343,11 @@
 
 @code {
     private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
+    private static readonly CultureInfo Spanish = new("es-ES");
     private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
     private readonly List<WorkoutSessionResource> _sessions = [];
     private WorkoutSessionResource? _session;
+    private readonly List<GetWorkoutResource> _recentWorkouts = [];
     private GetWorkoutResource? _lastWorkout;
     private decimal? _currentUserBodyWeight;
     private string? _error;
@@ -300,8 +363,30 @@
     private int _newBlockRounds = 1;
     private Guid? _formBlockId;
 
+    // Post-session summary (DESIGN.md §5.3): closing a session lands the user
+    // on their own result, never on a catalog or on History.
+    private bool _showSummary;
+    private WorkoutSessionResource? _summarySession;
+    private List<string> _summaryRecords = [];
+    private Dictionary<string, int> _summaryAdaptations = [];
+    private TimeSpan _summaryDuration;
+    private int _streakDays;
+
+    // The session clock is client-owned: the API has no started-at on a session.
+    // It survives a reload through localStorage so a refresh never resets it.
+    private DateTime? _sessionStart;
+    private TimeSpan _elapsed;
+    private DateTime? _restUntil;
+    private TimeSpan _restRemaining;
+    private System.Timers.Timer? _ticker;
+    private const int DefaultRestSeconds = 90;
+
+    // Load done in the previous session, per exercise type: feeds the
+    // "Anterior" column and the PR badge (DESIGN.md §3).
+    private readonly Dictionary<int, WorkoutHistoryExerciseResource> _previousLoads = [];
+
     private string DateLabel
-        => _today.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMMM");
+        => _today.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMM", Spanish);
 
     private string LastWorkoutLabel
     {
@@ -312,16 +397,106 @@
                 return string.Empty;
             }
 
-            var workoutDate = date.Date;
-            var days = (DateTime.Today - workoutDate).Days;
-            var when = days switch
-            {
-                0 => "today",
-                1 => "yesterday",
-                _ => $"{days} days ago"
-            };
             var exerciseCount = _lastWorkout.ExerciseCount;
-            return $"From {workoutDate:ddd, d MMM} · {exerciseCount} {(exerciseCount == 1 ? "exercise" : "exercises")}";
+            return $"{DaysAgoLabel(date.Date)} · {exerciseCount} {(exerciseCount == 1 ? "ejercicio" : "ejercicios")}";
+        }
+    }
+
+    // The repeat CTA names the workout it repeats: a bare "Repetir" is a
+    // mystery button, a named one is a decision the user can already make.
+    private string LastWorkoutName
+    {
+        get
+        {
+            if (_lastWorkout is not { } workout) return "tu entreno anterior";
+            if (workout.Blocks.FirstOrDefault(block => !string.IsNullOrWhiteSpace(block.Label)) is { } named)
+                return named.Label!;
+            if (TrainingIntent.ParseModality(workout.Modality) is { } modality)
+                return modality.Label();
+            return "tu entreno anterior";
+        }
+    }
+
+    private string LastWorkoutWhen => DaysAgoLabel(_lastWorkout?.Date?.Date);
+
+    private static string DaysAgoLabel(DateTime? date)
+    {
+        if (date?.Date is not { } workoutDate)
+        {
+            return string.Empty;
+        }
+
+        if (workoutDate == DateTime.Today)
+        {
+            return "hoy";
+        }
+
+        if (workoutDate == DateTime.Today.AddDays(-1))
+        {
+            return "ayer";
+        }
+
+        var days = (DateTime.Today - workoutDate).Days;
+        return days <= 7
+            ? $"{days} días"
+            : workoutDate.ToString("d MMM", Spanish);
+    }
+
+    private static string WorkoutName(GetWorkoutResource workout)
+    {
+        if (workout.Blocks.FirstOrDefault(block => !string.IsNullOrWhiteSpace(block.Label)) is { } named)
+            return named.Label!;
+        if (TrainingIntent.ParseModality(workout.Modality) is { } modality)
+            return modality.Label();
+        return "Entreno";
+    }
+
+    private sealed record RecentSessionRow(string Name, string Meta, string Metric, string MetricLabel);
+
+    private IReadOnlyList<RecentSessionRow> RecentSessionRows
+    {
+        get
+        {
+            var rows = new List<RecentSessionRow>();
+            foreach (var workout in _recentWorkouts.Take(2))
+            {
+                var exercises = workout.Exercises;
+                var heaviest = exercises
+                    .OrderByDescending(exercise => exercise.AddedWeight.GetValueOrDefault() + (exercise.Weight ?? 0))
+                    .FirstOrDefault();
+                var attemptRows = exercises.Where(exercise => (exercise.Attempts ?? 0) > 0).ToList();
+                var (metric, metricLabel) = attemptRows.Count > 0
+                    ? ($"{attemptRows.Sum(exercise => exercise.CompletedAttempts ?? 0)}/{attemptRows.Sum(exercise => exercise.Attempts ?? 0)}", "completados")
+                    : heaviest is null
+                        ? ("—", string.Empty)
+                        : (FormatHistoryLoad(heaviest), "última serie");
+                rows.Add(new RecentSessionRow(
+                    WorkoutName(workout),
+                    $"{DaysAgoLabel(workout.Date?.Date)} · {workout.ExerciseCount} ejercicios",
+                    metric,
+                    metricLabel));
+            }
+            return rows;
+        }
+    }
+
+    private string StreakLabel => _streakDays switch
+    {
+        0 => "Racha 0 días",
+        1 => "Racha 1 día",
+        var days => $"Racha {days} días"
+    };
+
+    private string TimerLabel => FormatStopwatch(_elapsed);
+
+    private string SessionIntentLabel
+    {
+        get
+        {
+            var segments = new List<string>();
+            if (TrainingIntent.ParseModality(_session?.Modality) is { } modality) segments.Add(modality.Label());
+            if (TrainingIntent.ParseGoal(_session?.Goal) is { } goal) segments.Add(goal.Label());
+            return segments.Count > 0 ? string.Join(" · ", segments) : "Entreno";
         }
     }
 
@@ -329,16 +504,32 @@
     {
         get
         {
-            var exerciseCount = _session?.Exercises.Count ?? 0;
-            var totalSets = _session?.Exercises.Sum(exercise => exercise.Series ?? 0) ?? 0;
-            return $"{exerciseCount} {(exerciseCount == 1 ? "exercise" : "exercises")} · {totalSets} sets";
+            if (_session is null) return string.Empty;
+            var attemptRows = _session.Exercises.Where(exercise => (exercise.Attempts ?? 0) > 0).ToList();
+            if (attemptRows.Count > 0)
+                return $"{attemptRows.Sum(exercise => exercise.CompletedAttempts ?? 0)}/{attemptRows.Sum(exercise => exercise.Attempts ?? 0)} intentos";
+            var exerciseCount = _session.Exercises.Count;
+            var totalSets = _session.Exercises.Sum(exercise => exercise.Series ?? 0);
+            return $"{exerciseCount} {(exerciseCount == 1 ? "ejercicio" : "ejercicios")} · {totalSets} series";
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Train";
+        TitleService.Title = "Hoy";
+        // The shell FAB turns into "Finalizar" while a session is open and must
+        // run exactly the page's own finish flow, not a second one (DESIGN.md §5.2).
+        ActiveSession.RegisterFinish(FinishWorkout);
         await LoadPageAsync();
+
+        // Quick start (shell FAB, DESIGN.md §5.2): the FAB is not a second route
+        // to Today, it is one tap straight into the logging state. The query flag
+        // is dropped so a refresh does not silently open another session.
+        if (_session is null && _error is null && QuickStartRequested())
+        {
+            NavigationManager.NavigateTo("/training/today", forceLoad: false);
+            await StartWorkout();
+        }
     }
 
     private async Task LoadPageAsync()
@@ -362,30 +553,41 @@
             _session = _sessions.LastOrDefault();
             _currentUserBodyWeight = profileWeightTask.Result;
 
-            // "Repeat last workout" is the activation shortcut: only relevant when
-            // there is no session for today yet.
-            if (_session is null)
+            // Recent sessions feed the streak chip, the "Últimos entrenos" rows
+            // and the "Anterior" column of the set table.
+            _recentWorkouts.Clear();
+            _recentWorkouts.AddRange(await LoadRecentWorkoutsAsync());
+            _lastWorkout = _recentWorkouts.FirstOrDefault();
+            _streakDays = ComputeStreakDays();
+
+            if (_session is not null)
             {
-                _lastWorkout = await LoadLastWorkoutAsync();
+                ActiveSession.SetSession(_session.Id);
+                await ResumeSessionClockAsync(_session.Id);
+                await LoadPreviousLoadsAsync();
             }
         }
         catch (HttpRequestException)
         {
-            _error = "Training sessions could not be loaded.";
+            _error = "No se pudieron cargar tus entrenos. Comprueba tu conexión.";
         }
         catch (TaskCanceledException)
         {
-            _error = "Loading took too long. Please try again.";
+            _error = "Tardó demasiado. Vuelve a intentarlo.";
         }
         catch (JsonException)
         {
-            _error = "The workout response was incomplete. Please try again.";
+            _error = "La respuesta del entreno estaba incompleta. Vuelve a intentarlo.";
         }
         finally
         {
             _isLoading = false;
         }
     }
+
+    private bool QuickStartRequested()
+        => NavigationManager.ToAbsoluteUri(NavigationManager.Uri)
+               .Query?.Contains("start=1", StringComparison.Ordinal) == true;
 
     private async Task<List<WorkoutSessionResource>> LoadSessionsAsync()
     {
@@ -397,26 +599,96 @@
                ?? [];
     }
 
-    private async Task<GetWorkoutResource?> LoadLastWorkoutAsync()
+    private async Task<List<GetWorkoutResource>> LoadRecentWorkoutsAsync()
     {
         try
         {
-            // Most recent workout that actually has logged exercises; empty
-            // placeholder days are not worth repeating.
-            using var response = await Http.GetAsync("/workouts?page=1&pageSize=10");
+            // Most recent workouts that actually have logged exercises; empty
+            // placeholder days are not worth repeating or showing.
+            using var response = await Http.GetAsync("/workouts?page=1&pageSize=14");
             if (!response.IsSuccessStatusCode)
             {
-                return null;
+                return [];
             }
 
             var page = await response.Content
                 .ReadFromJsonAsync<List<GetWorkoutResource>>();
-            return page?.FirstOrDefault(workout => workout.ExerciseCount > 0);
+            return page?.Where(workout => workout.ExerciseCount > 0).ToList() ?? [];
         }
         catch (Exception)
         {
-            // The shortcut is optional; never block Today for it.
-            return null;
+            // Recent rows are context, not core: never block Today for them.
+            return [];
+        }
+    }
+
+    private int ComputeStreakDays()
+    {
+        var days = _recentWorkouts
+            .Where(workout => workout.Date is not null)
+            .Select(workout => workout.Date!.Value.Date)
+            .ToHashSet();
+        if (days.Count == 0)
+        {
+            return 0;
+        }
+
+        // A streak may start today or yesterday; older than that it is broken
+        // and the chip must not pretend otherwise.
+        var cursor = DateTime.Today;
+        if (!days.Contains(cursor))
+        {
+            cursor = cursor.AddDays(-1);
+            if (!days.Contains(cursor))
+            {
+                return 0;
+            }
+        }
+
+        var streak = 0;
+        while (days.Contains(cursor))
+        {
+            streak++;
+            cursor = cursor.AddDays(-1);
+        }
+        return streak;
+    }
+
+    // "Anterior" column + PR badge: the load the user lifted last time for each
+    // exercise type, read from the two most recent sessions.
+    private async Task LoadPreviousLoadsAsync()
+    {
+        _previousLoads.Clear();
+        foreach (var workout in _recentWorkouts
+                     .Where(workout => _session is null || workout.Id != _session.Id)
+                     .Take(2))
+        {
+            try
+            {
+                var detail = await Http.GetFromJsonAsync<GetWorkoutResource>($"/Workouts/{workout.Id}");
+                if (detail is null)
+                {
+                    continue;
+                }
+
+                foreach (var exercise in detail.Exercises)
+                {
+                    if (exercise.TypeId == 0 || _previousLoads.ContainsKey(exercise.TypeId))
+                    {
+                        continue;
+                    }
+
+                    if (exercise.Series > 0 || exercise.Repetitions > 0 || exercise.Weight > 0)
+                    {
+                        _previousLoads[exercise.TypeId] = exercise;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Baselines are a nicety; a failed detail read just leaves the
+                // column empty rather than breaking the log.
+            }
         }
     }
 
@@ -437,22 +709,22 @@
                 new { Date = _today.ToString("yyyy-MM-dd") });
             if (!response.IsSuccessStatusCode)
             {
-                _error = "The workout could not be repeated.";
+                _error = "No se pudo repetir el entreno. Vuelve a intentarlo.";
                 return;
             }
 
             // Land in context: reload Today so the copy is already there,
-            // exercises ready to edit.
+            // exercises ready to edit. Never a wizard, never a catalog.
             await LoadPageAsync();
-            Snackbar.Add("Last workout copied to today.", Severity.Success);
+            Snackbar.Add("Entreno anterior copiado a hoy.", Severity.Success);
         }
         catch (HttpRequestException)
         {
-            _error = "The workout could not be repeated.";
+            _error = "No se pudo repetir el entreno. Comprueba tu conexión.";
         }
         catch (TaskCanceledException)
         {
-            _error = "Repeating took too long. Please try again.";
+            _error = "Tardó demasiado. Vuelve a intentarlo.";
         }
         finally
         {
@@ -495,14 +767,14 @@
 
             if (!response.IsSuccessStatusCode)
             {
-                _error = "The workout could not be started.";
+                _error = "No se pudo empezar el entreno. Vuelve a intentarlo.";
                 return;
             }
 
             _session = await response.Content.ReadFromJsonAsync<WorkoutSessionResource>();
             if (_session is null)
             {
-                _error = "The workout response was incomplete.";
+                _error = "La respuesta del entreno estaba incompleta.";
                 return;
             }
 
@@ -516,18 +788,22 @@
             {
                 _sessions.Add(_session);
             }
+
+            ActiveSession.SetSession(_session.Id);
+            await BeginSessionClockAsync(_session.Id);
+            await LoadPreviousLoadsAsync();
         }
         catch (HttpRequestException)
         {
-            _error = "The workout could not be started.";
+            _error = "No se pudo empezar el entreno. Comprueba tu conexión.";
         }
         catch (TaskCanceledException)
         {
-            _error = "Starting took too long. Please try again.";
+            _error = "Tardó demasiado. Vuelve a intentarlo.";
         }
         catch (JsonException)
         {
-            _error = "The workout response was incomplete. Please try again.";
+            _error = "La respuesta del entreno estaba incompleta. Vuelve a intentarlo.";
         }
         finally
         {
@@ -563,6 +839,8 @@
 
         _session = session;
         _sessions.Add(session);
+        ActiveSession.SetSession(session.Id);
+        await BeginSessionClockAsync(session.Id);
         return session.Id;
     }
 
@@ -580,12 +858,17 @@
             _sessions.Add(session);
         }
 
-        Snackbar.Add("Exercise added.", Severity.Success);
+        ActiveSession.SetSession(session.Id);
+        Snackbar.Add("Ejercicio añadido.", Severity.Success);
         return Task.CompletedTask;
     }
 
     private void SelectSession(WorkoutSessionResource session)
-        => _session = session;
+    {
+        _session = session;
+        ActiveSession.SetSession(session.Id);
+        _ = ResumeSessionClockAsync(session.Id);
+    }
 
     // ── Universal tracker: intent chips ───────────────────────────────────────
     // The intent is a tap, not a form: the wire keeps the API names and the
@@ -629,8 +912,22 @@
 
     private static string BlockTypeLabel(string? type)
         => WorkoutBlockTypeLabels.Parse(type) is { } parsed
-            ? parsed.Label()
-            : type ?? "Block";
+            ? SpanishBlockTypeLabel(parsed)
+            : type ?? "Bloque";
+
+    // Today speaks the user's language (DESIGN.md §4): the wire keeps the API's
+    // enum names, the chip shows the Spanish name the workout plan uses.
+    private static string SpanishBlockTypeLabel(WorkoutBlockType type) => type switch
+    {
+        WorkoutBlockType.Normal => "Normal",
+        WorkoutBlockType.Superset => "Superserie",
+        WorkoutBlockType.Circuito => "Circuito",
+        WorkoutBlockType.EMOM => "EMOM",
+        WorkoutBlockType.AMRAP => "AMRAP",
+        WorkoutBlockType.Tabata => "Tabata",
+        WorkoutBlockType.Ronda => "Ronda",
+        _ => type.ToString()
+    };
 
     private static bool NeedsRounds(string? blockType)
         => WorkoutBlockTypeLabels.Parse(blockType) is WorkoutBlockType.EMOM
@@ -838,6 +1135,10 @@
         // The row ticks first: the tap is the workout, the save is background.
         exercise.CompletedAttempts = completed;
 
+        // Rest is part of the log, not a setting: after a completed attempt the
+        // page counts down on its own and the user can skip it.
+        BeginRest();
+
         try
         {
             using var response = await Http.PutAsJsonAsync("/Exercises", new UpdateExerciseResource
@@ -857,16 +1158,16 @@
 
             if (!response.IsSuccessStatusCode)
             {
-                Snackbar.Add("The attempt could not be saved.", Severity.Warning);
+                Snackbar.Add("No se pudo guardar el intento.", Severity.Warning);
             }
         }
         catch (HttpRequestException)
         {
-            Snackbar.Add("The attempt could not be saved. It will retry on the next sync.", Severity.Warning);
+            Snackbar.Add("No se pudo guardar. Se sincronizará al reconectar.", Severity.Warning);
         }
         catch (TaskCanceledException)
         {
-            Snackbar.Add("Saving took too long. It will retry on the next sync.", Severity.Warning);
+            Snackbar.Add("Tardó demasiado. Se sincronizará al reconectar.", Severity.Warning);
         }
     }
 
@@ -895,16 +1196,349 @@
             });
 
         var result = await reference.Result;
-        if (!result.Canceled && result.Data is int fatigue)
+        if (result.Canceled)
         {
-            _session.PerceivedFatigue = fatigue;
+            return;
+        }
+
+        var session = _session;
+        if (result.Data is int fatigue)
+        {
+            session.PerceivedFatigue = fatigue;
             await PatchSessionAsync(new { perceivedFatigue = fatigue });
         }
 
-        NavigationManager.NavigateTo("/training/history");
+        // The user lands on their own result, never on History and never on a
+        // catalog (DESIGN.md §5.3).
+        _summarySession = session;
+        _summaryDuration = _sessionStart is { } start ? DateTime.Now - start : _elapsed;
+        _summaryRecords = BuildRecordList(session);
+        _summaryAdaptations = BuildAdaptationDeltas(session);
+        _showSummary = true;
+        _session = null;
+        _restUntil = null;
+        _restRemaining = TimeSpan.Zero;
+        ActiveSession.SetSession(null);
+        StopTicker();
+        await ClearSessionClockAsync(session.Id);
+    }
+
+    private async Task BackToTodayAsync()
+    {
+        _showSummary = false;
+        _summarySession = null;
+        _summaryRecords = [];
+        _summaryAdaptations = [];
+        await LoadPageAsync();
+    }
+
+    private async Task SaveFatigueAsync(int fatigue)
+    {
+        if (_summarySession is null)
+        {
+            return;
+        }
+
+        _summarySession.PerceivedFatigue = fatigue;
+        await PatchSessionAsync(new { perceivedFatigue = fatigue });
+    }
+
+    // A PR is this session beating the load logged in the previous one.
+    private List<string> BuildRecordList(WorkoutSessionResource session)
+    {
+        var records = new List<string>();
+        foreach (var exercise in session.Exercises)
+        {
+            if (!IsRecordFor(exercise))
+            {
+                continue;
+            }
+
+            var name = ExerciseDisplayName(exercise);
+            var current = ExerciseLoadValue(exercise);
+            var previous = _previousLoads.TryGetValue(exercise.TypeId, out var baseline)
+                ? HistoryLoadValue(baseline)
+                : 0;
+            var delta = current - previous;
+            records.Add(delta > 0
+                ? $"{name} · {FormatNumber(current)} kg (+{FormatNumber(delta)})"
+                : $"{name} · {FormatNumber(current)} kg");
+        }
+        return records;
+    }
+
+    // "Series por adaptación": the sets this session logged for each adaptation
+    // the exercises carry. A count of what was trained, not a promise.
+    private Dictionary<string, int> BuildAdaptationDeltas(WorkoutSessionResource session)
+    {
+        var deltas = new Dictionary<string, int>();
+        foreach (var exercise in session.Exercises)
+        {
+            var sets = Math.Max(1, exercise.Series ?? 1);
+            foreach (var adaptation in exercise.Adaptations ?? [])
+            {
+                var name = adaptation switch
+                {
+                    "Strength" => "fuerza",
+                    "Hypertrophy" => "hipertrofia",
+                    "Endurance" => "resistencia",
+                    "Mobility" => "movilidad",
+                    "Power" => "potencia",
+                    "Skill" => "habilidad",
+                    _ => adaptation.ToLowerInvariant()
+                };
+                deltas[name] = deltas.GetValueOrDefault(name) + sets;
+            }
+        }
+        return deltas;
     }
 
     private static string BuildEditRoute(Guid exerciseId)
         => $"/training/history/{exerciseId}/edit?returnUrl={Uri.EscapeDataString("/training/today")}";
 
+    // ── Universal tracker: saving a logged set ────────────────────────────────
+    // The row updates on the tap and the save happens after; a failed save is
+    // retried by the offline mirror, never by asking the user to type again.
+
+    private async Task SaveExerciseAsync(WorkoutSessionExerciseResource exercise)
+    {
+        try
+        {
+            using var response = await Http.PutAsJsonAsync("/Exercises", new UpdateExerciseResource
+            {
+                Id = exercise.Id,
+                Series = exercise.Series,
+                Repetitions = exercise.Repetitions,
+                Weight = exercise.Weight,
+                BodyWeight = exercise.BodyWeight,
+                AddedWeight = exercise.AddedWeight,
+                Tags = exercise.Tags,
+                Attempts = exercise.Attempts,
+                CompletedAttempts = exercise.CompletedAttempts,
+                QualityIntent = exercise.QualityIntent,
+                LoadType = exercise.LoadType
+            });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("No se pudo guardar la serie. Se sincronizará al reconectar.", Severity.Warning);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("No se pudo guardar. Se sincronizará al reconectar.", Severity.Warning);
+        }
+        catch (TaskCanceledException)
+        {
+            Snackbar.Add("Tardó demasiado. Se sincronizará al reconectar.", Severity.Warning);
+        }
+    }
+
+    // ── Universal tracker: names, thumbnails and baselines ────────────────────
+
+    private static string BlockName(WorkoutBlockResource block)
+    {
+        if (!string.IsNullOrWhiteSpace(block.Label))
+        {
+            return block.Label!;
+        }
+
+        return WorkoutBlockTypeLabels.Parse(block.Type) is { } parsed
+            ? SpanishBlockTypeLabel(parsed)
+            : "Bloque";
+    }
+
+    private string ExerciseDisplayName(WorkoutSessionExerciseResource exercise)
+    {
+        if (!string.IsNullOrWhiteSpace(exercise.Name))
+        {
+            return exercise.Name!;
+        }
+
+        return _exerciseTypes.FirstOrDefault(type => type.Id == exercise.TypeId)?.Name
+               ?? "Ejercicio";
+    }
+
+    private string ExerciseThumbUrl(WorkoutSessionExerciseResource exercise)
+        => _exerciseTypes.FirstOrDefault(type => type.Id == exercise.TypeId)?.ImageRoute
+           ?? string.Empty;
+
+    private string PreviousTextFor(WorkoutSessionExerciseResource exercise)
+        => _previousLoads.TryGetValue(exercise.TypeId, out var previous)
+            ? FormatHistoryLoad(previous)
+            : "—";
+
+    private static string FormatHistoryLoad(WorkoutHistoryExerciseResource exercise)
+    {
+        var sets = Math.Max(1, exercise.Series ?? 1);
+        var reps = exercise.Repetitions ?? 0;
+        var load = HistoryLoadValue(exercise);
+        return load > 0
+            ? $"{sets}x{reps} · {FormatNumber(load)} kg"
+            : $"{sets}x{reps}";
+    }
+
+    private static decimal HistoryLoadValue(WorkoutHistoryExerciseResource exercise)
+        => (decimal)(exercise.AddedWeight ?? exercise.Weight ?? 0);
+
+    private static decimal ExerciseLoadValue(WorkoutSessionExerciseResource exercise)
+        => exercise.AddedWeight ?? exercise.Weight ?? 0;
+
+    private bool IsRecordFor(WorkoutSessionExerciseResource exercise)
+    {
+        var current = ExerciseLoadValue(exercise);
+        if (current <= 0)
+        {
+            return false;
+        }
+
+        return _previousLoads.TryGetValue(exercise.TypeId, out var previous)
+               && current > HistoryLoadValue(previous);
+    }
+
+    private string RecordLabelFor(WorkoutSessionExerciseResource exercise)
+    {
+        var previous = _previousLoads.TryGetValue(exercise.TypeId, out var baseline)
+            ? HistoryLoadValue(baseline)
+            : 0;
+        var delta = ExerciseLoadValue(exercise) - previous;
+        return delta > 0
+            ? $"PR +{FormatNumber(delta)} kg"
+            : "Mejor marca personal";
+    }
+
+    private static string FormatNumber(decimal value)
+        => value == Math.Truncate(value)
+            ? value.ToString("0", Spanish)
+            : value.ToString("0.0", Spanish);
+
+    private static string FormatStopwatch(TimeSpan value)
+        => value.TotalHours >= 1
+            ? $"{(int)value.TotalHours}:{value.Minutes:00}:{value.Seconds:00}"
+            : $"{(int)value.TotalMinutes:00}:{value.Seconds:00}";
+
+    // ── Universal tracker: session clock and rest ─────────────────────────────
+    // Both are client-owned: the API has no started-at on a session and no rest
+    // timer. The clock survives a reload through localStorage so a refresh in
+    // the middle of a workout never resets it.
+
+    private void StartTicker()
+    {
+        if (_ticker is not null)
+        {
+            return;
+        }
+
+        _ticker = new System.Timers.Timer(1000);
+        _ticker.Elapsed += (_, _) => _ = InvokeAsync(Tick);
+        _ticker.Start();
+    }
+
+    private void StopTicker()
+        => _ticker?.Stop();
+
+    private void Tick()
+    {
+        if (_sessionStart is { } start)
+        {
+            _elapsed = DateTime.Now - start;
+        }
+
+        if (_restUntil is { } until)
+        {
+            _restRemaining = until - DateTime.Now;
+            if (_restRemaining <= TimeSpan.Zero)
+            {
+                _restUntil = null;
+                _restRemaining = TimeSpan.Zero;
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task BeginSessionClockAsync(Guid sessionId)
+    {
+        _sessionStart = DateTime.Now;
+        _elapsed = TimeSpan.Zero;
+        StartTicker();
+
+        try
+        {
+            await JS.InvokeVoidAsync(
+                "localStorage.setItem",
+                SessionClockKey(sessionId),
+                _sessionStart.Value.ToString("O"));
+        }
+        catch (Exception)
+        {
+            // The clock is a convenience; a blocked localStorage just keeps it
+            // for this visit.
+        }
+    }
+
+    private async Task ResumeSessionClockAsync(Guid sessionId)
+    {
+        try
+        {
+            var stored = await JS.InvokeAsync<string?>(
+                "localStorage.getItem",
+                SessionClockKey(sessionId));
+            if (stored is not null
+                && DateTime.TryParse(
+                    stored,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out var start))
+            {
+                _sessionStart = start;
+                _elapsed = DateTime.Now - start;
+                StartTicker();
+                return;
+            }
+        }
+        catch (Exception)
+        {
+            // Fall through: a fresh clock is better than no clock.
+        }
+
+        await BeginSessionClockAsync(sessionId);
+    }
+
+    private async Task ClearSessionClockAsync(Guid sessionId)
+    {
+        _sessionStart = null;
+        _elapsed = TimeSpan.Zero;
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", SessionClockKey(sessionId));
+        }
+        catch (Exception)
+        {
+            // Nothing to clean up if storage was unavailable.
+        }
+    }
+
+    private static string SessionClockKey(Guid sessionId)
+        => $"healthspan.session.start.{sessionId}";
+
+    private void BeginRest()
+    {
+        _restUntil = DateTime.Now.AddSeconds(DefaultRestSeconds);
+        _restRemaining = TimeSpan.FromSeconds(DefaultRestSeconds);
+        StartTicker();
+    }
+
+    private void SkipRest()
+    {
+        _restUntil = null;
+        _restRemaining = TimeSpan.Zero;
+    }
+
+    public void Dispose()
+    {
+        _ticker?.Dispose();
+        _ticker = null;
+    }
 }

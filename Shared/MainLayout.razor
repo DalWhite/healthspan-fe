@@ -7,6 +7,7 @@
 @inject Healthspan.Offline.SyncCoordinator SyncCoordinator
 @inject Healthspan.Offline.SyncEngine SyncEngine
 @inject AppStateService AppState
+@inject ActiveSessionState ActiveSession
 @implements IDisposable
 
 <MudThemeProvider IsDarkMode="@ThemeState.IsDarkMode" Theme="@HealthspanTheme.Default" />
@@ -45,12 +46,12 @@
             </div>
         </div>
         <MudButton Variant="Variant.Filled"
-                   Color="MudBlazor.Color.Primary"
+                   Color="@(ActiveSession.SessionId is null ? MudBlazor.Color.Primary : MudBlazor.Color.Success)"
                    FullWidth="true"
-                   StartIcon="@Icons.Material.Filled.Add"
+                   StartIcon="@(ActiveSession.SessionId is null ? Icons.Material.Filled.Add : Icons.Material.Filled.Check)"
                    Class="hs-sidebar-cta"
-                   OnClick="GoToToday">
-            Registrar entreno
+                   OnClick="OnLogWorkoutClicked">
+            @(ActiveSession.SessionId is null ? "Registrar entreno" : "Finalizar entreno")
         </MudButton>
         <NavMenu />
     </aside>
@@ -70,8 +71,19 @@
             <MudIcon Icon="@Icons.Material.Filled.History" Size="MudBlazor.Size.Small" />
             <span>Historial</span>
         </NavLink>
-        <button type="button" class="hs-fab" aria-label="Registrar entreno" @onclick="GoToToday">
-            <MudIcon Icon="@Icons.Material.Filled.Add" Size="MudBlazor.Size.Medium" />
+        <button type="button"
+                class="@(ActiveSession.SessionId is null ? "hs-fab" : "hs-fab hs-fab-done")"
+                aria-label="@(ActiveSession.SessionId is null ? "Registrar entreno" : "Finalizar entreno")"
+                @onclick="OnLogWorkoutClicked">
+            @if (ActiveSession.SessionId is null)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Add" Size="MudBlazor.Size.Medium" />
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Check" Size="MudBlazor.Size.Medium" />
+                <span class="hs-fab-label">Finalizar</span>
+            }
         </button>
         <NavLink href="/training/insights" class="hs-bottom-nav-link" Match="NavLinkMatch.All">
             <MudIcon Icon="@Icons.Material.Filled.Insights" Size="MudBlazor.Size.Small" />
@@ -123,6 +135,7 @@
     protected override async Task OnInitializedAsync()
     {
         ThemeState.Changed += HandleThemeChanged;
+        ActiveSession.Changed += HandleActiveSessionChanged;
 
         // Redirect based on auth state
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -161,12 +174,33 @@
     private void Go(string route) => NavigationManager.NavigateTo(route);
     private void GoToToday() => NavigationManager.NavigateTo("/training/today");
 
+    // The FAB and the "Hoy" tab are not the same affordance: "Hoy" is the day
+    // summary, the FAB is a quick start. With no session open it lands on Today
+    // already logged in to the logging state (1 tap, no wizard); with a session
+    // open it closes that session through the flow Today itself registered.
+    private void GoToQuickStart() => NavigationManager.NavigateTo("/training/today?start=1");
+
+    private async Task OnLogWorkoutClicked()
+    {
+        if (ActiveSession.SessionId is null)
+        {
+            GoToQuickStart();
+            return;
+        }
+
+        await ActiveSession.FinishAsync();
+    }
+
+    private void HandleActiveSessionChanged()
+        => _ = InvokeAsync(StateHasChanged);
+
     private void HandleThemeChanged()
         => _ = InvokeAsync(StateHasChanged);
 
     public void Dispose()
     {
         ThemeState.Changed -= HandleThemeChanged;
+        ActiveSession.Changed -= HandleActiveSessionChanged;
         SyncCoordinator.Unregister(SyncEngine);
         SyncEngine.Stop();
         _selfRef?.Dispose();

@@ -39,13 +39,17 @@ public class TouchTargetHarnessTests : BlazorTestBase
         markup["shell"].Should().Contain("hs-bottom-nav");
         markup["shell"].Should().Contain("hs-fab");
         markup["shell"].Should().Contain("hs-sidebar-cta");
-        markup["today"].Should().Contain("hs-today-exercise-edit-link");
+        markup["today"].Should().Contain("hs-workout-edit-link");
         markup["today"].Should().Contain("hs-today-session-switcher");
+        markup["today"].Should().Contain("hs-settable");
         markup["entryform"].Should().Contain("hs-exercise-quick-button");
         markup["history"].Should().Contain("hs-workout-session-toggle");
         markup["history"].Should().Contain("hs-workout-action");
-        markup["library"].Should().Contain("hs-et-action-slot");
-        markup["library"].Should().Contain("hs-et-variation-toggle");
+        // The library card is one tap to the detail page: the card itself is the
+        // control, and it must not carry action slots or variation toggles.
+        markup["library"].Should().Contain("exercise-card");
+        markup["library"].Should().NotContain("hs-et-action-slot");
+        markup["library"].Should().NotContain("hs-et-variation-toggle");
 
         var dir = Environment.GetEnvironmentVariable("HS_TOUCH_HARNESS_DIR");
         if (string.IsNullOrWhiteSpace(dir))
@@ -146,7 +150,7 @@ public class TouchTargetHarnessTests : BlazorTestBase
 
         var today = RenderComponent<TodayWorkout>();
         today.WaitForAssertion(
-            () => today.FindAll(".hs-today-exercise-edit-link").Count.Should().BeGreaterThan(0),
+            () => today.FindAll(".hs-workout-edit-link").Count.Should().BeGreaterThan(0),
             TimeSpan.FromSeconds(10));
         rendered["today"] = today.Markup;
 
@@ -176,7 +180,7 @@ public class TouchTargetHarnessTests : BlazorTestBase
 
         var library = RenderComponent<ExerciseTypes>();
         library.WaitForAssertion(
-            () => library.FindAll(".hs-et-action-slot").Count.Should().BeGreaterThan(0),
+            () => library.FindAll(".exercise-card").Count.Should().BeGreaterThan(0),
             TimeSpan.FromSeconds(10));
         rendered["library"] = library.Markup;
 

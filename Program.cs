@@ -35,6 +35,9 @@ builder.Services.AddAuthorizationCore();
 // never reaches the guard's instance → login bounces to /login?returnUrl=...
 builder.Services.AddSingleton<TitleService>();
 builder.Services.AddSingleton<AppStateService>();
+// One instance per circuit: the Today page publishes the open session and the
+// shell FAB reads it (DESIGN.md §5.2).
+builder.Services.AddScoped<ActiveSessionState>();
 builder.Services.AddSingleton<ThemeState>();
 
 // ── Offline-first local store + sync ─────────────────────────────────────────

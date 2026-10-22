@@ -26,16 +26,19 @@ public class ExerciseTypesPageTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("Sit Up");
-            cut.Markup.Should().Contain("Romanian Sit Up");
             cut.Markup.Should().Contain("bodyweight");
             cut.FindAll(".exercise-card").Should().HaveCount(1);
             cut.Find(".exercise-card").GetAttribute("role").Should().Be("link");
             cut.Find(".exercise-card").GetAttribute("tabindex").Should().Be("0");
             cut.Markup.Should().Contain("1 exercise");
             cut.Markup.Should().Contain("Filters");
-            cut.FindAll("button[aria-label='View stats']").Should().HaveCount(1);
+            // Wall's card standard: the card is one tap to the detail page.
+            // Variations live behind that tap as a count, never as chips,
+            // pills or buttons on the card itself.
+            cut.Find(".hs-et-card-meta").TextContent.Should().Contain("1 variation");
+            cut.FindAll(".exercise-card button").Should().BeEmpty();
+            cut.FindAll(".exercise-card .mud-chip").Should().BeEmpty();
             cut.FindAll("button[aria-label='Create exercise for today']").Should().BeEmpty();
-            cut.FindAll(".hs-et-card-menu").Should().HaveCount(1);
         }, timeout: TimeSpan.FromSeconds(3));
     }
 
@@ -59,18 +62,48 @@ public class ExerciseTypesPageTests : BlazorTestBase
     [Fact]
     public void Favourite_Button_UsesFocusedEndpoint()
     {
-        ConfigureCatalogResponses();
-        var cut = RenderComponent<healthspan_fe_wasm_pwa.Pages.ExerciseTypes.ExerciseTypes>();
-        var favoriteButton = cut.WaitForElement("button[aria-label='Remove from favorites']");
+        // The library card has no buttons (Wall's card standard); the favourite
+        // affordance lives on the detail page hero.
+        MockHttp.Expect(HttpMethod.Get, "/ExerciseTypes/1")
+            .Respond("application/json", """
+                {
+                  "id": 1,
+                  "name": "Sit Up",
+                  "description": "Base sit-up pattern",
+                  "muscleAssignments": [
+                    { "muscleId": 11, "role": "Primary", "sortOrder": 1 }
+                  ],
+                  "isFavourite": true,
+                  "parentExerciseTypeId": null,
+                  "tags": [
+                    { "name": "bodyweight", "category": "equipment" },
+                    { "name": "core", "category": "type" }
+                  ]
+                }
+            """);
+        MockHttp.When(HttpMethod.Get, "/Exercises*")
+            .Respond("application/json", "[]");
+        MockHttp.When("/api/muscles")
+            .Respond("application/json", """
+                [ { "id": 11, "slug": "abs", "name": "Abs", "side": "front", "muscleGroup": "Core", "sortOrder": 110 } ]
+            """);
+
+        var cut = RenderComponent<ExerciseTypeDetails>(
+            parameters => parameters.Add(p => p.ExerciseTypeId, 1));
+
+        var favouriteButton = cut.WaitForElement(
+            ".hs-exercise-hero-actions button");
+        favouriteButton.TextContent.Should().Contain("Favourite");
 
         MockHttp.Expect(HttpMethod.Put, "/ExerciseTypes/1/favourite")
             .Respond(HttpStatusCode.NoContent);
 
-        favoriteButton.Click();
+        favouriteButton.Click();
 
         cut.WaitForAssertion(() =>
         {
-            cut.FindAll("button[aria-label='Add to favorites']").Should().HaveCount(1);
+            cut.Find(".hs-exercise-hero-actions button")
+                .TextContent.Should().Contain("Add to favourites");
             MockHttp.VerifyNoOutstandingExpectation();
         });
     }

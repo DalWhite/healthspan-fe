@@ -1,0 +1,247 @@
+@using System.Globalization
+
+@*
+    One logged exercise in the Today session (DESIGN.md §5.2): thumb + accent
+    name + set table (Serie | Anterior | Reps/kg | ✓) or attempt dots.
+
+    The log IS the interface: a set is logged with one tap ("+ serie"), the load
+    is edited inline and saved on blur (never per keystroke, never in a wizard).
+    The model stores one reps/load value per exercise entry, so every row shows
+    that entry value — the number of rows is what the "+ serie" tap changes.
+*@
+<article class="hs-today-log">
+    <header class="hs-today-log-head">
+        <span class="hs-today-thumb @(ThumbUrl is null ? "hs-today-thumb-empty" : null)" aria-hidden="true">
+            @if (ThumbUrl is not null)
+            {
+                <img src="@ThumbUrl" alt="" loading="lazy" />
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.FitnessCenter" Size="MudBlazor.Size.Small" />
+            }
+        </span>
+        <div class="hs-today-log-copy">
+            <a class="hs-today-log-name"
+               href="@EditRoute"
+               aria-label="@($"Editar {DisplayName}")">@DisplayName</a>
+            <span class="hs-today-log-meta">@MetaLine</span>
+        </div>
+        <div class="hs-today-log-side">
+            @if (IsRecord)
+            {
+                <span class="hs-chip hs-chip-pr" title="@RecordLabel" aria-label="@RecordLabel">★ PR</span>
+            }
+            <a class="hs-workout-edit-link hs-today-log-edit"
+               href="@EditRoute"
+               aria-label="@($"Editar {DisplayName}")">
+                <MudIcon Icon="@Icons.Material.Filled.Edit" aria-hidden="true" />
+            </a>
+        </div>
+    </header>
+
+    @if (AttemptsStyle)
+    {
+        <div class="hs-today-attempt-row"
+             role="group"
+             aria-label="@($"Intentos de {DisplayName}")">
+            <span class="hs-today-attempt-dots">
+                @for (var index = 1; index <= Attempts; index++)
+                {
+                    var done = index <= Completed;
+                    <span class="hs-today-dot @(done ? "is-done" : null)" aria-hidden="true"></span>
+                }
+            </span>
+            <span class="hs-today-attempt-count"
+                  aria-label="@($"{Completed} de {Attempts} intentos")">@($"{Completed}/{Attempts}")</span>
+            <button type="button"
+                    class="hs-chip hs-chip-accent hs-today-attempt-plus"
+                    disabled="@(Completed >= Attempts)"
+                    aria-label="@($"Marcar un intento de {DisplayName} como completado")"
+                    @onclick="CompleteAttemptAsync">+</button>
+        </div>
+    }
+    else
+    {
+        <table class="hs-settable" aria-label="@($"Series de {DisplayName}")">
+            <thead>
+                <tr>
+                    <th scope="col">Serie</th>
+                    <th scope="col">Anterior</th>
+                    <th scope="col">Reps/kg</th>
+                    <th scope="col" aria-label="Completada">✓</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (var index = 1; index <= Sets; index++)
+                {
+                    <tr class="hs-settable-row is-done">
+                        <td class="hs-settable-index">@index</td>
+                        <td class="hs-settable-previous">@(PreviousText ?? "—")</td>
+                        <td class="hs-settable-load">
+                            <input class="hs-settable-input"
+                                   type="number"
+                                   min="0"
+                                   step="1"
+                                   inputmode="numeric"
+                                   value="@_repsText"
+                                   aria-label="@($"Repeticiones de {DisplayName}")"
+                                   @oninput="@(eventArgs => _repsText = eventArgs.Value?.ToString() ?? string.Empty)"
+                                   @onblur="SaveLoadAsync" />
+                            <span class="hs-settable-times">×</span>
+                            <input class="hs-settable-input"
+                                   type="number"
+                                   min="0"
+                                   step="0.5"
+                                   inputmode="decimal"
+                                   value="@_weightText"
+                                   aria-label="@(IsBodyweightLoad ? $"Peso añadido en kg de {DisplayName}" : $"Peso en kg de {DisplayName}")"
+                                   @oninput="@(eventArgs => _weightText = eventArgs.Value?.ToString() ?? string.Empty)"
+                                   @onblur="SaveLoadAsync" />
+                            @if (IsBodyweightLoad)
+                            {
+                                <span class="hs-settable-unit">kg extra</span>
+                            }
+                        </td>
+                        <td class="hs-settable-done">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                     Size="MudBlazor.Size.Small"
+                                     aria-hidden="true" />
+                            <span class="hs-visually-hidden">Serie @index completada</span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="hs-settable-foot">
+            <button type="button"
+                    class="hs-chip hs-chip-accent hs-settable-add"
+                    aria-label="@($"Añadir serie de {DisplayName}")"
+                    @onclick="AddSetAsync">+ serie</button>
+            @if (Sets > 1)
+            {
+                <button type="button"
+                        class="hs-chip hs-settable-remove"
+                        aria-label="@($"Quitar la última serie de {DisplayName}")"
+                        @onclick="RemoveSetAsync">−</button>
+            }
+        </div>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired] public WorkoutSessionExerciseResource Exercise { get; set; } = default!;
+    [Parameter] public string DisplayName { get; set; } = "Ejercicio";
+    [Parameter] public string? ThumbUrl { get; set; }
+    [Parameter] public string? PreviousText { get; set; }
+    [Parameter] public bool IsRecord { get; set; }
+    [Parameter] public string RecordLabel { get; set; } = "Mejor marca personal";
+    [Parameter] public string EditRoute { get; set; } = string.Empty;
+    [Parameter] public EventCallback<WorkoutSessionExerciseResource> OnSetsChanged { get; set; }
+    [Parameter] public EventCallback<WorkoutSessionExerciseResource> OnCompleteAttempt { get; set; }
+
+    private string _repsText = string.Empty;
+    private string _weightText = string.Empty;
+    private Guid _boundExerciseId;
+
+    private int Attempts => Math.Max(1, Exercise.Attempts ?? 1);
+    private int Completed => Math.Clamp(Exercise.CompletedAttempts ?? 0, 0, Attempts);
+
+    // Skill work (muscle-ups, handstand holds) is counted in attempts, not in
+    // sets: the dots row replaces the table when there is nothing to tabulate.
+    private bool AttemptsStyle => Attempts > 1 && (Exercise.Series ?? 1) <= 1;
+
+    private int Sets => Math.Max(1, Exercise.Series ?? 1);
+    private bool IsBodyweightLoad => Exercise.BodyWeight.GetValueOrDefault() > 0;
+
+    private string MetaLine
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(Exercise.QualityIntent))
+            {
+                parts.Add(Exercise.QualityIntent);
+            }
+            if (TrainingIntent.ParseLoadType(Exercise.LoadType) is { } loadType)
+            {
+                parts.Add(loadType.Label());
+            }
+            if (Exercise.Tags.Count > 0)
+            {
+                parts.Add(string.Join(" · ", Exercise.Tags));
+            }
+            return parts.Count > 0 ? string.Join(" · ", parts) : "Sin ajustes";
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Re-seed the inline inputs only when a different entry is bound: a
+        // parent re-render must not overwrite what the user is typing.
+        if (_boundExerciseId != Exercise.Id)
+        {
+            _boundExerciseId = Exercise.Id;
+            _repsText = Exercise.Repetitions?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+            _weightText = (IsBodyweightLoad ? Exercise.AddedWeight : Exercise.Weight)
+                ?.ToString("0.##", CultureInfo.InvariantCulture) ?? string.Empty;
+        }
+    }
+
+    private Task CompleteAttemptAsync() => OnCompleteAttempt.InvokeAsync(Exercise);
+
+    private async Task AddSetAsync()
+    {
+        Exercise.Series = Sets + 1;
+        await OnSetsChanged.InvokeAsync(Exercise);
+    }
+
+    private async Task RemoveSetAsync()
+    {
+        Exercise.Series = Math.Max(1, Sets - 1);
+        await OnSetsChanged.InvokeAsync(Exercise);
+    }
+
+    private async Task SaveLoadAsync()
+    {
+        var reps = ParseInt(_repsText);
+        var load = ParseDecimal(_weightText);
+
+        var repsChanged = reps != Exercise.Repetitions;
+        var loadChanged = IsBodyweightLoad
+            ? load != Exercise.AddedWeight
+            : load != Exercise.Weight;
+
+        Exercise.Repetitions = reps;
+        if (IsBodyweightLoad)
+        {
+            Exercise.AddedWeight = load;
+        }
+        else
+        {
+            Exercise.Weight = load;
+        }
+
+        if (repsChanged || loadChanged)
+        {
+            await OnSetsChanged.InvokeAsync(Exercise);
+        }
+    }
+
+    private static int? ParseInt(string? text)
+        => int.TryParse(Normalize(text), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+            && value >= 0
+            ? value
+            : null;
+
+    private static decimal? ParseDecimal(string? text)
+        => decimal.TryParse(Normalize(text), NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
+            && value >= 0
+            ? value
+            : null;
+
+    // A Spanish keyboard types "72,5"; the wire and the display use a dot.
+    private static string Normalize(string? text)
+        => (text ?? string.Empty).Trim().Replace(',', '.');
+}
