@@ -4,14 +4,10 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject TitleService TitleService
-@inject IDialogService DialogService
-@inject IJSRuntime JS
 @inject ActiveSessionState ActiveSession
 @using System.Net
 @using System.Globalization
 @using System.Text.Json
-@using System.Timers
-@implements IDisposable
 
 <PageTitle>Hoy</PageTitle>
 
@@ -50,19 +46,13 @@
     @if (_showSummary && _summarySession is not null)
     {
         <TodaySessionSummary Session="@_summarySession"
-                             Duration="@_summaryDuration"
                              Records="@_summaryRecords"
-                             AdaptationDeltas="@_summaryAdaptations"
                              OnFatigueSelected="SaveFatigueAsync"
                              OnBackToToday="BackToTodayAsync" />
     }
     else if (_session is null)
     {
         <section class="hs-today-activation" aria-label="Empezar">
-            <button type="button"
-                    class="hs-cta hs-cta-primary"
-                    disabled="@_isStarting"
-                    @onclick="StartWorkout">▶ Empezar entreno</button>
             @if (_lastWorkout is not null)
             {
                 <button type="button"
@@ -124,8 +114,6 @@
 
         <section class="hs-today-session" aria-label="Entreno en curso">
             <div class="hs-today-timer">
-                <span class="hs-today-timer-value"
-                      aria-label="Tiempo de entreno">@TimerLabel</span>
                 <span class="hs-chip hs-chip-accent hs-today-timer-chip">@SessionIntentLabel</span>
                 <span class="hs-today-session-summary">@ExerciseSummary</span>
                 <button type="button"
@@ -259,16 +247,15 @@
                                 </MudButton>
                             </header>
                             <div class="hs-today-exercise-list">
-                                @foreach (var exercise in block.Exercises)
+                                @foreach (var group in ExerciseGroups(block.Exercises))
                                 {
-                                    <TodayExerciseLog Exercise="exercise"
-                                                      DisplayName="@ExerciseDisplayName(exercise)"
-                                                      ThumbUrl="@ExerciseThumbUrl(exercise)"
-                                                      PreviousText="@PreviousTextFor(exercise)"
-                                                      IsRecord="@IsRecordFor(exercise)"
-                                                      RecordLabel="@RecordLabelFor(exercise)"
-                                                      EditRoute="@BuildEditRoute(exercise.Id)"
-                                                      OnSetsChanged="SaveExerciseAsync"
+                                    <TodayExerciseLog Entries="@group"
+                                                      DisplayName="@ExerciseDisplayName(group[0])"
+                                                      ThumbUrl="@ExerciseThumbUrl(group[0])"
+                                                      PreviousText="@PreviousTextFor(group[0])"
+                                                      OnEntrySaved="SaveExerciseAsync"
+                                                      OnAddSet="AddSetAsync"
+                                                      OnRemoveSet="RemoveSetAsync"
                                                       OnCompleteAttempt="CompleteAttemptAsync" />
                                 }
                             </div>
@@ -277,16 +264,15 @@
                     @if (UnassignedExercises.Count > 0)
                     {
                         <div class="hs-today-exercise-list">
-                            @foreach (var exercise in UnassignedExercises)
+                            @foreach (var group in ExerciseGroups(UnassignedExercises))
                             {
-                                <TodayExerciseLog Exercise="exercise"
-                                                  DisplayName="@ExerciseDisplayName(exercise)"
-                                                  ThumbUrl="@ExerciseThumbUrl(exercise)"
-                                                  PreviousText="@PreviousTextFor(exercise)"
-                                                  IsRecord="@IsRecordFor(exercise)"
-                                                  RecordLabel="@RecordLabelFor(exercise)"
-                                                  EditRoute="@BuildEditRoute(exercise.Id)"
-                                                  OnSetsChanged="SaveExerciseAsync"
+                                <TodayExerciseLog Entries="@group"
+                                                  DisplayName="@ExerciseDisplayName(group[0])"
+                                                  ThumbUrl="@ExerciseThumbUrl(group[0])"
+                                                  PreviousText="@PreviousTextFor(group[0])"
+                                                  OnEntrySaved="SaveExerciseAsync"
+                                                  OnAddSet="AddSetAsync"
+                                                  OnRemoveSet="RemoveSetAsync"
                                                   OnCompleteAttempt="CompleteAttemptAsync" />
                             }
                         </div>
@@ -296,29 +282,20 @@
             else
             {
                 <div class="hs-today-exercise-list">
-                    @foreach (var exercise in current.Exercises)
+                    @foreach (var group in ExerciseGroups(current.Exercises))
                     {
-                        <TodayExerciseLog Exercise="exercise"
-                                          DisplayName="@ExerciseDisplayName(exercise)"
-                                          ThumbUrl="@ExerciseThumbUrl(exercise)"
-                                          PreviousText="@PreviousTextFor(exercise)"
-                                          IsRecord="@IsRecordFor(exercise)"
-                                          RecordLabel="@RecordLabelFor(exercise)"
-                                          EditRoute="@BuildEditRoute(exercise.Id)"
-                                          OnSetsChanged="SaveExerciseAsync"
+                        <TodayExerciseLog Entries="@group"
+                                          DisplayName="@ExerciseDisplayName(group[0])"
+                                          ThumbUrl="@ExerciseThumbUrl(group[0])"
+                                          PreviousText="@PreviousTextFor(group[0])"
+                                          OnEntrySaved="SaveExerciseAsync"
+                                          OnAddSet="AddSetAsync"
+                                          OnRemoveSet="RemoveSetAsync"
                                           OnCompleteAttempt="CompleteAttemptAsync" />
                     }
                 </div>
             }
 
-            @if (_restRemaining > TimeSpan.Zero)
-            {
-                <div class="hs-today-rest" role="status" aria-live="polite">
-                    <span class="hs-micro-label">Descanso</span>
-                    <span class="hs-today-rest-value">@FormatStopwatch(_restRemaining)</span>
-                    <button type="button" class="hs-chip" @onclick="SkipRest">Saltar</button>
-                </div>
-            }
         </section>
     }
 
@@ -368,18 +345,7 @@
     private bool _showSummary;
     private WorkoutSessionResource? _summarySession;
     private List<string> _summaryRecords = [];
-    private Dictionary<string, int> _summaryAdaptations = [];
-    private TimeSpan _summaryDuration;
     private int _streakDays;
-
-    // The session clock is client-owned: the API has no started-at on a session.
-    // It survives a reload through localStorage so a refresh never resets it.
-    private DateTime? _sessionStart;
-    private TimeSpan _elapsed;
-    private DateTime? _restUntil;
-    private TimeSpan _restRemaining;
-    private System.Timers.Timer? _ticker;
-    private const int DefaultRestSeconds = 90;
 
     // Load done in the previous session, per exercise type: feeds the
     // "Anterior" column and the PR badge (DESIGN.md §3).
@@ -387,20 +353,6 @@
 
     private string DateLabel
         => _today.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMM", Spanish);
-
-    private string LastWorkoutLabel
-    {
-        get
-        {
-            if (_lastWorkout?.Date is not { } date)
-            {
-                return string.Empty;
-            }
-
-            var exerciseCount = _lastWorkout.ExerciseCount;
-            return $"{DaysAgoLabel(date.Date)} · {exerciseCount} {(exerciseCount == 1 ? "ejercicio" : "ejercicios")}";
-        }
-    }
 
     // The repeat CTA names the workout it repeats: a bare "Repetir" is a
     // mystery button, a named one is a decision the user can already make.
@@ -480,15 +432,6 @@
         }
     }
 
-    private string StreakLabel => _streakDays switch
-    {
-        0 => "Racha 0 días",
-        1 => "Racha 1 día",
-        var days => $"Racha {days} días"
-    };
-
-    private string TimerLabel => FormatStopwatch(_elapsed);
-
     private string SessionIntentLabel
     {
         get
@@ -563,7 +506,6 @@
             if (_session is not null)
             {
                 ActiveSession.SetSession(_session.Id);
-                await ResumeSessionClockAsync(_session.Id);
                 await LoadPreviousLoadsAsync();
             }
         }
@@ -790,7 +732,6 @@
             }
 
             ActiveSession.SetSession(_session.Id);
-            await BeginSessionClockAsync(_session.Id);
             await LoadPreviousLoadsAsync();
         }
         catch (HttpRequestException)
@@ -840,25 +781,12 @@
         _session = session;
         _sessions.Add(session);
         ActiveSession.SetSession(session.Id);
-        await BeginSessionClockAsync(session.Id);
         return session.Id;
     }
 
     private Task HandleSessionUpdated(WorkoutSessionResource session)
     {
-        _session = session;
-        var index = _sessions.FindIndex(
-            item => item.Id == session.Id);
-        if (index >= 0)
-        {
-            _sessions[index] = session;
-        }
-        else
-        {
-            _sessions.Add(session);
-        }
-
-        ActiveSession.SetSession(session.Id);
+        AdoptSession(session);
         Snackbar.Add("Ejercicio añadido.", Severity.Success);
         return Task.CompletedTask;
     }
@@ -867,7 +795,6 @@
     {
         _session = session;
         ActiveSession.SetSession(session.Id);
-        _ = ResumeSessionClockAsync(session.Id);
     }
 
     // ── Universal tracker: intent chips ───────────────────────────────────────
@@ -1164,9 +1091,6 @@
         // The row ticks first: the tap is the workout, the save is background.
         exercise.CompletedAttempts = completed;
 
-        // Rest is part of the log, not a setting: after a completed attempt the
-        // page counts down on its own and the user can skip it.
-        BeginRest();
 
         try
         {
@@ -1210,53 +1134,21 @@
             return;
         }
 
-        var parameters = new DialogParameters
-        {
-            { "InitialFatigue", _session.PerceivedFatigue }
-        };
-
-        var reference = await DialogService.ShowAsync<FinishSessionDialog>(
-            string.Empty,
-            parameters,
-            new DialogOptions
-            {
-                CloseOnEscapeKey = true,
-                MaxWidth = MaxWidth.ExtraSmall
-            });
-
-        var result = await reference.Result;
-        if (result.Canceled)
-        {
-            return;
-        }
-
+        // Closing is one tap: no dialog, no second step. The user lands on their
+        // own result (DESIGN.md §5.3) and perceived fatigue is asked there, once.
         var session = _session;
-        if (result.Data is int fatigue)
-        {
-            session.PerceivedFatigue = fatigue;
-            await PatchSessionAsync(new { perceivedFatigue = fatigue });
-        }
-
-        // The user lands on their own result, never on History and never on a
-        // catalog (DESIGN.md §5.3).
         _summarySession = session;
-        _summaryDuration = _sessionStart is { } start ? DateTime.Now - start : _elapsed;
         _summaryRecords = BuildRecordList(session);
-        _summaryAdaptations = BuildAdaptationDeltas(session);
         _showSummary = true;
         _session = null;
-        _restUntil = null;
-        _restRemaining = TimeSpan.Zero;
         ActiveSession.SetSession(null);
-        StopTicker();
+
         // When finish is triggered from the shell FAB (ActiveSession.FinishAsync),
         // the event belongs to MainLayout and only the layout re-renders; the page
         // must render its own summary explicitly (t_745b4960 regression). The
-        // continuation after the dialog can resume off the Blazor dispatcher, so
-        // the render must be marshalled through InvokeAsync or it throws and the
-        // summary never appears.
+        // continuation can resume off the Blazor dispatcher, so the render is
+        // marshalled through InvokeAsync.
         await InvokeAsync(StateHasChanged);
-        await ClearSessionClockAsync(session.Id);
     }
 
     private async Task BackToTodayAsync()
@@ -1264,7 +1156,6 @@
         _showSummary = false;
         _summarySession = null;
         _summaryRecords = [];
-        _summaryAdaptations = [];
         await LoadPageAsync();
     }
 
@@ -1303,35 +1194,6 @@
         return records;
     }
 
-    // "Series por adaptación": the sets this session logged for each adaptation
-    // the exercises carry. A count of what was trained, not a promise.
-    private Dictionary<string, int> BuildAdaptationDeltas(WorkoutSessionResource session)
-    {
-        var deltas = new Dictionary<string, int>();
-        foreach (var exercise in session.Exercises)
-        {
-            var sets = Math.Max(1, exercise.Series ?? 1);
-            foreach (var adaptation in exercise.Adaptations ?? [])
-            {
-                var name = adaptation switch
-                {
-                    "Strength" => "fuerza",
-                    "Hypertrophy" => "hipertrofia",
-                    "Endurance" => "resistencia",
-                    "Mobility" => "movilidad",
-                    "Power" => "potencia",
-                    "Skill" => "habilidad",
-                    _ => adaptation.ToLowerInvariant()
-                };
-                deltas[name] = deltas.GetValueOrDefault(name) + sets;
-            }
-        }
-        return deltas;
-    }
-
-    private static string BuildEditRoute(Guid exerciseId)
-        => $"/training/history/{exerciseId}/edit?returnUrl={Uri.EscapeDataString("/training/today")}";
-
     // ── Universal tracker: saving a logged set ────────────────────────────────
     // The row updates on the tap and the save happens after; a failed save is
     // retried by the offline mirror, never by asking the user to type again.
@@ -1369,6 +1231,120 @@
             Snackbar.Add("Tardó demasiado. Se sincronizará al reconectar.", Severity.Warning);
         }
     }
+
+    // ── Universal tracker: one row per set (DESIGN.md §5.2) ───────────────────
+    // Every logged set is its own session exercise row. Rows of the same
+    // exercise in the same block render as one group, but each row saves, adds
+    // and removes on its own.
+
+    private static List<List<WorkoutSessionExerciseResource>> ExerciseGroups(
+        IEnumerable<WorkoutSessionExerciseResource> exercises)
+        => exercises
+            .GroupBy(exercise => (exercise.TypeId, exercise.Name, exercise.BlockId))
+            .Select(group => group.OrderBy(exercise => exercise.Order ?? 0).ToList())
+            .ToList();
+
+    private async Task AddSetAsync(WorkoutSessionExerciseResource? template)
+    {
+        if (template is null || _session is null)
+        {
+            return;
+        }
+
+        var nextOrder = (_session.Exercises.Count > 0
+            ? _session.Exercises.Max(exercise => exercise.Order ?? 0)
+            : 0) + 1;
+
+        try
+        {
+            using var response = await Http.PostAsJsonAsync(
+                $"/Workouts/{_session.Id}/exercises",
+                new AddExerciseResource
+                {
+                    WorkoutId = _session.Id,
+                    TypeId = template.TypeId,
+                    Series = 1,
+                    Weight = 0m,
+                    BlockId = template.BlockId,
+                    Order = nextOrder,
+                    Attempts = template.Attempts ?? 1,
+                    CompletedAttempts = 0,
+                    QualityIntent = template.QualityIntent,
+                    LoadType = template.LoadType
+                });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("No se pudo añadir la serie.", Severity.Warning);
+                return;
+            }
+
+            var session = await response.Content
+                .ReadFromJsonAsync<WorkoutSessionResource>();
+            if (session is not null)
+            {
+                AdoptSession(session);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("No se pudo guardar. Se sincronizará al reconectar.", Severity.Warning);
+        }
+        catch (TaskCanceledException)
+        {
+            Snackbar.Add("Tardó demasiado. Se sincronizará al reconectar.", Severity.Warning);
+        }
+    }
+
+    private async Task RemoveSetAsync(WorkoutSessionExerciseResource entry)
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        var sessionId = _session.Id;
+        try
+        {
+            using var response = await Http.DeleteAsync($"/Exercises/{entry.Id}");
+            if (!response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("No se pudo quitar la serie.", Severity.Warning);
+                return;
+            }
+
+            _sessions.Clear();
+            _sessions.AddRange(await LoadSessionsAsync());
+            _session = _sessions.FirstOrDefault(session => session.Id == sessionId)
+                       ?? _sessions.LastOrDefault();
+            ActiveSession.SetSession(_session?.Id);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("No se pudo guardar. Se sincronizará al reconectar.", Severity.Warning);
+        }
+        catch (TaskCanceledException)
+        {
+            Snackbar.Add("Tardó demasiado. Se sincronizará al reconectar.", Severity.Warning);
+        }
+    }
+
+    private void AdoptSession(WorkoutSessionResource session)
+    {
+        _session = session;
+        var index = _sessions.FindIndex(item => item.Id == session.Id);
+        if (index >= 0)
+        {
+            _sessions[index] = session;
+        }
+        else
+        {
+            _sessions.Add(session);
+        }
+
+        ActiveSession.SetSession(session.Id);
+    }
+
 
     // ── Universal tracker: names, thumbnails and baselines ────────────────────
 
@@ -1432,149 +1408,9 @@
                && current > HistoryLoadValue(previous);
     }
 
-    private string RecordLabelFor(WorkoutSessionExerciseResource exercise)
-    {
-        var previous = _previousLoads.TryGetValue(exercise.TypeId, out var baseline)
-            ? HistoryLoadValue(baseline)
-            : 0;
-        var delta = ExerciseLoadValue(exercise) - previous;
-        return delta > 0
-            ? $"PR +{FormatNumber(delta)} kg"
-            : "Mejor marca personal";
-    }
-
     private static string FormatNumber(decimal value)
         => value == Math.Truncate(value)
             ? value.ToString("0", Spanish)
             : value.ToString("0.0", Spanish);
 
-    private static string FormatStopwatch(TimeSpan value)
-        => value.TotalHours >= 1
-            ? $"{(int)value.TotalHours}:{value.Minutes:00}:{value.Seconds:00}"
-            : $"{(int)value.TotalMinutes:00}:{value.Seconds:00}";
-
-    // ── Universal tracker: session clock and rest ─────────────────────────────
-    // Both are client-owned: the API has no started-at on a session and no rest
-    // timer. The clock survives a reload through localStorage so a refresh in
-    // the middle of a workout never resets it.
-
-    private void StartTicker()
-    {
-        if (_ticker is not null)
-        {
-            return;
-        }
-
-        _ticker = new System.Timers.Timer(1000);
-        _ticker.Elapsed += (_, _) => _ = InvokeAsync(Tick);
-        _ticker.Start();
-    }
-
-    private void StopTicker()
-        => _ticker?.Stop();
-
-    private void Tick()
-    {
-        if (_sessionStart is { } start)
-        {
-            _elapsed = DateTime.Now - start;
-        }
-
-        if (_restUntil is { } until)
-        {
-            _restRemaining = until - DateTime.Now;
-            if (_restRemaining <= TimeSpan.Zero)
-            {
-                _restUntil = null;
-                _restRemaining = TimeSpan.Zero;
-            }
-        }
-
-        StateHasChanged();
-    }
-
-    private async Task BeginSessionClockAsync(Guid sessionId)
-    {
-        _sessionStart = DateTime.Now;
-        _elapsed = TimeSpan.Zero;
-        StartTicker();
-
-        try
-        {
-            await JS.InvokeVoidAsync(
-                "localStorage.setItem",
-                SessionClockKey(sessionId),
-                _sessionStart.Value.ToString("O"));
-        }
-        catch (Exception)
-        {
-            // The clock is a convenience; a blocked localStorage just keeps it
-            // for this visit.
-        }
-    }
-
-    private async Task ResumeSessionClockAsync(Guid sessionId)
-    {
-        try
-        {
-            var stored = await JS.InvokeAsync<string?>(
-                "localStorage.getItem",
-                SessionClockKey(sessionId));
-            if (stored is not null
-                && DateTime.TryParse(
-                    stored,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.RoundtripKind,
-                    out var start))
-            {
-                _sessionStart = start;
-                _elapsed = DateTime.Now - start;
-                StartTicker();
-                return;
-            }
-        }
-        catch (Exception)
-        {
-            // Fall through: a fresh clock is better than no clock.
-        }
-
-        await BeginSessionClockAsync(sessionId);
-    }
-
-    private async Task ClearSessionClockAsync(Guid sessionId)
-    {
-        _sessionStart = null;
-        _elapsed = TimeSpan.Zero;
-
-        try
-        {
-            await JS.InvokeVoidAsync("localStorage.removeItem", SessionClockKey(sessionId));
-        }
-        catch (Exception)
-        {
-            // Nothing to clean up if storage was unavailable.
-        }
-    }
-
-    private static string SessionClockKey(Guid sessionId)
-        => $"healthspan.session.start.{sessionId}";
-
-    private void BeginRest()
-    {
-        _restUntil = DateTime.Now.AddSeconds(DefaultRestSeconds);
-        _restRemaining = TimeSpan.FromSeconds(DefaultRestSeconds);
-        StartTicker();
-    }
-
-    private void SkipRest()
-    {
-        _restUntil = null;
-        _restRemaining = TimeSpan.Zero;
-    }
-
-    public void Dispose()
-    {
-        _ticker?.Dispose();
-        _ticker = null;
-    }
 }

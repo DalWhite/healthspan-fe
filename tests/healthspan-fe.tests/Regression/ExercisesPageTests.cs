@@ -165,13 +165,14 @@ public class ExercisesPageTests : BlazorTestBase
         cut.Find("form").Submit();
         cut.WaitForAssertion(() =>
         {
-            MockHttp.GetMatchCount(addRequest).Should().Be(1);
+            // One POST per planned set: a 3-series entry becomes 3 session exercises.
+            MockHttp.GetMatchCount(addRequest).Should().Be(3);
             navigationManager.Uri.Should().Contain("/exercises/create?");
         });
 
         cut.Find("form").Submit();
         cut.WaitForAssertion(() =>
-            MockHttp.GetMatchCount(addRequest).Should().Be(2));
+            MockHttp.GetMatchCount(addRequest).Should().Be(6));
 
         cut.FindAll("button")
             .Single(button => button.TextContent.Trim() == "Done")

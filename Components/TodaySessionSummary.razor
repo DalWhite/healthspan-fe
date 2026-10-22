@@ -2,20 +2,20 @@
 
 @*
     Post-workout summary (DESIGN.md §5.3). The user lands here — not on a
-    catalogue — right after closing a session: duration hero, the two numbers
-    that matter (series, attempts), the PR badge when one happened, perceived
-    fatigue asked once, and the adaptation deltas of what was just trained.
+    catalogue — right after closing a session: the series hero, the volume and
+    attempts that were logged, the PR badge when one happened, and perceived
+    fatigue asked once.
 *@
 <section class="hs-summary" aria-label="Resumen del entreno">
     <div class="hs-summary-hero">
         <span class="hs-hero">
-            <span class="hs-hero-value">@DurationLabel</span>
-            <span class="hs-hero-label">Duración</span>
+            <span class="hs-hero-value">@TotalSets</span>
+            <span class="hs-hero-label">Series</span>
         </span>
         <div class="hs-summary-tiles">
             <div class="hs-tile">
-                <span class="hs-tile-value">@TotalSets</span>
-                <span class="hs-tile-label">Series</span>
+                <span class="hs-tile-value">@VolumeLabel</span>
+                <span class="hs-tile-label">Volumen</span>
             </div>
             <div class="hs-tile">
                 <span class="hs-tile-value">@AttemptSummary</span>
@@ -49,19 +49,6 @@
         <span class="hs-summary-hint">@FatigueHint</span>
     </div>
 
-    @if (AdaptationDeltas.Count > 0)
-    {
-        <div class="hs-summary-block">
-            <span class="hs-micro-label">Series por adaptación</span>
-            <div class="hs-today-chip-row">
-                @foreach (var (name, sets) in AdaptationDeltas)
-                {
-                    <span class="hs-chip hs-chip-accent">@($"{name} +{sets}")</span>
-                }
-            </div>
-        </div>
-    }
-
     <button type="button"
             class="hs-cta hs-cta-primary hs-summary-back"
             @onclick="BackToTodayAsync">Volver a Hoy</button>
@@ -69,14 +56,32 @@
 
 @code {
     [Parameter, EditorRequired] public WorkoutSessionResource Session { get; set; } = default!;
-    [Parameter] public TimeSpan Duration { get; set; }
     [Parameter] public IReadOnlyList<string> Records { get; set; } = Array.Empty<string>();
-    [Parameter] public IReadOnlyDictionary<string, int> AdaptationDeltas { get; set; }
-        = new Dictionary<string, int>();
     [Parameter] public EventCallback<int> OnFatigueSelected { get; set; }
     [Parameter] public EventCallback OnBackToToday { get; set; }
 
-    private int TotalSets => Session.Exercises.Sum(exercise => exercise.Series ?? 0);
+    private int TotalSets => Session.Exercises.Sum(exercise => Math.Max(1, exercise.Series ?? 1));
+
+    private static decimal VolumeOf(WorkoutSessionExerciseResource exercise)
+    {
+        var sets = Math.Max(1, exercise.Series ?? 1);
+        var reps = exercise.Repetitions ?? 0;
+        var load = exercise.BodyWeight is { } body
+            ? body + (exercise.AddedWeight ?? 0m)
+            : exercise.Weight ?? 0m;
+        return sets * reps * load;
+    }
+
+    private string VolumeLabel
+    {
+        get
+        {
+            var volume = Session.Exercises.Sum(VolumeOf);
+            return volume >= 1000m
+                ? $"{(volume / 1000m).ToString("0.#", CultureInfo.InvariantCulture)} t"
+                : $"{volume.ToString("0", CultureInfo.InvariantCulture)} kg";
+        }
+    }
 
     private string AttemptSummary
     {
@@ -93,17 +98,6 @@
             var completed = attempts.Sum(exercise => exercise.CompletedAttempts ?? 0);
             var planned = attempts.Sum(exercise => Math.Max(1, exercise.Attempts ?? 1));
             return $"{completed}/{planned}";
-        }
-    }
-
-    private string DurationLabel
-    {
-        get
-        {
-            var duration = Duration < TimeSpan.Zero ? TimeSpan.Zero : Duration;
-            return duration.TotalHours >= 1
-                ? $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}"
-                : $"{duration.Minutes:00}:{duration.Seconds:00}";
         }
     }
 

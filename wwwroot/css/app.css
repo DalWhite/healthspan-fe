@@ -4077,6 +4077,7 @@ a.hs-exercise-history-row:hover {
 
 /* Mid-session taps happen with sweaty hands on a phone: 44px targets. */
 .hs-today-attempt-plus,
+.hs-today-attempt-minus,
 .hs-today-attempt-check {
   width: 44px;
   height: 44px;

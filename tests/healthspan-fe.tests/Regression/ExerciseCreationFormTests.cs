@@ -204,9 +204,10 @@ public class ExerciseCreationFormTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            MockHttp.GetMatchCount(addRequest).Should().Be(1);
+            // One POST per planned set (the form defaults to 3 series).
+            MockHttp.GetMatchCount(addRequest).Should().Be(3);
             updatedSession.Should().NotBeNull();
-            updatedSession!.Exercises.Should().ContainSingle();
+            updatedSession!.Exercises.Should().NotBeEmpty();
             cut.Markup.Should().Contain("Favoritos");
         });
     }

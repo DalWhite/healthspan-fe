@@ -305,9 +305,12 @@ public class TodayTrackerUiTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            // The set table is the log: one row per series, reps and load inline.
+            // t_0f19c744: a row is a real session exercise. A legacy entry that
+            // still carries series=3 shows one row labelled ×3, never three
+            // rows sharing the same inputs.
             var rows = cut.FindAll(".hs-settable-row");
-            rows.Should().HaveCount(3);
+            rows.Should().HaveCount(1);
+            cut.Find(".hs-settable-sets").TextContent.Should().Be("×3");
             cut.FindAll(".hs-settable-input")
                 .Select(input => input.GetAttribute("value"))
                 .Should().Contain("10");

@@ -539,6 +539,53 @@
                     _submissionError = "The workout response was incomplete. Please try again.";
                     return;
                 }
+
+                // One row per planned set: a 3-series entry becomes 3 real
+                // session exercises (same type, appended in order) so editing
+                // one set never overwrites the others. Attempt-based entries
+                // keep their single row and their completed/planned dots.
+                if (_attempts <= 1 && _exercise.Series > 1)
+                {
+                    for (var plannedSet = 1; plannedSet < _exercise.Series; plannedSet++)
+                    {
+                        var extra = new AddExerciseResource
+                        {
+                            WorkoutId = workoutId,
+                            TypeId = _selectedType.Id,
+                            Series = 1,
+                            Repetitions = _exercise.Repetitions,
+                            Weight = _exercise.Weight,
+                            WeightType = _exercise.WeightType,
+                            BodyWeight = _exercise.BodyWeight,
+                            AddedWeight = _exercise.AddedWeight,
+                            Tags = ExerciseTagText.Normalize(_exercise.Tags),
+                            BlockId = _blockId,
+                            Order = 0,
+                            Attempts = 1,
+                            CompletedAttempts = 1,
+                            QualityIntent = _exercise.QualityIntent,
+                            LoadType = _exercise.LoadType,
+                        };
+
+                        using var extraResponse = await Http.PostAsJsonAsync(endpoint, extra);
+                        if (!extraResponse.IsSuccessStatusCode)
+                        {
+                            _submissionError =
+                                await HttpProblemDetailsReader.ReadMessageAsync(
+                                    extraResponse,
+                                    "The exercise could not be saved. Please try again.");
+                            return;
+                        }
+
+                        var refreshed = await extraResponse
+                            .Content
+                            .ReadFromJsonAsync<WorkoutSessionResource>();
+                        if (refreshed is not null)
+                        {
+                            updatedSession = refreshed;
+                        }
+                    }
+                }
             }
 
             var addedExercise = CloneExercise(_exercise);

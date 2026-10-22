@@ -39,7 +39,8 @@ public class TouchTargetHarnessTests : BlazorTestBase
         markup["shell"].Should().Contain("hs-bottom-nav");
         markup["shell"].Should().Contain("hs-fab");
         markup["shell"].Should().Contain("hs-sidebar-cta");
-        markup["today"].Should().Contain("hs-workout-edit-link");
+        markup["today"].Should().Contain("hs-settable-add");
+        markup["today"].Should().Contain("hs-settable-remove");
         markup["today"].Should().Contain("hs-today-session-switcher");
         markup["today"].Should().Contain("hs-settable");
         markup["entryform"].Should().Contain("hs-exercise-quick-button");
@@ -147,7 +148,7 @@ public class TouchTargetHarnessTests : BlazorTestBase
 
         var today = RenderComponent<TodayWorkout>();
         today.WaitForAssertion(
-            () => today.FindAll(".hs-workout-edit-link").Count.Should().BeGreaterThan(0),
+            () => today.FindAll(".hs-settable-remove").Count.Should().BeGreaterThan(0),
             TimeSpan.FromSeconds(10));
         rendered["today"] = today.Markup;
 

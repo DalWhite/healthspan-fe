@@ -62,7 +62,23 @@ public class TodayWorkoutTests : BlazorTestBase
                             "id": "{{exerciseId}}",
                             "typeId": 1,
                             "name": "Bench Press",
-                            "series": 3,
+                            "series": 1,
+                            "repetitions": 10,
+                            "weight": 0
+                        },
+                        {
+                            "id": "00000000-0000-0000-0000-0000000000b2",
+                            "typeId": 1,
+                            "name": "Bench Press",
+                            "series": 1,
+                            "repetitions": 10,
+                            "weight": 0
+                        },
+                        {
+                            "id": "00000000-0000-0000-0000-0000000000b3",
+                            "typeId": 1,
+                            "name": "Bench Press",
+                            "series": 1,
                             "repetitions": 10,
                             "weight": 0
                         }
@@ -99,13 +115,16 @@ public class TodayWorkoutTests : BlazorTestBase
         {
             // The session appears only because the user actually logged something.
             MockHttp.GetMatchCount(startCall).Should().Be(1);
-            MockHttp.GetMatchCount(addCall).Should().Be(1);
+            // t_0f19c744: 3 planned sets = 3 session exercises, one POST each.
+            MockHttp.GetMatchCount(addCall).Should().Be(3);
 
             cut.Markup.Should().Contain("Bench Press");
 
-            // The log is the interface: 3 prefilled set rows, each carrying 10 reps.
-            cut.FindAll(".hs-settable tbody tr").Should().HaveCount(3);
-            cut.Find("input[aria-label='Repeticiones de Bench Press']")
+            // The log is the interface: 3 independent set rows, each with 10 reps.
+            cut.FindAll(".hs-settable-row").Should().HaveCount(3);
+            cut.Find("input[aria-label='Repeticiones de Bench Press, serie 1']")
+                .GetAttribute("value").Should().Be("10");
+            cut.Find("input[aria-label='Repeticiones de Bench Press, serie 3']")
                 .GetAttribute("value").Should().Be("10");
 
             Services.GetRequiredService<ISnackbar>()
@@ -161,18 +180,18 @@ public class TodayWorkoutTests : BlazorTestBase
             cut.Markup.Should().Contain("1 ejercicio · 3 series");
             cut.Markup.Should().Contain("Favoritos");
 
-            // The set table is the log: 3 rows carrying the logged 8 reps @ 80 kg.
-            cut.FindAll(".hs-settable tbody tr").Should().HaveCount(3);
-            cut.Find("input[aria-label='Repeticiones de Bench Press']")
+            // t_0f19c744: a row is a real session exercise. A legacy entry that
+            // still carries series=3 renders as one row labelled ×3, never as
+            // three rows sharing the same inputs.
+            cut.FindAll(".hs-settable-row").Should().HaveCount(1);
+            cut.Find(".hs-settable-sets").TextContent.Should().Be("×3");
+            cut.Find("input[aria-label='Repeticiones de Bench Press, serie 1']")
                 .GetAttribute("value").Should().Be("8");
-            cut.Find("input[aria-label='Peso en kg de Bench Press']")
+            cut.Find("input[aria-label='Kg de Bench Press, serie 1']")
                 .GetAttribute("value").Should().Be("80");
 
-            // The accent exercise name IS the edit affordance (DESIGN.md §2).
-            cut.Find("a[aria-label='Editar Bench Press']")
-                .GetAttribute("href")
-                .Should().Be(
-                    $"/training/history/{exerciseId}/edit?returnUrl=%2Ftraining%2Ftoday");
+            // The row IS the interface: no edit link, no edit round-trip.
+            cut.FindAll("a[href*='/edit']").Should().BeEmpty();
         });
     }
 
@@ -215,11 +234,10 @@ public class TodayWorkoutTests : BlazorTestBase
             cut.Markup.Should().Contain("Weighted Pull-up");
 
             // Bodyweight work logs the extra load, never a misleading total.
-            cut.Find("input[aria-label='Repeticiones de Weighted Pull-up']")
+            cut.Find("input[aria-label='Repeticiones de Weighted Pull-up, serie 1']")
                 .GetAttribute("value").Should().Be("5");
-            cut.Find("input[aria-label='Peso añadido en kg de Weighted Pull-up']")
+            cut.Find("input[aria-label='Kg añadidos de Weighted Pull-up, serie 1']")
                 .GetAttribute("value").Should().Be("5");
-            cut.Find(".hs-settable-unit").TextContent.Should().Be("kg extra");
         });
     }
 
@@ -512,7 +530,7 @@ public class TodayWorkoutTests : BlazorTestBase
             // A logged entry without numbers never reads as a fake "0 x 0".
             cut.Markup.Should().Contain("Sin ajustes");
             cut.Markup.Should().NotContain("0 × 0");
-            cut.Find("a[aria-label='Editar Bench Press']");
+            cut.FindAll("a[href*='/edit']").Should().BeEmpty();
         });
     }
 
@@ -585,15 +603,13 @@ public class TodayWorkoutTests : BlazorTestBase
 
         Services.AddSingleton<IDialogService, ImmediateDialogService>();
 
+        // t_0f19c744: the "Empezar entreno" CTA is gone. The shell FAB lands on
+        // ?start=1 and the page opens the session by itself.
+        Services.GetRequiredService<FakeNavigationManager>()
+            .NavigateTo("/training/today?start=1");
+
         var cut = RenderComponent<TodayWorkout>();
 
-        cut.WaitForAssertion(
-            () => cut.FindAll("button")
-                .Should().Contain(button => button.TextContent.Contains("Empezar entreno")),
-            TimeSpan.FromSeconds(10));
-        cut.FindAll("button")
-            .Single(button => button.TextContent.Contains("Empezar entreno"))
-            .Click();
         cut.WaitForAssertion(
             () => MockHttp.GetMatchCount(startCall).Should().Be(1),
             TimeSpan.FromSeconds(10));
@@ -613,6 +629,264 @@ public class TodayWorkoutTests : BlazorTestBase
         cut.FindAll("button")
             .Should().Contain(button => button.TextContent.Contains("Volver a Hoy"));
         active.SessionId.Should().BeNull();
+
+        // t_0f19c744: the summary is series + volume + fatigue. No duration.
+        var summary = cut.Find(".hs-summary");
+        summary.TextContent.Should().Contain("Series");
+        summary.TextContent.Should().NotContain("min");
+        summary.QuerySelectorAll(".hs-today-timer-value").Should().BeEmpty();
+    }
+
+    // ------------------------------------------------- t_0f19c744 regressions
+
+    [Fact]
+    public void Each_Series_Is_Its_Own_Row_And_Saves_On_Its_Own()
+    {
+        var workoutId = Guid.NewGuid();
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var third = Guid.NewGuid();
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, "/workouts*")
+            .Respond("application/json", "[]");
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", $$"""
+                [{
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [
+                        { "id": "{{first}}",  "typeId": 1, "name": "Bench Press",
+                          "series": 1, "repetitions": 8,  "weight": 80 },
+                        { "id": "{{second}}", "typeId": 1, "name": "Bench Press",
+                          "series": 1, "repetitions": 10, "weight": 85 },
+                        { "id": "{{third}}",  "typeId": 1, "name": "Bench Press",
+                          "series": 1, "repetitions": 12, "weight": 90 }
+                    ],
+                    "blocks": [],
+                    "recentExerciseTypeIds": [1]
+                }]
+                """);
+
+        static string BodyOf(System.Net.Http.HttpRequestMessage request) =>
+            request.Content is null
+                ? string.Empty
+                : request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+
+        // A save that targets any OTHER row would be a bug: the matchers split the
+        // PUTs by the exercise id they carry.
+        var saveForOtherRow = MockHttp.When(HttpMethod.Put, "/Exercises")
+            .With(request => !BodyOf(request).Contains(second.ToString()))
+            .Respond("application/json", "{}");
+        var saveForSecondRow = MockHttp.When(HttpMethod.Put, "/Exercises")
+            .With(request => BodyOf(request).Contains(second.ToString()))
+            .Respond("application/json", "{}");
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Three logged series = three rows, each carrying its own numbers.
+            cut.FindAll(".hs-settable-row").Should().HaveCount(3);
+            cut.Find("input[aria-label='Kg de Bench Press, serie 1']")
+                .GetAttribute("value").Should().Be("80");
+            cut.Find("input[aria-label='Kg de Bench Press, serie 2']")
+                .GetAttribute("value").Should().Be("85");
+            cut.Find("input[aria-label='Kg de Bench Press, serie 3']")
+                .GetAttribute("value").Should().Be("90");
+        }, TimeSpan.FromSeconds(10));
+
+        // Editing one row must touch only that row's exercise.
+        var reps = cut.Find("input[aria-label='Repeticiones de Bench Press, serie 2']");
+        reps.Input("11");
+        reps.Blur();
+
+        cut.WaitForAssertion(
+            () => MockHttp.GetMatchCount(saveForSecondRow).Should().Be(1),
+            TimeSpan.FromSeconds(10));
+
+        // Exactly one save, and it carries the edited row: its own id, its own reps.
+        MockHttp.GetMatchCount(saveForOtherRow).Should().Be(0);
+        MockHttp.GetMatchCount(saveForSecondRow).Should().Be(1);
+
+        // The other rows keep their own numbers.
+        cut.Find("input[aria-label='Repeticiones de Bench Press, serie 1']")
+            .GetAttribute("value").Should().Be("8");
+        cut.Find("input[aria-label='Repeticiones de Bench Press, serie 3']")
+            .GetAttribute("value").Should().Be("12");
+    }
+
+    [Fact]
+    public void Removing_A_Series_Deletes_Only_That_Series()
+    {
+        var workoutId = Guid.NewGuid();
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var third = Guid.NewGuid();
+
+        var logged = $$"""
+            [{
+                "id": "{{workoutId}}",
+                "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                "type": "Training",
+                "exercises": [
+                    { "id": "{{first}}",  "typeId": 1, "name": "Bench Press",
+                      "series": 1, "repetitions": 8,  "weight": 80 },
+                    { "id": "{{second}}", "typeId": 1, "name": "Bench Press",
+                      "series": 1, "repetitions": 10, "weight": 85 },
+                    { "id": "{{third}}",  "typeId": 1, "name": "Bench Press",
+                      "series": 1, "repetitions": 12, "weight": 90 }
+                ],
+                "blocks": [],
+                "recentExerciseTypeIds": [1]
+            }]
+            """;
+
+        // What the server holds after the delete: the other two series, untouched.
+        var remaining = $$"""
+            [{
+                "id": "{{workoutId}}",
+                "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                "type": "Training",
+                "exercises": [
+                    { "id": "{{first}}",  "typeId": 1, "name": "Bench Press",
+                      "series": 1, "repetitions": 8,  "weight": 80 },
+                    { "id": "{{third}}",  "typeId": 1, "name": "Bench Press",
+                      "series": 1, "repetitions": 12, "weight": 90 }
+                ],
+                "blocks": [],
+                "recentExerciseTypeIds": [1]
+            }]
+            """;
+
+        var state = logged;
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, "/workouts*")
+            .Respond("application/json", "[]");
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(state, Encoding.UTF8, "application/json")
+            });
+
+        // Registered first: the DELETE that carries the removed row's id.
+        var deleteForSecondRow = MockHttp.When(HttpMethod.Delete, "/Exercises*")
+            .With(request => request.RequestUri!.ToString().Contains(second.ToString()))
+            .Respond(_ =>
+            {
+                state = remaining;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{}", Encoding.UTF8, "application/json")
+                };
+            });
+        var deleteForOtherRow = MockHttp.When(HttpMethod.Delete, "/Exercises*")
+            .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{}", Encoding.UTF8, "application/json")
+            });
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(
+            () => cut.FindAll(".hs-settable-row").Should().HaveCount(3),
+            TimeSpan.FromSeconds(10));
+
+        cut.Find("button[aria-label='Quitar la serie 2 de Bench Press']").Click();
+
+        cut.WaitForAssertion(
+            () => MockHttp.GetMatchCount(deleteForSecondRow).Should().Be(1),
+            TimeSpan.FromSeconds(10));
+        MockHttp.GetMatchCount(deleteForOtherRow).Should().Be(0);
+
+        // The other two series survive, with their own numbers, renumbered 1 and 2.
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll(".hs-settable-row").Should().HaveCount(2);
+            cut.Find("input[aria-label='Repeticiones de Bench Press, serie 1']")
+                .GetAttribute("value").Should().Be("8");
+            cut.Find("input[aria-label='Kg de Bench Press, serie 1']")
+                .GetAttribute("value").Should().Be("80");
+            cut.Find("input[aria-label='Repeticiones de Bench Press, serie 2']")
+                .GetAttribute("value").Should().Be("12");
+            cut.Find("input[aria-label='Kg de Bench Press, serie 2']")
+                .GetAttribute("value").Should().Be("90");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void Add_Set_Appends_A_Blank_Row_Instead_Of_Cloning_The_Last_One()
+    {
+        var workoutId = Guid.NewGuid();
+        var first = Guid.NewGuid();
+        var added = Guid.NewGuid();
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, "/workouts*")
+            .Respond("application/json", "[]");
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", $$"""
+                [{
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [
+                        { "id": "{{first}}", "typeId": 1, "name": "Bench Press",
+                          "series": 1, "repetitions": 8, "weight": 80 }
+                    ],
+                    "blocks": [],
+                    "recentExerciseTypeIds": [1]
+                }]
+                """);
+        var addCall = MockHttp.When(HttpMethod.Post, $"/Workouts/{workoutId}/exercises")
+            .Respond("application/json", $$"""
+                {
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [
+                        { "id": "{{first}}", "typeId": 1, "name": "Bench Press",
+                          "series": 1, "repetitions": 8, "weight": 80 },
+                        { "id": "{{added}}", "typeId": 1, "name": "Bench Press",
+                          "series": 1, "repetitions": 0, "weight": 0 }
+                    ],
+                    "blocks": [],
+                    "recentExerciseTypeIds": [1]
+                }
+                """);
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(
+            () => cut.FindAll(".hs-settable-row").Should().HaveCount(1),
+            TimeSpan.FromSeconds(10));
+
+        cut.Find(".hs-settable-foot button").Click();
+
+        cut.WaitForAssertion(
+            () => MockHttp.GetMatchCount(addCall).Should().Be(1),
+            TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(() =>
+        {
+            // The new row is empty: the previous load never clones into it, and an
+            // empty kg field never renders as a fake "0".
+            cut.FindAll(".hs-settable-row").Should().HaveCount(2);
+            cut.Find("input[aria-label='Repeticiones de Bench Press, serie 2']")
+                .GetAttribute("value").Should().BeEmpty();
+            cut.Find("input[aria-label='Kg de Bench Press, serie 2']")
+                .GetAttribute("value").Should().BeEmpty();
+        }, TimeSpan.FromSeconds(10));
     }
 
     private static string TodaySessionJson(Guid workoutId, Guid exerciseId)
