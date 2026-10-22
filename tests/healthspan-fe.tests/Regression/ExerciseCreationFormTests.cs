@@ -207,7 +207,7 @@ public class ExerciseCreationFormTests : BlazorTestBase
             MockHttp.GetMatchCount(addRequest).Should().Be(1);
             updatedSession.Should().NotBeNull();
             updatedSession!.Exercises.Should().ContainSingle();
-            cut.Markup.Should().Contain("Favourites");
+            cut.Markup.Should().Contain("Favoritos");
         });
     }
 
@@ -237,7 +237,7 @@ public class ExerciseCreationFormTests : BlazorTestBase
         // Tags live behind an explicit affordance: the fast path hides them so
         // the common add stays short.
         cut.FindAll("button")
-            .Single(button => button.TextContent.Contains("Add tags"))
+            .Single(button => button.TextContent.Contains("Añadir etiquetas"))
             .Click();
 
         cut.Find("input[placeholder='Bilbo']")

@@ -5554,3 +5554,407 @@ button.hs-health-overview-card {
     max-height: 320px;
   }
 }
+
+/* ── Today redesign (DESIGN.md §5.1-5.3, mock screens 1-3) ─────────────── */
+
+/* Activation: one big primary CTA (1 tap, no wizard) + ghost repeat + recents */
+.hs-today-activation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+}
+
+.hs-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hs-space-3);
+  width: 100%;
+  min-height: var(--hs-touch-target);
+  padding: 15px var(--hs-space-4);
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.hs-cta:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.hs-cta-primary {
+  background: var(--hs-accent);
+  color: #fff;
+}
+
+.hs-cta-primary:focus-visible {
+  outline: 2px solid var(--hs-t1);
+  outline-offset: 2px;
+}
+
+/* Ghost CTA: accent wash + accent ink (AA on the wash, same rule as chips). */
+.hs-cta-secondary {
+  background: var(--hs-accent-soft);
+  color: var(--hs-accent-ink);
+}
+
+.hs-cta-secondary:focus-visible {
+  outline: 2px solid var(--hs-accent);
+  outline-offset: 2px;
+}
+
+.hs-micro-label {
+  display: block;
+  color: var(--hs-t2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.hs-today-recent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-1);
+  padding: var(--hs-space-3) var(--hs-space-4);
+}
+
+.hs-today-recent .hs-micro-label {
+  margin-bottom: var(--hs-space-1);
+}
+
+.hs-today-recent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hs-space-3);
+  padding: var(--hs-space-2) 0;
+  border-top: 1px solid var(--hs-border);
+}
+
+.hs-today-recent-name {
+  color: var(--hs-t1);
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hs-today-recent-meta {
+  color: var(--hs-t3);
+  font-size: 12px;
+}
+
+.hs-today-recent-metric {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.hs-today-recent-metric-value {
+  display: block;
+  color: var(--hs-t1);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hs-today-recent-metric small {
+  color: var(--hs-t2);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Streak: discreet chip, no pressure mechanics (DESIGN.md §5.1). */
+.hs-today-streak {
+  align-self: flex-start;
+  color: var(--hs-t2);
+}
+
+/* Session in progress: accent timer on top */
+.hs-today-timer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hs-space-3);
+  margin-bottom: var(--hs-space-3);
+}
+
+.hs-today-timer-value {
+  color: var(--hs-accent);
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hs-today-block-add {
+  margin-left: auto;
+}
+
+/* Blocks as cards with type chips (Superserie/Ronda n/m) */
+.hs-today-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+}
+
+.hs-today-block-title {
+  color: var(--hs-t1);
+  font-size: 1rem;
+  font-weight: 800;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hs-today-block-spacer {
+  flex: 1 1 auto;
+}
+
+.hs-today-empty-hint {
+  color: var(--hs-t3);
+  font-size: 0.85rem;
+}
+
+/* Automatic rest chip: accent wash, tabular countdown */
+.hs-today-rest {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-2);
+  margin-top: var(--hs-space-3);
+  padding: var(--hs-space-2) var(--hs-space-3);
+  border: 1px solid var(--hs-border);
+  border-radius: var(--hs-radius-chip);
+  background: var(--hs-accent-soft);
+  color: var(--hs-t2);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.hs-today-rest-value {
+  color: var(--hs-accent-ink);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Logged exercise: thumb 52px + accent name + set table / attempt dots */
+.hs-today-log {
+  margin-top: var(--hs-space-3);
+  padding: var(--hs-space-3) var(--hs-space-4);
+  border: 1px solid var(--hs-border);
+  border-radius: var(--hs-radius-card);
+  background: var(--hs-card);
+}
+
+.hs-today-log-head {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-3);
+  margin-bottom: var(--hs-space-3);
+}
+
+.hs-today-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--hs-input);
+  color: var(--hs-t3);
+  overflow: hidden;
+}
+
+.hs-today-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hs-today-log-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hs-today-log-name {
+  color: var(--hs-accent-ink);
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hs-today-log-name:hover {
+  text-decoration: underline;
+}
+
+.hs-today-log-meta {
+  color: var(--hs-t3);
+  font-size: 0.8rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hs-today-log-side {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-1);
+  flex-shrink: 0;
+}
+
+/* Attempt dots: gold = completed, empty circle = pending (mock .dots) */
+.hs-today-attempt-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.hs-today-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--hs-input);
+  border: 1px solid var(--hs-border);
+}
+
+.hs-today-dot.is-done {
+  background: var(--hs-pr);
+  border-color: var(--hs-pr);
+}
+
+.hs-settable-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-2);
+  margin-top: var(--hs-space-2);
+}
+
+.hs-settable-unit {
+  color: var(--hs-t3);
+  font-size: 11.5px;
+  flex-shrink: 0;
+}
+
+.hs-settable-row.is-done .hs-settable-done {
+  color: var(--hs-done);
+}
+
+/* Post-workout summary: duration hero + tiles + PR + fatigue + deltas */
+.hs-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-4);
+}
+
+.hs-summary-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hs-space-4);
+}
+
+.hs-summary-tiles {
+  display: flex;
+  gap: var(--hs-space-2);
+}
+
+.hs-tile {
+  min-width: 92px;
+  padding: var(--hs-space-3) var(--hs-space-4);
+  border: 1px solid var(--hs-border);
+  border-radius: var(--hs-radius-card);
+  background: var(--hs-card);
+}
+
+.hs-tile-value {
+  display: block;
+  color: var(--hs-t1);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hs-tile-label {
+  display: block;
+  margin-top: 2px;
+  color: var(--hs-t2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.hs-summary-records {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hs-space-2);
+}
+
+.hs-summary-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-2);
+  padding: var(--hs-space-3) var(--hs-space-4);
+  border: 1px solid var(--hs-border);
+  border-radius: var(--hs-radius-card);
+  background: var(--hs-card);
+}
+
+.hs-summary-hint {
+  color: var(--hs-t3);
+  font-size: 0.8rem;
+}
+
+/* Done FAB carries the 'Finalizar' label as a green pill (DESIGN.md §5.2:
+   the session's primary finish action, not a plain text link). */
+.hs-fab.hs-fab-done {
+  width: auto;
+  min-width: 46px;
+  padding: 0 var(--hs-space-3);
+  gap: var(--hs-space-1);
+  border-radius: 14px;
+}
+
+.hs-fab-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 999px) {
+  .hs-summary-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hs-summary-tiles {
+    justify-content: stretch;
+  }
+
+  .hs-tile {
+    flex: 1 1 0;
+  }
+}

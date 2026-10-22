@@ -155,7 +155,7 @@ public class TodayWorkoutTests : BlazorTestBase
         {
             cut.Markup.Should().Contain("Bench Press");
             cut.Markup.Should().Contain("1 ejercicio · 3 series");
-            cut.Markup.Should().Contain("Favourites");
+            cut.Markup.Should().Contain("Favoritos");
 
             // The set table is the log: 3 rows carrying the logged 8 reps @ 80 kg.
             cut.FindAll(".hs-settable tbody tr").Should().HaveCount(3);

@@ -16,7 +16,7 @@
     <div class="hs-exercise-entry-fields">
         @if (ShowDatePicker)
         {
-            <MudDatePicker Label="Date"
+            <MudDatePicker Label="Fecha"
                            @bind-Date="_workout.Date"
                            Variant="Variant.Outlined"
                            Margin="Margin.Dense" />
@@ -24,8 +24,8 @@
 
         @if (ShowQuickPicks && FavouriteQuickPicks.Count > 0)
         {
-            <div class="hs-exercise-quick-picks" aria-label="Favourite exercises">
-                <span class="hs-exercise-quick-label">Favourites</span>
+            <div class="hs-exercise-quick-picks" aria-label="Ejercicios favoritos">
+                <span class="hs-exercise-quick-label">Favoritos</span>
                 <div class="hs-exercise-quick-list">
                     @foreach (var exerciseType in FavouriteQuickPicks)
                     {
@@ -43,8 +43,8 @@
 
         @if (ShowQuickPicks && RecentQuickPicks.Count > 0)
         {
-            <div class="hs-exercise-quick-picks" aria-label="Recent exercises">
-                <span class="hs-exercise-quick-label">Recent</span>
+            <div class="hs-exercise-quick-picks" aria-label="Ejercicios recientes">
+                <span class="hs-exercise-quick-label">Recientes</span>
                 <div class="hs-exercise-quick-list">
                     @foreach (var exerciseType in RecentQuickPicks)
                     {
@@ -61,7 +61,7 @@
         }
 
         <MudAutocomplete T="GetExerciseTypeResource"
-                         Label="Exercise"
+                         Label="Ejercicio"
                          Variant="Variant.Outlined"
                          Margin="Margin.Dense"
                          Value="_selectedType"
@@ -75,7 +75,7 @@
             <MudNumericField T="int?"
                              Value="_exercise.Series"
                              ValueChanged="@(value => { _exercise.Series = value; _prescriptionTouched = true; })"
-                             Label="Sets"
+                             Label="Series"
                              Variant="Variant.Outlined"
                              Margin="Margin.Dense"
                              InputType="InputType.Number" />
@@ -91,14 +91,14 @@
             @if (_exercise.WeightType == ExerciseWeightType.BodyWeight)
             {
                 <MudNumericField @bind-Value="_exercise.BodyWeight"
-                                 Label="Body weight (kg)"
+                                 Label="Peso corporal (kg)"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  InputType="InputType.Number"
                                  Immediate="true" />
 
                 <MudNumericField @bind-Value="_exercise.AddedWeight"
-                                 Label="Added weight (kg)"
+                                 Label="Peso añadido (kg)"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  InputType="InputType.Number"
@@ -107,7 +107,7 @@
             else if (_exercise.WeightType != ExerciseWeightType.None)
             {
                 <MudNumericField @bind-Value="_exercise.Weight"
-                                 Label="Weight (kg)"
+                                 Label="Peso (kg)"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  Step=".5M"
@@ -118,7 +118,7 @@
         @if (_exercise.WeightType == ExerciseWeightType.BodyWeight)
         {
             <span class="hs-exercise-effective-load">
-                Total load @ExerciseLoadCalculator.GetEffectiveLoad(_exercise, CurrentUserBodyWeight).ToString("0.#") kg
+                Carga total @ExerciseLoadCalculator.GetEffectiveLoad(_exercise, CurrentUserBodyWeight).ToString("0.#") kg
             </span>
         }
 
@@ -133,7 +133,7 @@
                        Size="Size.Small"
                        StartIcon="@Icons.Material.Filled.LocalOffer"
                        OnClick="@(() => _showTags = true)">
-                Add tags
+                Añadir etiquetas
             </MudButton>
         }
 
@@ -151,11 +151,11 @@
                         <MudSelect T="Guid?"
                                    Value="_blockId"
                                    ValueChanged="@(value => { _blockId = value; _blockIdTouched = true; })"
-                                   Label="Block"
+                                   Label="Bloque"
                                    Variant="Variant.Outlined"
                                    Margin="Margin.Dense"
                                    Clearable="true">
-                            <MudSelectItem T="Guid?" Value="null">No block</MudSelectItem>
+                            <MudSelectItem T="Guid?" Value="null">Sin bloque</MudSelectItem>
                             @foreach (var block in Blocks)
                             {
                                 <MudSelectItem T="Guid?" Value="@block.Id">@BlockLabel(block)</MudSelectItem>
@@ -166,14 +166,14 @@
                     <MudNumericField T="int"
                                      Value="_attempts"
                                      ValueChanged="@(value => _attempts = Math.Clamp(value, 1, 100))"
-                                     Label="Attempts"
+                                     Label="Intentos"
                                      Min="1"
                                      Max="100"
                                      Variant="Variant.Outlined"
                                      Margin="Margin.Dense"
                                      InputType="InputType.Number" />
 
-                    <div class="hs-today-chip-row" role="group" aria-label="Quality intent">
+                    <div class="hs-today-chip-row" role="group" aria-label="Intención de calidad">
                         @foreach (var intent in QualityIntentChoices)
                         {
                             <button type="button"
@@ -186,7 +186,7 @@
                     </div>
 
                     <MudTextField @bind-Value="_qualityIntent"
-                                  Label="Intent (optional)"
+                                  Label="Intención (opcional)"
                                   Placeholder="100% explosive, controlled, isometric 30s…"
                                   MaxLength="200"
                                   Variant="Variant.Outlined"
@@ -195,7 +195,7 @@
                     <MudSelect T="string?"
                                Value="_loadType"
                                ValueChanged="@(value => _loadType = value)"
-                               Label="Load"
+                               Label="Carga"
                                Variant="Variant.Outlined"
                                Margin="Margin.Dense"
                                Clearable="true">
@@ -213,7 +213,7 @@
                            Size="Size.Small"
                            StartIcon="@Icons.Material.Filled.Tune"
                            OnClick="@(() => _showQuality = true)">
-                    Attempts & quality
+                    Intentos y calidad
                 </MudButton>
             }
         }
