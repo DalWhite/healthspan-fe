@@ -1115,7 +1115,7 @@
 
             if (!response.IsSuccessStatusCode)
             {
-                Snackbar.Add("The block could not be added.", Severity.Warning);
+                Snackbar.Add("No se pudo añadir el bloque.", Severity.Warning);
                 return;
             }
 
@@ -1138,15 +1138,15 @@
         }
         catch (HttpRequestException)
         {
-            Snackbar.Add("The block could not be added.", Severity.Warning);
+            Snackbar.Add("No se pudo añadir el bloque.", Severity.Warning);
         }
         catch (TaskCanceledException)
         {
-            Snackbar.Add("Adding the block took too long. Please try again.", Severity.Warning);
+            Snackbar.Add("Tardó demasiado en añadir el bloque. Inténtalo de nuevo.", Severity.Warning);
         }
         catch (JsonException)
         {
-            Snackbar.Add("The block response was incomplete. Please try again.", Severity.Warning);
+            Snackbar.Add("La respuesta del bloque fue incompleta. Inténtalo de nuevo.", Severity.Warning);
         }
         finally
         {

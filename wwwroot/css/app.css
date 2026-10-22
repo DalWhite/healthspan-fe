@@ -416,7 +416,7 @@ body {
   left: 0;
   z-index: 1200;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: 1fr 1fr 1.5fr 1fr 1fr;
   align-items: end;
   min-height: calc(var(--hs-bottom-nav-height) + env(safe-area-inset-bottom));
   padding: 6px 8px max(6px, env(safe-area-inset-bottom));
@@ -5984,16 +5984,20 @@ button.hs-health-overview-card {
 .hs-fab.hs-fab-done {
   width: auto;
   min-width: 46px;
-  padding: 0 var(--hs-space-3);
+  max-width: 100%;
+  padding: 0 var(--hs-space-2);
   gap: var(--hs-space-1);
   border-radius: 14px;
 }
 
 .hs-fab-label {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 999px) {

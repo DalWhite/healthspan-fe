@@ -39,14 +39,14 @@
             @if (Exercise.WeightType == ExerciseWeightType.BodyWeight)
             {
                 <MudNumericField @bind-Value="Exercise.BodyWeight"
-                                 Label="Body weight (kg)"
+                                 Label="Peso corporal (kg)"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  InputType="InputType.Number"
                                  Immediate="true" />
 
                 <MudNumericField @bind-Value="Exercise.AddedWeight"
-                                 Label="Added weight (kg)"
+                                 Label="Peso añadido (kg)"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  InputType="InputType.Number"
@@ -55,7 +55,7 @@
             else if (Exercise.WeightType != ExerciseWeightType.None)
             {
                 <MudNumericField @bind-Value="Exercise.Weight"
-                                 Label="Weight (kg)"
+                                 Label="Peso (kg)"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  Step=".5M"
