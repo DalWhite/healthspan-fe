@@ -168,16 +168,68 @@ body {
 .hs-topbar {
   position: sticky;
   top: 0;
-  z-index: 1100;
+  z-index: 1300;
   display: flex;
   align-items: center;
   gap: var(--hs-space-2);
   min-height: var(--hs-topbar-height);
-  padding: var(--hs-space-2) var(--hs-space-4);
+  /* Installed as a standalone PWA with viewport-fit=cover: on notched phones the
+     status bar overlaps the top of the page, and without this inset the 44px
+     account button sits entirely under it and cannot be tapped. */
+  padding: calc(var(--hs-space-2) + env(safe-area-inset-top)) var(--hs-space-4) var(--hs-space-2);
   border-bottom: 1px solid var(--hs-border);
+  background: transparent;
+}
+
+/* The frosted bar lives on a child layer. backdrop-filter on .hs-topbar itself
+   makes it the containing block for position:fixed descendants, which traps
+   MudBlazor's click-away overlay inside the 52px bar (measured 390x64 in prod),
+   so taps outside the menu never reach it and the menu cannot be dismissed. */
+.hs-topbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: rgba(14, 17, 22, 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+/* Click-away scrim: above the bottom nav (1200) so any tap outside the sheet
+   closes it, below the sheet itself (1400). */
+.hs-topbar-account .mud-overlay {
+  z-index: 1250;
+}
+
+/* Account menu as a bottom sheet on phone widths. MudBlazor positions the
+   popover with inline left/top against the document, so it drifts away from the
+   sticky topbar as soon as the page scrolls; the sheet pins it to the bottom
+   edge, full width, clear of the nav and the home indicator. */
+@media (max-width: 999px) {
+  .hs-account-sheet.mud-popover {
+    position: fixed !important;
+    left: var(--hs-space-2) !important;
+    right: var(--hs-space-2) !important;
+    top: auto !important;
+    bottom: calc(var(--hs-bottom-nav-height) + env(safe-area-inset-bottom) + var(--hs-space-2)) !important;
+    width: auto !important;
+    max-width: none !important;
+    /* MudBlazor writes an inline z-index (~1203) when the popover opens, which sits
+       under the topbar (1300) — the click-away scrim lives inside the topbar's
+       stacking context, so a sheet below the bar ends up covered by its own scrim
+       and its rows cannot be tapped. */
+    z-index: 1400 !important;
+  }
+
+  .hs-account-sheet .mud-menu-paper {
+    width: 100%;
+    max-width: none;
+    border-radius: var(--hs-radius-card);
+  }
+
+  .hs-account-sheet .mud-list-item {
+    min-height: var(--hs-touch-target);
+  }
 }
 
 .hs-topbar-brand {
