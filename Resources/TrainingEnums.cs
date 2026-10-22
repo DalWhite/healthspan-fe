@@ -172,12 +172,12 @@ public static class PerceivedFatigue
 
     public static string Label(int value) => value switch
     {
-        1 => "Very easy",
-        2 => "Easy",
-        3 => "Moderate",
-        4 => "Hard",
-        5 => "Max effort",
-        _ => "Not set"
+        1 => "Muy fácil",
+        2 => "Fácil",
+        3 => "Moderado",
+        4 => "Duro",
+        5 => "Esfuerzo máximo",
+        _ => "Sin definir"
     };
 
     public static bool IsValid(int? value) => value is >= Min and <= Max;

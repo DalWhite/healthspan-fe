@@ -1,19 +1,19 @@
 <MudDialog>
     <DialogContent>
         <MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="px-0">
-            <MudText Typo="Typo.h6">How hard was it?</MudText>
+            <MudText Typo="Typo.h6">¿Qué tan duro fue?</MudText>
             <MudText Typo="Typo.body2" Class="hs-finish-fatigue-label">
                 @PerceivedFatigue.Label(Value)
             </MudText>
             <MudSlider T="int" Value="Value" ValueChanged="@(value => Value = value)"
                       Min="@PerceivedFatigue.Min" Max="@PerceivedFatigue.Max" Step="1"
                       TickLabels="@TickLabels" TickPos="TickPos.Bottom" FullWidth="true"
-                      aria-label="Perceived fatigue from 1 to 5" />
+                      aria-label="Fatiga percibida de 1 a 5" />
         </MudContainer>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Skip" Variant="Variant.Text" Color="Color.Default">Skip</MudButton>
-        <MudButton OnClick="Save" Variant="Variant.Filled" Color="Color.Primary">Save & finish</MudButton>
+        <MudButton OnClick="Skip" Variant="Variant.Text" Color="Color.Default">Saltar</MudButton>
+        <MudButton OnClick="Save" Variant="Variant.Filled" Color="Color.Primary">Guardar y finalizar</MudButton>
     </DialogActions>
 </MudDialog>
 
