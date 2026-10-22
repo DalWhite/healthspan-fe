@@ -1376,9 +1376,15 @@
            ?? string.Empty;
 
     private string PreviousTextFor(WorkoutSessionExerciseResource exercise)
-        => _previousLoads.TryGetValue(exercise.TypeId, out var previous)
+        => _previousLoads.TryGetValue(exercise.TypeId, out var previous) && HasLoggedHistory(previous)
             ? FormatHistoryLoad(previous)
             : "—";
+
+    // A previous row with no reps and no load is an empty placeholder, not a
+    // reference value: rendering it as "1x0" invents a number the athlete never
+    // logged (t_0f19c744).
+    private static bool HasLoggedHistory(WorkoutHistoryExerciseResource exercise)
+        => (exercise.Repetitions ?? 0) > 0 || HistoryLoadValue(exercise) > 0;
 
     private static string FormatHistoryLoad(WorkoutHistoryExerciseResource exercise)
     {

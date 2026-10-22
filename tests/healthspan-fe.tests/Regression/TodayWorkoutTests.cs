@@ -540,6 +540,66 @@ public class TodayWorkoutTests : BlazorTestBase
     }
 
     [Fact]
+    public void Previous_Load_From_An_Empty_Prior_Row_Shows_No_Fake_Zero()
+    {
+        var previousWorkoutId = Guid.NewGuid();
+        var workoutId = Guid.NewGuid();
+        var exerciseId = Guid.NewGuid();
+
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=14")
+            .Respond("application/json", $$"""
+                [{ "id": "{{previousWorkoutId}}",
+                   "date": "{{DateTime.Today.AddDays(-1):yyyy-MM-dd}}",
+                   "type": "Training",
+                   "exerciseCount": 1 }]
+                """);
+        // The prior session only ever held the '+ serie' placeholder: one series,
+        // no reps, no load. It is not a reference value (t_0f19c744).
+        MockHttp.When(HttpMethod.Get, $"/Workouts/{previousWorkoutId}")
+            .Respond("application/json", $$"""
+                { "id": "{{previousWorkoutId}}",
+                  "date": "{{DateTime.Today.AddDays(-1):yyyy-MM-dd}}",
+                  "type": "Training",
+                  "exerciseCount": 1,
+                  "exercises": [
+                      { "id": "{{Guid.NewGuid()}}", "typeId": 1, "name": "Bench Press",
+                        "series": 1, "repetitions": null, "weight": 0 }
+                  ] }
+                """);
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", $$"""
+                [{
+                    "id": "{{workoutId}}",
+                    "date": "{{DateTime.Today:yyyy-MM-dd}}",
+                    "type": "Training",
+                    "exercises": [
+                        {
+                            "id": "{{exerciseId}}",
+                            "typeId": 1,
+                            "name": "Bench Press",
+                            "series": 1,
+                            "repetitions": 8,
+                            "weight": 80
+                        }
+                    ],
+                    "recentExerciseTypeIds": [1]
+                }]
+                """);
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find(".hs-today-log-meta").TextContent.Should().Be("Anterior: —");
+            cut.Markup.Should().NotContain("1x0");
+        });
+    }
+
+    [Fact]
     public void Quick_Start_Flag_Opens_The_Session_Without_Any_Tap()
     {
         var workoutId = Guid.NewGuid();
