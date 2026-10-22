@@ -142,7 +142,7 @@
                                 class="@IntentChipClass(current.Modality == modality.ToString())"
                                 aria-pressed="@(current.Modality == modality.ToString())"
                                 @onclick="() => SetIntentAsync(modality: modality)">
-                            @modality.Label()
+                            @SpanishModalityLabel(modality)
                         </button>
                     }
                     @if (!_showAllModalities)
@@ -161,7 +161,7 @@
                                 class="@IntentChipClass(current.Goal == goal.ToString())"
                                 aria-pressed="@(current.Goal == goal.ToString())"
                                 @onclick="() => SetIntentAsync(goal: goal)">
-                            @goal.Label()
+                            @SpanishGoalLabel(goal)
                         </button>
                     }
                 </div>
@@ -175,7 +175,7 @@
                                     class="@IntentChipClass(current.SecondaryGoals.Contains(goal.ToString()))"
                                     aria-pressed="@(current.SecondaryGoals.Contains(goal.ToString()))"
                                     @onclick="() => ToggleSecondaryGoalAsync(goal)">
-                                @goal.Label()
+                                @SpanishGoalLabel(goal)
                             </button>
                         }
                     </div>
@@ -412,7 +412,7 @@
             if (workout.Blocks.FirstOrDefault(block => !string.IsNullOrWhiteSpace(block.Label)) is { } named)
                 return named.Label!;
             if (TrainingIntent.ParseModality(workout.Modality) is { } modality)
-                return modality.Label();
+                return SpanishModalityLabel(modality);
             return "tu entreno anterior";
         }
     }
@@ -447,7 +447,7 @@
         if (workout.Blocks.FirstOrDefault(block => !string.IsNullOrWhiteSpace(block.Label)) is { } named)
             return named.Label!;
         if (TrainingIntent.ParseModality(workout.Modality) is { } modality)
-            return modality.Label();
+            return SpanishModalityLabel(modality);
         return "Entreno";
     }
 
@@ -494,8 +494,8 @@
         get
         {
             var segments = new List<string>();
-            if (TrainingIntent.ParseModality(_session?.Modality) is { } modality) segments.Add(modality.Label());
-            if (TrainingIntent.ParseGoal(_session?.Goal) is { } goal) segments.Add(goal.Label());
+            if (TrainingIntent.ParseModality(_session?.Modality) is { } modality) segments.Add(SpanishModalityLabel(modality));
+            if (TrainingIntent.ParseGoal(_session?.Goal) is { } goal) segments.Add(SpanishGoalLabel(goal));
             return segments.Count > 0 ? string.Join(" · ", segments) : "Entreno";
         }
     }
@@ -917,6 +917,35 @@
 
     // Today speaks the user's language (DESIGN.md §4): the wire keeps the API's
     // enum names, the chip shows the Spanish name the workout plan uses.
+    private static string SpanishModalityLabel(TrainingModality modality) => modality switch
+    {
+        TrainingModality.Fuerza => "Fuerza",
+        TrainingModality.Funcional => "Funcional",
+        TrainingModality.Pliometria => "Pliometría",
+        TrainingModality.Movilidad => "Movilidad",
+        TrainingModality.JiuJitsu => "Jiu-jitsu",
+        TrainingModality.Tenis => "Tenis",
+        TrainingModality.Kitesurf => "Kitesurf",
+        TrainingModality.Cardio => "Cardio",
+        TrainingModality.Caminata => "Caminar",
+        TrainingModality.Otro => "Otros",
+        _ => modality.ToString()
+    };
+
+    private static string SpanishGoalLabel(TrainingGoal goal) => goal switch
+    {
+        TrainingGoal.Skill => "Habilidad",
+        TrainingGoal.Speed => "Velocidad",
+        TrainingGoal.Power => "Potencia",
+        TrainingGoal.Strength => "Fuerza",
+        TrainingGoal.Hypertrophy => "Hipertrofia",
+        TrainingGoal.MuscularEndurance => "Resistencia muscular",
+        TrainingGoal.AnaerobicCapacity => "Capacidad anaeróbica",
+        TrainingGoal.MaximalAerobicPower => "Potencia aeróbica",
+        TrainingGoal.LongDurationEndurance => "Resistencia",
+        _ => goal.ToString()
+    };
+
     private static string SpanishBlockTypeLabel(WorkoutBlockType type) => type switch
     {
         WorkoutBlockType.Normal => "Normal",

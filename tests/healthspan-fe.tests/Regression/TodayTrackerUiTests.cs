@@ -77,7 +77,7 @@ public class TodayTrackerUiTests : BlazorTestBase
 
         var cut = RenderComponent<TodayWorkout>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Build muscle"), TimeSpan.FromSeconds(10));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Hipertrofia"), TimeSpan.FromSeconds(10));
 
         // Progressive disclosure: the common training types are upfront, the long
         // tail is behind one "Otros" tap instead of a 10-chip wall.
@@ -85,9 +85,9 @@ public class TodayTrackerUiTests : BlazorTestBase
 
         ClickButtonUntil(
             cut,
-            "Build muscle",
+            "Hipertrofia",
             () => cut.FindAll(".hs-chip-selected")
-                .Any(button => button.TextContent.Trim() == "Build muscle"));
+                .Any(button => button.TextContent.Trim() == "Hipertrofia"));
 
         // The exact wire payload is matched by the mock itself: the FE must send
         // the API's enum names, never a renamed value.
@@ -252,8 +252,8 @@ public class TodayTrackerUiTests : BlazorTestBase
         {
             // The count is the status: no progress bar, no dialog.
             cut.Markup.Should().Contain("3/8");
-            cut.Markup.Should().Contain("Explosive");
-            cut.Markup.Should().Contain("Bodyweight");
+            cut.Markup.Should().Contain("Explosivo");
+            cut.Markup.Should().Contain("Peso corporal");
         }, TimeSpan.FromSeconds(10));
 
         cut.Find(".hs-today-attempt-plus").Click();

@@ -155,6 +155,27 @@
     private int Sets => Math.Max(1, Exercise.Series ?? 1);
     private bool IsBodyweightLoad => Exercise.BodyWeight.GetValueOrDefault() > 0;
 
+    private static string SpanishQualityIntent(string intent) => intent.Trim().ToLowerInvariant() switch
+    {
+        "explosive" => "Explosivo",
+        "controlled" => "Controlado",
+        "isometric" => "Isométrico",
+        "to failure" => "Al fallo",
+        _ => intent
+    };
+
+    private static string SpanishLoadLabel(LoadType loadType) => loadType switch
+    {
+        LoadType.Bodyweight => "Peso corporal",
+        LoadType.External => "Carga externa",
+        LoadType.Band => "Banda",
+        LoadType.Kettlebell => "Kettlebell",
+        LoadType.Machine => "Máquina",
+        LoadType.Poles => "Poles",
+        LoadType.Other => "Otra carga",
+        _ => loadType.ToString()
+    };
+
     private string MetaLine
     {
         get
@@ -162,11 +183,11 @@
             var parts = new List<string>();
             if (!string.IsNullOrWhiteSpace(Exercise.QualityIntent))
             {
-                parts.Add(Exercise.QualityIntent);
+                parts.Add(SpanishQualityIntent(Exercise.QualityIntent!));
             }
             if (TrainingIntent.ParseLoadType(Exercise.LoadType) is { } loadType)
             {
-                parts.Add(loadType.Label());
+                parts.Add(SpanishLoadLabel(loadType));
             }
             if (Exercise.Tags.Count > 0)
             {

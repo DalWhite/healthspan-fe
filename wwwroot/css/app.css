@@ -441,6 +441,62 @@ body {
 .hs-settable {
   width: 100%;
   border-collapse: collapse;
+  /* Fixed layout: at 390px the auto layout let the two number inputs in the
+     load cell push the table to 396px inside a 330px card (prod QA overflow). */
+  table-layout: fixed;
+}
+
+.hs-settable th:nth-child(1),
+.hs-settable .hs-settable-index {
+  width: 42px;
+  text-align: center;
+}
+
+.hs-settable th:nth-child(2),
+.hs-settable .hs-settable-previous {
+  width: 78px;
+}
+
+.hs-settable th:nth-child(4),
+.hs-settable .hs-settable-done {
+  width: 44px;
+  text-align: center;
+}
+
+.hs-settable .hs-settable-index,
+.hs-settable .hs-settable-previous {
+  color: var(--hs-t3);
+  font-variant-numeric: tabular-nums;
+}
+
+.hs-settable .hs-settable-load {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-1);
+}
+
+.hs-settable .hs-settable-times {
+  color: var(--hs-t3);
+  flex: 0 0 auto;
+}
+
+.hs-settable-input {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+  min-height: var(--hs-touch-target);
+  padding: 8px 10px;
+  border: 1px solid var(--hs-border);
+  border-radius: var(--hs-radius-input);
+  background: var(--hs-input);
+  color: var(--hs-t1);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.hs-settable-input:focus-visible {
+  outline: 2px solid var(--hs-accent);
+  outline-offset: 1px;
 }
 
 .hs-settable th {
@@ -519,6 +575,23 @@ body {
   .hs-page-header-with-actions {
     justify-content: flex-end;
     width: 100%;
+  }
+
+  /* Today keeps its title and date visible on mobile: the date is the page's
+     primary context and the topbar does not show it, so the generic
+     "hide the header copy on mobile" rule removed the whole activation
+     context (prod QA: no "Hoy", no date). */
+  .hs-today-page > .hs-page-header .hs-page-header-copy {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    clip: auto !important;
+    white-space: normal !important;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .hs-native-page-title {
