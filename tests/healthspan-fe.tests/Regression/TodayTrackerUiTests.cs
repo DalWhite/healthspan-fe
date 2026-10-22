@@ -250,10 +250,11 @@ public class TodayTrackerUiTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            // The count is the status: no progress bar, no dialog.
+            // The count is the status: no progress bar, no dialog, and no
+            // load-intent meta in the row (t_0f19c744 RESTA).
             cut.Markup.Should().Contain("3/8");
-            cut.Markup.Should().Contain("Explosivo");
-            cut.Markup.Should().Contain("Peso corporal");
+            cut.Markup.Should().NotContain("Explosivo");
+            cut.Markup.Should().NotContain("Carga externa");
         }, TimeSpan.FromSeconds(10));
 
         cut.Find(".hs-today-attempt-plus").Click();

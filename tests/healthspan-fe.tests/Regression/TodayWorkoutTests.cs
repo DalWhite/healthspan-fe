@@ -494,7 +494,7 @@ public class TodayWorkoutTests : BlazorTestBase
     }
 
     [Fact]
-    public void Entry_Without_Sets_And_Reps_Invites_The_Detail_Instead_Of_Zero()
+    public void Entry_Without_Sets_And_Reps_Renders_An_Empty_Row_With_No_Meta()
     {
         var workoutId = Guid.NewGuid();
         var exerciseId = Guid.NewGuid();
@@ -527,10 +527,15 @@ public class TodayWorkoutTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            // A logged entry without numbers never reads as a fake "0 x 0".
-            cut.Markup.Should().Contain("Sin ajustes");
+            // A logged entry without numbers never reads as a fake "0 x 0", and
+            // the row carries no load-intent meta line (t_0f19c744 RESTA): the
+            // only meta is the previous load.
+            cut.Markup.Should().NotContain("Sin ajustes");
             cut.Markup.Should().NotContain("0 × 0");
             cut.FindAll("a[href*='/edit']").Should().BeEmpty();
+            cut.FindAll(".hs-today-log-meta").Count.Should().Be(1);
+            cut.Find(".hs-today-log-meta").TextContent.Should().StartWith("Anterior:");
+            cut.Find(".hs-settable-input").GetAttribute("value").Should().BeNullOrWhiteSpace();
         });
     }
 
@@ -616,7 +621,7 @@ public class TodayWorkoutTests : BlazorTestBase
         // The POST continuation hops to the thread pool; wait until the log
         // view is actually rendered, otherwise FinishAsync races StartWorkout.
         cut.WaitForAssertion(
-            () => cut.FindAll(".hs-today-timer").Should().NotBeEmpty(),
+            () => cut.FindAll(".hs-today-session-bar").Should().NotBeEmpty(),
             TimeSpan.FromSeconds(10));
 
         // Shell FAB path: the click belongs to MainLayout, not to the page.
@@ -634,7 +639,7 @@ public class TodayWorkoutTests : BlazorTestBase
         var summary = cut.Find(".hs-summary");
         summary.TextContent.Should().Contain("Series");
         summary.TextContent.Should().NotContain("min");
-        summary.QuerySelectorAll(".hs-today-timer-value").Should().BeEmpty();
+        summary.QuerySelectorAll(".hs-today-timer, .hs-today-timer-value").Should().BeEmpty();
     }
 
     // ------------------------------------------------- t_0f19c744 regressions

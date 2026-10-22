@@ -5729,21 +5729,13 @@ button.hs-health-overview-card {
   color: var(--hs-t2);
 }
 
-/* Session in progress: accent timer on top */
-.hs-today-timer {
+/* Session in progress: intent chip + summary + block CTA */
+.hs-today-session-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--hs-space-3);
   margin-bottom: var(--hs-space-3);
-}
-
-.hs-today-timer-value {
-  color: var(--hs-accent);
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  font-variant-numeric: tabular-nums;
 }
 
 .hs-today-block-add {

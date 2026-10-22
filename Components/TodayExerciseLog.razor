@@ -25,7 +25,6 @@
         <div class="hs-today-log-copy">
             <span class="hs-today-log-name">@DisplayName</span>
             <span class="hs-today-log-meta">Anterior: @(PreviousText ?? "—")</span>
-            <span class="hs-today-log-meta">@MetaLine</span>
         </div>
     </header>
 
@@ -225,56 +224,6 @@
         var entry = Entries[0];
         entry.CompletedAttempts = Math.Max(0, entry.CompletedAttempts ?? 0) - 1;
         return OnEntrySaved.InvokeAsync(entry);
-    }
-
-    private static string SpanishQualityIntent(string intent) => intent.Trim().ToLowerInvariant() switch
-    {
-        "explosive" => "Explosivo",
-        "controlled" => "Controlado",
-        "isometric" => "Isométrico",
-        "to failure" => "Al fallo",
-        _ => intent
-    };
-
-    private static string SpanishLoadLabel(LoadType loadType) => loadType switch
-    {
-        LoadType.Bodyweight => "Peso corporal",
-        LoadType.External => "Carga externa",
-        LoadType.Band => "Banda",
-        LoadType.Kettlebell => "Kettlebell",
-        LoadType.Machine => "Máquina",
-        LoadType.Poles => "Poles",
-        LoadType.Other => "Otra carga",
-        _ => loadType.ToString()
-    };
-
-    // The glanceable detail line: how the exercise is meant to be performed.
-    private string MetaLine
-    {
-        get
-        {
-            var entry = Entries.FirstOrDefault();
-            if (entry is null)
-            {
-                return "Sin ajustes";
-            }
-
-            var parts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(entry.QualityIntent))
-            {
-                parts.Add(SpanishQualityIntent(entry.QualityIntent!));
-            }
-            if (TrainingIntent.ParseLoadType(entry.LoadType) is { } loadType)
-            {
-                parts.Add(SpanishLoadLabel(loadType));
-            }
-            if (entry.Tags.Count > 0)
-            {
-                parts.Add(string.Join(" · ", entry.Tags));
-            }
-
-            return parts.Count > 0 ? string.Join(" · ", parts) : "Sin ajustes";
-        }
     }
 
     private static int? ParseInt(string raw)
