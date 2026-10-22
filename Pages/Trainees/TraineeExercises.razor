@@ -169,6 +169,7 @@
 
     private bool HasMoreWorkouts => _workouts.Count < _totalCount;
     private string ReturnRoute => $"/trainees/{TraineeId}/exercises";
+    private string EscapedTraineeId => Uri.EscapeDataString(TraineeId);
 
     protected override async Task OnInitializedAsync()
     {
@@ -186,7 +187,7 @@
         try
         {
             using var response = await Http.GetAsync(
-                $"/workouts?traineeId={Uri.EscapeDataString(TraineeId)}&page={requestedPage}&pageSize={PageSize}");
+                $"/workouts?traineeId={EscapedTraineeId}&page={requestedPage}&pageSize={PageSize}");
             response.EnsureSuccessStatusCode();
             var items = await response.Content
                 .ReadFromJsonAsync<List<GetWorkoutResource>>() ?? [];
@@ -235,7 +236,7 @@
         try
         {
             var detail = await Http.GetFromJsonAsync<GetWorkoutResource>(
-                $"/workouts/{workoutId}?traineeId={Uri.EscapeDataString(TraineeId)}");
+                $"/workouts/{workoutId}?traineeId={EscapedTraineeId}");
             _details[workoutId] = detail
                 ?? throw new InvalidOperationException();
         }
@@ -254,13 +255,13 @@
 
     private void GoToCreate()
         => NavigationManager.NavigateTo(
-            $"/exercises/create/{Uri.EscapeDataString(TraineeId)}?returnUrl={Uri.EscapeDataString(ReturnRoute)}");
+            $"/exercises/create/{EscapedTraineeId}?returnUrl={Uri.EscapeDataString(ReturnRoute)}");
 
     private string BuildAddExerciseRoute(GetWorkoutResource workout)
-        => $"/exercises/create/{Uri.EscapeDataString(TraineeId)}?workoutId={workout.Id}&date={workout.Date:yyyy-MM-dd}&returnUrl={Uri.EscapeDataString(ReturnRoute)}";
+        => $"/exercises/create/{EscapedTraineeId}?workoutId={workout.Id}&date={workout.Date:yyyy-MM-dd}&returnUrl={Uri.EscapeDataString(ReturnRoute)}";
 
     private string BuildExerciseEditRoute(Guid exerciseId)
-        => $"/training/history/{exerciseId}/edit?traineeId={Uri.EscapeDataString(TraineeId)}&returnUrl={Uri.EscapeDataString(ReturnRoute)}";
+        => $"/training/history/{exerciseId}/edit?traineeId={EscapedTraineeId}&returnUrl={Uri.EscapeDataString(ReturnRoute)}";
 
     private string FormatLoadedCount()
         => _workouts.Count == _totalCount
