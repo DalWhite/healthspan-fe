@@ -597,9 +597,7 @@
 
         try
         {
-            var userQuery = string.IsNullOrWhiteSpace(TraineeId)
-                ? string.Empty
-                : $"&userId={Uri.EscapeDataString(TraineeId)}";
+            var userQuery = TraineeRoute.ApiUserQuery(TraineeId, first: false);
             var typeTask = Http.GetFromJsonAsync<GetExerciseTypeResource>(
                 $"/ExerciseTypes/{ExerciseTypeId}");
             var exercisesTask = Http.GetFromJsonAsync<List<GetExerciseResource>>(
@@ -662,10 +660,10 @@
             }
 
             var queryParts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(TraineeId))
+            var traineeParam = TraineeRoute.ApiUserParam(TraineeId);
+            if (traineeParam.Length > 0)
             {
-                queryParts.Add(
-                    $"userId={Uri.EscapeDataString(TraineeId)}");
+                queryParts.Add(traineeParam);
             }
             if (!string.IsNullOrWhiteSpace(_selectedTrainingTag))
             {
@@ -851,17 +849,12 @@
 
     private string BuildRelatedDetailsRoute(int exerciseTypeId)
     {
-        var baseRoute = string.IsNullOrWhiteSpace(TraineeId)
-            ? $"/training/library/{exerciseTypeId}"
-            : $"/exercises/types/{exerciseTypeId}/details/{Uri.EscapeDataString(TraineeId)}";
-        return $"{baseRoute}?returnUrl={Uri.EscapeDataString(BuildCurrentDetailReturnUrl("variations"))}";
+        return $"{TraineeRoute.TypeDetailsRoute(exerciseTypeId, TraineeId)}?returnUrl={Uri.EscapeDataString(BuildCurrentDetailReturnUrl("variations"))}";
     }
 
     private string BuildCurrentDetailReturnUrl(string section)
     {
-        var baseRoute = string.IsNullOrWhiteSpace(TraineeId)
-            ? $"/training/library/{ExerciseTypeId}"
-            : $"/exercises/types/{ExerciseTypeId}/details/{Uri.EscapeDataString(TraineeId)}";
+        var baseRoute = TraineeRoute.TypeDetailsRoute(ExerciseTypeId, TraineeId);
         var query = $"section={Uri.EscapeDataString(section)}";
         if (!string.IsNullOrWhiteSpace(_selectedTrainingTag))
         {

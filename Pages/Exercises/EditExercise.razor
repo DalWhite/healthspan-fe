@@ -137,7 +137,7 @@
             var typesTask = Http.GetFromJsonAsync<GetExerciseTypeResource[]>(
                 "/ExerciseTypes");
             var exerciseTask = Http.GetFromJsonAsync<GetExerciseResource>(
-                $"/exercises/{ExerciseId}{BuildUserQuery()}");
+                $"/exercises/{ExerciseId}{TraineeRoute.ApiUserQuery(TraineeId)}");
             var profileWeightTask = string.IsNullOrWhiteSpace(TraineeId)
                 ? LoadProfileWeightAsync()
                 : Task.FromResult<decimal?>(null);
@@ -180,7 +180,7 @@
                 {
                     _exerciseMetrics =
                         await Http.GetFromJsonAsync<GetExerciseMetrics>(
-                            $"/exercises/{ExerciseId}/metrics{BuildUserQuery()}");
+                            $"/exercises/{ExerciseId}/metrics{TraineeRoute.ApiUserQuery(TraineeId)}");
                 }
                 catch
                 {
@@ -220,7 +220,7 @@
             }
 
             var response = await Http.PutAsJsonAsync(
-                $"/exercises{BuildUserQuery()}",
+                $"/exercises{TraineeRoute.ApiUserQuery(TraineeId)}",
                 new UpdateExerciseResource
                 {
                     Id = exerciseId,
@@ -347,7 +347,7 @@
         try
         {
             using var response = await Http.DeleteAsync(
-                $"/exercises/{ExerciseId}{BuildUserQuery()}");
+                $"/exercises/{ExerciseId}{TraineeRoute.ApiUserQuery(TraineeId)}");
             if (!response.IsSuccessStatusCode)
             {
                 _actionError = await HttpProblemDetailsReader.ReadMessageAsync(
@@ -371,11 +371,6 @@
     private void GoBack()
         => NavigationManager.NavigateTo(
             GetSafeReturnUrl(ReturnUrl, "/training/history"));
-
-    private string BuildUserQuery()
-        => string.IsNullOrWhiteSpace(TraineeId)
-            ? string.Empty
-            : $"?userId={Uri.EscapeDataString(TraineeId)}";
 
     private static string GetSafeReturnUrl(
         string? returnUrl,

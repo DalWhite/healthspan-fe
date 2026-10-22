@@ -255,7 +255,7 @@ else
             }
             else
             {
-                var userQuery = TraineeId is null ? string.Empty : $"?userId={TraineeId}";
+                var userQuery = TraineeRoute.ApiUserQuery(TraineeId);
                 _all = await Http.GetFromJsonAsync<GetExerciseTypeResource[]>($"/ExerciseTypes/trained{userQuery}")
                     ?? Array.Empty<GetExerciseTypeResource>();
             }
@@ -450,9 +450,7 @@ else
 
     private string GetStatsRoute(GetExerciseTypeResource exercise)
     {
-        var baseRoute = TraineeId != null
-            ? $"/exercises/types/{exercise.Id}/details/{TraineeId}"
-            : $"/training/library/{exercise.Id}";
+        var baseRoute = TraineeRoute.TypeDetailsRoute(exercise.Id, TraineeId);
         var currentRoute = GetCurrentRelativeUrl();
         return $"{baseRoute}?returnUrl={Uri.EscapeDataString(currentRoute)}";
     }
