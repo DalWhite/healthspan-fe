@@ -1,0 +1,92 @@
+@page "/training/routines"
+@inject HttpClient Http
+
+@* Trainee view: the routines their coach assigned (or they built themselves).
+   Rendered read-only through the same editor the trainer uses, so the
+   explanations the coach wrote show up exactly as written. *@
+
+<PageShell>
+    <PageHeader Title="My routines"
+                Subtitle="Training plans your coach assigned to you. Follow them in Training › Today." />
+
+    @if (_loading)
+    {
+        <LoadingState Message="Loading routines..." />
+    }
+    else if (_error is not null)
+    {
+        <ErrorState Title="Couldn't load your routines"
+                    Message="@_error"
+                    ActionLabel="Retry"
+                    OnAction="LoadAsync" />
+    }
+    else if (_routines.Count == 0)
+    {
+        <EmptyState Icon="@Icons.Material.Filled.CalendarViewDay"
+                    Title="No routines yet"
+                    Subtitle="Your coach can assign one to you." />
+    }
+    else
+    {
+        @foreach (var routine in _routines)
+        {
+            <MudCard Class="hs-routine-view mb-5">
+                <MudCardContent>
+                    @if (routine.TrainerId is not null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Info" Class="mb-2">
+                            Assigned by your coach
+                        </MudChip>
+                    }
+
+                    <RoutineEditor Initial="@routine"
+                                   TargetUserId="@routine.UserId"
+                                   ReadOnly="true" />
+                </MudCardContent>
+            </MudCard>
+        }
+    }
+</PageShell>
+
+@code {
+    private List<RoutineResource> _routines = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            var response = await Http.GetAsync("/routines");
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = await HttpProblemDetailsReader.ReadMessageAsync(
+                    response,
+                    "Your routines could not be loaded.");
+                return;
+            }
+
+            _routines = await response.Content.ReadFromJsonAsync<List<RoutineResource>>() ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            _error = "Your routines could not be loaded. Check your connection and try again.";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "Loading your routines took too long. Please try again.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

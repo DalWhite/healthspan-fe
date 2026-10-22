@@ -1,0 +1,125 @@
+@page "/trainees/{TraineeId}/routines/new"
+@page "/trainees/{TraineeId}/routines/{RoutineId:guid}"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+@* Trainer editor: builds/edits a routine whose target user is the trainee.
+   The server records the trainer as the assignee on create. *@
+
+<PageShell>
+    <PageHeader Title="@(_isNew ? "New routine" : "Edit routine")"
+                Subtitle="@($"{_traineeName} · the exercises and explanations you write here appear in their routine view.")">
+        <Actions>
+            <MudButton Href="@($"/trainees/{TraineeId}/routines")"
+                       Variant="Variant.Text"
+                       Size="Size.Medium"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       aria-label="Back to routines">
+                Back
+            </MudButton>
+        </Actions>
+    </PageHeader>
+
+    @if (_loading)
+    {
+        <LoadingState Message="Loading routine..." />
+    }
+    else if (_error is not null)
+    {
+        <ErrorState Title="Couldn't load the routine"
+                    Message="@_error"
+                    ActionLabel="Retry"
+                    OnAction="LoadAsync" />
+    }
+    else
+    {
+        <RoutineEditor Initial="@_routine"
+                       TargetUserId="@TraineeId"
+                       ExerciseTypes="@_exerciseTypes"
+                       OnSaved="HandleSaved" />
+    }
+</PageShell>
+
+@code {
+    [Parameter] public string TraineeId { get; set; } = string.Empty;
+    [Parameter] public Guid RoutineId { get; set; }
+
+    private RoutineResource? _routine;
+    private List<GetExerciseTypeResource> _exerciseTypes = [];
+    private string _traineeName = "trainee";
+    private bool _loading = true;
+    private string? _error;
+
+    private bool _isNew => RoutineId == Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            var traineeResponse = await Http.GetAsync($"/users/{TraineeId}");
+            if (!traineeResponse.IsSuccessStatusCode)
+            {
+                _error = await HttpProblemDetailsReader.ReadMessageAsync(
+                    traineeResponse,
+                    "This trainee could not be loaded.");
+                return;
+            }
+
+            var trainee = await traineeResponse.Content.ReadFromJsonAsync<UserResource>();
+            _traineeName = string.IsNullOrWhiteSpace(trainee?.Name) ? "trainee" : trainee!.Name!;
+
+            var typesResponse = await Http.GetAsync("/ExerciseTypes");
+            if (!typesResponse.IsSuccessStatusCode)
+            {
+                _error = await HttpProblemDetailsReader.ReadMessageAsync(
+                    typesResponse,
+                    "The exercise library could not be loaded.");
+                return;
+            }
+
+            _exerciseTypes = await typesResponse.Content.ReadFromJsonAsync<List<GetExerciseTypeResource>>() ?? [];
+
+            if (!_isNew)
+            {
+                // The routine belongs to the trainee: the API scopes a routine to the
+                // resolved target user, so the trainer must pass traineeId or the
+                // lookup resolves to the trainer and returns 404.
+                var routineResponse = await Http.GetAsync($"/routines/{RoutineId}?traineeId={TraineeId}");
+                if (!routineResponse.IsSuccessStatusCode)
+                {
+                    _error = await HttpProblemDetailsReader.ReadMessageAsync(
+                        routineResponse,
+                        "This routine could not be loaded.");
+                    return;
+                }
+
+                _routine = await routineResponse.Content.ReadFromJsonAsync<RoutineResource>();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = "The routine could not be loaded. Check your connection and try again.";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "Loading the routine took too long. Please try again.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void HandleSaved(RoutineResource saved)
+    {
+        NavigationManager.NavigateTo($"/trainees/{TraineeId}/routines");
+    }
+}

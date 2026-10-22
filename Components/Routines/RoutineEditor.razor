@@ -1,0 +1,513 @@
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+@*
+    Shared routine editor. The trainer uses it in edit mode to build a routine
+    for a trainee (TargetUserId = trainee); the trainee uses the same component
+    in read mode to see the assigned routine and its explanations.
+
+    Progressive disclosure: each exercise card shows name + a compact summary
+    ("4 × 8 · 60 kg"); sets/reps/load/rest/notes live behind an "Edit" toggle.
+*@
+
+<div class="hs-routine-editor">
+    @if (!string.IsNullOrWhiteSpace(_formError))
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4" role="alert">
+            @_formError
+        </MudAlert>
+    }
+
+    <div class="hs-routine-editor-head">
+        <MudTextField @bind-Value="_model.Name"
+                      Label="Routine name"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      MaxLength="100"
+                      ReadOnly="ReadOnly"
+                      Immediate="true" />
+        <MudNumericField @bind-Value="_frequencyHelper"
+                         Label="Workouts per week (total)"
+                         Variant="Variant.Outlined"
+                         Margin="Margin.Dense"
+                         ReadOnly="true" />
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_model.Description) || !ReadOnly)
+    {
+        <MudTextField @bind-Value="_model.Description"
+                      Label="What this routine is for (optional)"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      MultiLine="true"
+                      Lines="2"
+                      ReadOnly="ReadOnly"
+                      Class="mb-4" />
+    }
+
+    @foreach (var template in _model.WorkoutTemplates)
+    {
+        <MudCard Class="hs-routine-workout mb-4">
+            <MudCardContent>
+                <div class="hs-routine-workout-head">
+                    @if (ReadOnly)
+                    {
+                        <MudText Typo="Typo.h6">@template.Type</MudText>
+                        <MudText Typo="Typo.caption" Class="hs-muted-copy">@FrequencyLabel(template.FrequencyPerWeek)</MudText>
+                    }
+                    else
+                    {
+                        <MudTextField @bind-Value="template.Type"
+                                      Label="Workout name"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Immediate="true" />
+                        <MudNumericField @bind-Value="template.FrequencyPerWeek"
+                                         Label="Days per week"
+                                         Min="1"
+                                         Max="7"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense" />
+                    }
+                </div>
+
+                @if (template.Exercises.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="hs-muted-copy">
+                        No exercises yet. @(ReadOnly ? "Ask your coach to add some." : "Add the first exercise.")
+                    </MudText>
+                }
+
+                @for (var index = 0; index < template.Exercises.Count; index++)
+                {
+                    var exercise = template.Exercises[index];
+                    var position = index;
+                    <div class="hs-routine-exercise @(IsExpanded(exercise) ? "is-expanded" : null)">
+                        <div class="hs-routine-exercise-summary">
+                            <span class="hs-routine-exercise-order" aria-hidden="true">@(position + 1)</span>
+                            <span class="hs-routine-exercise-name">@ExerciseName(exercise)</span>
+                            <span class="hs-routine-exercise-targets">@FormatTargets(exercise)</span>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(exercise.Notes))
+                        {
+                            <div class="hs-routine-exercise-note">@exercise.Notes</div>
+                        }
+
+                        @if (!ReadOnly)
+                        {
+                            <div class="hs-routine-exercise-actions">
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward"
+                                               Size="Size.Medium"
+                                               aria-label="@($"Move {ExerciseName(exercise)} up")"
+                                               Disabled="@(position == 0)"
+                                               OnClick="() => MoveExercise(template, position, -1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward"
+                                               Size="Size.Medium"
+                                               aria-label="@($"Move {ExerciseName(exercise)} down")"
+                                               Disabled="@(position == template.Exercises.Count - 1)"
+                                               OnClick="() => MoveExercise(template, position, 1)" />
+                                <MudButton Variant="Variant.Text"
+                                           Size="Size.Medium"
+                                           StartIcon="@Icons.Material.Filled.Tune"
+                                           aria-label="@($"Edit {ExerciseName(exercise)}")"
+                                           OnClick="() => ToggleExpanded(exercise)">
+                                    Edit
+                                </MudButton>
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                               Size="Size.Medium"
+                                               aria-label="@($"Remove {ExerciseName(exercise)}")"
+                                               Color="Color.Error"
+                                               OnClick="() => RemoveExercise(template, exercise)" />
+                            </div>
+
+                            @if (IsExpanded(exercise))
+                            {
+                                <div class="hs-routine-exercise-fields">
+                                    <MudAutocomplete T="GetExerciseTypeResource"
+                                                     Label="Exercise"
+                                                     Variant="Variant.Outlined"
+                                                     Margin="Margin.Dense"
+                                                     Value="@SelectedType(exercise)"
+                                                     ValueChanged="@(value => SelectType(exercise, value))"
+                                                     ToStringFunc="@(type => type?.Name ?? string.Empty)"
+                                                     SearchFunc="SearchExerciseTypes"
+                                                     CoerceText="true"
+                                                     Clearable="true" />
+                                    <div class="hs-routine-exercise-target-grid">
+                                        <MudNumericField @bind-Value="exercise.Sets"
+                                                         Label="Sets"
+                                                         Min="1"
+                                                         Variant="Variant.Outlined"
+                                                         Margin="Margin.Dense" />
+                                        <MudNumericField @bind-Value="exercise.Reps"
+                                                         Label="Reps"
+                                                         Min="1"
+                                                         Variant="Variant.Outlined"
+                                                         Margin="Margin.Dense" />
+                                        <MudNumericField @bind-Value="exercise.LoadKg"
+                                                         Label="Load (kg)"
+                                                         Min="0"
+                                                         Step="0.5"
+                                                         Variant="Variant.Outlined"
+                                                         Margin="Margin.Dense" />
+                                        <MudNumericField @bind-Value="exercise.RestSeconds"
+                                                         Label="Rest (s)"
+                                                         Min="0"
+                                                         Variant="Variant.Outlined"
+                                                         Margin="Margin.Dense" />
+                                    </div>
+                                    <MudTextField @bind-Value="exercise.Notes"
+                                                  Label="Explanation for the trainee"
+                                                  HelperText="Why and how to do this exercise. The trainee sees it in their routine."
+                                                  Variant="Variant.Outlined"
+                                                  Margin="Margin.Dense"
+                                                  MultiLine="true"
+                                                  Lines="2" />
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+
+                @if (!ReadOnly)
+                {
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               Size="Size.Medium"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               Class="mt-2"
+                               OnClick="() => AddExercise(template)">
+                        Add exercise
+                    </MudButton>
+                }
+            </MudCardContent>
+        </MudCard>
+    }
+
+    <div class="hs-routine-editor-actions">
+        @if (!ReadOnly)
+        {
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       Size="Size.Medium"
+                       StartIcon="@Icons.Material.Filled.AddCircleOutline"
+                       OnClick="AddWorkout">
+                Add workout
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Medium"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@_isSaving"
+                       Loading="@_isSaving"
+                       OnClick="SaveAsync">
+                @(_isSaving ? "Saving..." : "Save routine")
+            </MudButton>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public RoutineResource? Initial { get; set; }
+    [Parameter] public string TargetUserId { get; set; } = string.Empty;
+    [Parameter] public IReadOnlyList<GetExerciseTypeResource> ExerciseTypes { get; set; } = [];
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public EventCallback<RoutineResource> OnSaved { get; set; }
+
+    private RoutineResource _model = new();
+    private RoutineResource? _builtFrom;
+    private readonly Dictionary<ExercisePrescriptionResource, GetExerciseTypeResource> _picked = [];
+    private readonly HashSet<ExercisePrescriptionResource> _expanded = [];
+    private bool _isSaving;
+    private string? _formError;
+    private int _frequencyHelper;
+
+    protected override void OnParametersSet()
+    {
+        // Rebuild only when a genuinely new Initial arrives (first load / after save).
+        // _model is always a deep copy of Initial, so comparing _model to Initial would
+        // rebuild on every parent re-render and silently discard unsaved edits.
+        if (!ReferenceEquals(_builtFrom, Initial))
+        {
+            LoadModel();
+        }
+
+        _frequencyHelper = _model.WorkoutTemplates.Sum(template => template.FrequencyPerWeek);
+    }
+
+    private void LoadModel()
+    {
+        _builtFrom = Initial;
+        _picked.Clear();
+        _expanded.Clear();
+
+        if (Initial is null)
+        {
+            _model = new RoutineResource
+            {
+                UserId = TargetUserId,
+                WorkoutTemplates = [new WorkoutTemplateResource { Type = "Workout", FrequencyPerWeek = 1 }]
+            };
+            return;
+        }
+
+        _model = new RoutineResource
+        {
+            Id = Initial.Id,
+            Name = Initial.Name,
+            Description = Initial.Description,
+            UserId = Initial.UserId,
+            TrainerId = Initial.TrainerId,
+            Version = Initial.Version,
+            WorkoutTemplates = Initial.WorkoutTemplates
+                .Select(template => new WorkoutTemplateResource
+                {
+                    Id = template.Id,
+                    Type = template.Type,
+                    FrequencyPerWeek = template.FrequencyPerWeek,
+                    Exercises = template.Exercises
+                        .OrderBy(exercise => exercise.Order)
+                        .Select(exercise => new ExercisePrescriptionResource
+                        {
+                            Id = exercise.Id,
+                            ExerciseTypeId = exercise.ExerciseTypeId,
+                            ExerciseTypeName = exercise.ExerciseTypeName,
+                            Order = exercise.Order,
+                            Sets = exercise.Sets,
+                            Reps = exercise.Reps,
+                            LoadKg = exercise.LoadKg,
+                            RestSeconds = exercise.RestSeconds,
+                            Notes = exercise.Notes
+                        })
+                        .ToList()
+                })
+                .ToList()
+        };
+
+        foreach (var exercise in _model.WorkoutTemplates.SelectMany(template => template.Exercises))
+        {
+            if (exercise.ExerciseTypeId > 0)
+            {
+                var match = ExerciseTypes.FirstOrDefault(type => type.Id == exercise.ExerciseTypeId);
+                if (match is not null)
+                {
+                    _picked[exercise] = match;
+                }
+            }
+        }
+    }
+
+    private bool IsExpanded(ExercisePrescriptionResource exercise) => _expanded.Contains(exercise);
+
+    private void ToggleExpanded(ExercisePrescriptionResource exercise)
+    {
+        if (!_expanded.Add(exercise))
+        {
+            _expanded.Remove(exercise);
+        }
+    }
+
+    private GetExerciseTypeResource? SelectedType(ExercisePrescriptionResource exercise)
+        => _picked.TryGetValue(exercise, out var type) ? type : null;
+
+    private void SelectType(ExercisePrescriptionResource exercise, GetExerciseTypeResource? type)
+    {
+        if (type is null)
+        {
+            _picked.Remove(exercise);
+            exercise.ExerciseTypeId = 0;
+            exercise.ExerciseTypeName = null;
+            return;
+        }
+
+        _picked[exercise] = type;
+        exercise.ExerciseTypeId = type.Id;
+        exercise.ExerciseTypeName = type.Name;
+        _formError = null;
+    }
+
+    private string ExerciseName(ExercisePrescriptionResource exercise)
+    {
+        var picked = SelectedType(exercise);
+        return picked?.Name ?? exercise.ExerciseTypeName ?? "Exercise";
+    }
+
+    private static string FormatTargets(ExercisePrescriptionResource exercise)
+    {
+        var parts = new List<string>();
+        if (exercise.Sets is { } sets && exercise.Reps is { } reps)
+        {
+            parts.Add($"{sets} × {reps}");
+        }
+        else if (exercise.Sets is { } onlySets)
+        {
+            parts.Add($"{onlySets} sets");
+        }
+        else if (exercise.Reps is { } onlyReps)
+        {
+            parts.Add($"{onlyReps} reps");
+        }
+
+        if (exercise.LoadKg is { } load && load > 0)
+        {
+            parts.Add($"{load:0.#} kg");
+        }
+        if (exercise.RestSeconds is { } rest && rest > 0)
+        {
+            parts.Add($"{rest}s rest");
+        }
+
+        return parts.Count == 0 ? "No targets set" : string.Join(" · ", parts);
+    }
+
+    private static string FrequencyLabel(int frequency)
+        => frequency == 1 ? "1 day per week" : $"{frequency} days per week";
+
+    private Task<IEnumerable<GetExerciseTypeResource>> SearchExerciseTypes(string value)
+    {
+        var all = ExerciseTypes.AsEnumerable();
+        var results = string.IsNullOrWhiteSpace(value)
+            ? all
+            : all.Where(type => type.Name?.Contains(value, StringComparison.OrdinalIgnoreCase) == true);
+        return Task.FromResult(results);
+    }
+
+    private void AddExercise(WorkoutTemplateResource template)
+    {
+        var exercise = new ExercisePrescriptionResource { Order = template.Exercises.Count + 1 };
+        template.Exercises.Add(exercise);
+        _expanded.Add(exercise);
+    }
+
+    private void RemoveExercise(WorkoutTemplateResource template, ExercisePrescriptionResource exercise)
+    {
+        template.Exercises.Remove(exercise);
+        _picked.Remove(exercise);
+        _expanded.Remove(exercise);
+        Renumber(template);
+    }
+
+    private void MoveExercise(WorkoutTemplateResource template, int index, int delta)
+    {
+        var target = index + delta;
+        if (target < 0 || target >= template.Exercises.Count)
+        {
+            return;
+        }
+
+        (template.Exercises[index], template.Exercises[target]) =
+            (template.Exercises[target], template.Exercises[index]);
+        Renumber(template);
+    }
+
+    private void AddWorkout()
+    {
+        _model.WorkoutTemplates.Add(new WorkoutTemplateResource { Type = "New workout", FrequencyPerWeek = 1 });
+    }
+
+    private static void Renumber(WorkoutTemplateResource template)
+    {
+        for (var index = 0; index < template.Exercises.Count; index++)
+        {
+            template.Exercises[index].Order = index + 1;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_isSaving)
+        {
+            return;
+        }
+
+        _formError = null;
+
+        if (string.IsNullOrWhiteSpace(_model.Name) || _model.Name.Trim().Length < 2)
+        {
+            _formError = "Give the routine a name (at least 2 characters).";
+            return;
+        }
+
+        foreach (var template in _model.WorkoutTemplates)
+        {
+            Renumber(template);
+            if (string.IsNullOrWhiteSpace(template.Type))
+            {
+                _formError = "Give every workout a name, for example \"Leg day\".";
+                return;
+            }
+
+            foreach (var exercise in template.Exercises)
+            {
+                if (exercise.ExerciseTypeId <= 0)
+                {
+                    _formError = "Choose an exercise from the library for every slot before saving.";
+                    return;
+                }
+            }
+        }
+
+        _isSaving = true;
+        try
+        {
+            var payload = new RoutineResource
+            {
+                Name = _model.Name.Trim(),
+                Description = string.IsNullOrWhiteSpace(_model.Description) ? null : _model.Description.Trim(),
+                UserId = TargetUserId,
+                WorkoutTemplates = _model.WorkoutTemplates
+            };
+
+            HttpResponseMessage response;
+            if (_model.Id == Guid.Empty)
+            {
+                response = await Http.PostAsJsonAsync("/routines", payload);
+            }
+            else
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Put, $"/routines/{_model.Id}")
+                {
+                    Content = JsonContent.Create(payload)
+                };
+                request.Headers.TryAddWithoutValidation("If-Match", $"W/\"v{_model.Version}\"");
+                response = await Http.SendAsync(request);
+            }
+
+            using (response)
+            {
+                if (!response.IsSuccessStatusCode)
+                {
+                    _formError = await HttpProblemDetailsReader.ReadMessageAsync(
+                        response,
+                        "The routine could not be saved. Please try again.");
+                    return;
+                }
+
+                var saved = await response.Content.ReadFromJsonAsync<RoutineResource>();
+                if (saved is null)
+                {
+                    _formError = "The routine was saved but the response was incomplete. Please reload.";
+                    return;
+                }
+
+                Initial = saved;
+                LoadModel();
+                Snackbar.Add("Routine saved.", Severity.Success);
+                await OnSaved.InvokeAsync(saved);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _formError = "The routine could not be saved. Check your connection and try again.";
+        }
+        catch (TaskCanceledException)
+        {
+            _formError = "Saving took too long. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}
