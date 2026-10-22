@@ -1,67 +1,51 @@
+@using System.Text
+@*
+    Weekly muscle-load body map.
+
+    Geometry is derived from MuscleMap (@musclemap/assets, MIT) — traced per-muscle
+    SVG path data, male + female, front + back. See MuscleBodyMapData.cs.
+
+    Region-key contract (20 keys, produced by AppStateService):
+      chest, front-delts, side-delts, biceps, forearms, abs, obliques, quads,
+      adductors, calves, rear-delts, triceps, traps, upper-back, lats, glutes,
+      abductors, hamstrings, serratus, hip-flexors
+
+    MuscleMap group -> app key, per view:
+      FRONT: CHEST->chest, SHOULDERS_FRONT->front-delts, SHOULDERS_SIDE->side-delts,
+             BICEPS->biceps, FOREARMS->forearms, CORE->abs, OBLIQUES->obliques,
+             QUADS->quads, ADDUCTORS->adductors, CALVES->calves, ABDUCTORS->abductors,
+             TRAPEZIUS->traps, TRICEPS->triceps
+      BACK:  SHOULDERS_REAR->rear-delts, SHOULDERS_SIDE->side-delts, TRICEPS->triceps,
+             FOREARMS->forearms, TRAPEZIUS->traps, RHOMBOIDS->upper-back, LATS->lats,
+             GLUTES->glutes, ABDUCTORS->abductors, HAMSTRINGS->hamstrings, CALVES->calves,
+             OBLIQUES->obliques, ADDUCTORS->adductors
+
+    18/20 keys have a traced body region. `serratus` and `hip-flexors` have no traced
+    path in MuscleMap, so they are legend-only (same treatment as the reference
+    Hypertrophy-Toolbox map). `BACK_LOWER` (erectors) is not one of the 20 tracked
+    keys and stays part of the base silhouette.
+
+    Load colour is a traffic-light ramp by intensity (DESIGN.md readiness ramp):
+      no load -> card surface, low -> done #2FBF71, mid -> PR #F5B83D, high -> error #F1545B
+*@
 <div class="hs-body-map-shell @BodyProfileClass"
      data-body-profile="@BodyProfileKey">
     <div class="hs-body-map-stage">
-        <svg viewBox="@GetViewBox()"
+        <svg viewBox="@ViewBox"
              class="hs-body-map-svg"
              role="img"
-             aria-label="@BodyMapAriaLabel">
+             aria-label="@BodyMapAriaLabel"
+             preserveAspectRatio="xMidYMid meet">
             @if (ShowFront)
             {
-                <g transform="@GetFrontTransform()">
-                    <text x="60" y="18" class="hs-body-figure-label">Front</text>
-                    @RenderBaseFigure()
-                    <path class="hs-body-muscle" d="M25 80 C31 72 42 72 48 83 C47 98 39 108 27 105 C21 98 21 88 25 80 Z" fill="@GetFill("front-delts")" stroke="@GetStroke("front-delts")" />
-                    <path class="hs-body-muscle" d="M95 80 C89 72 78 72 72 83 C73 98 81 108 93 105 C99 98 99 88 95 80 Z" fill="@GetFill("front-delts")" stroke="@GetStroke("front-delts")" />
-                    <path class="hs-body-muscle" d="M20 86 C13 92 12 104 17 113 C25 111 29 101 28 91 C26 87 23 85 20 86 Z" fill="@GetFill("side-delts")" stroke="@GetStroke("side-delts")" />
-                    <path class="hs-body-muscle" d="M100 86 C107 92 108 104 103 113 C95 111 91 101 92 91 C94 87 97 85 100 86 Z" fill="@GetFill("side-delts")" stroke="@GetStroke("side-delts")" />
-                    <path class="hs-body-muscle" d="M16 112 C10 126 11 150 19 164 C27 158 30 137 26 118 C24 112 20 109 16 112 Z" fill="@GetFill("biceps")" stroke="@GetStroke("biceps")" />
-                    <path class="hs-body-muscle" d="M104 112 C110 126 109 150 101 164 C93 158 90 137 94 118 C96 112 100 109 104 112 Z" fill="@GetFill("biceps")" stroke="@GetStroke("biceps")" />
-                    <path class="hs-body-muscle" d="M18 164 C12 181 14 209 21 224 C28 213 29 184 25 168 C23 164 21 163 18 164 Z" fill="@GetFill("forearms")" stroke="@GetStroke("forearms")" />
-                    <path class="hs-body-muscle" d="M102 164 C108 181 106 209 99 224 C92 213 91 184 95 168 C97 164 99 163 102 164 Z" fill="@GetFill("forearms")" stroke="@GetStroke("forearms")" />
-                    <path class="hs-body-muscle" d="M34 84 C41 76 53 76 59 88 L58 116 C47 124 36 119 31 107 C30 96 31 89 34 84 Z" fill="@GetFill("chest")" stroke="@GetStroke("chest")" />
-                    <path class="hs-body-muscle" d="M86 84 C79 76 67 76 61 88 L62 116 C73 124 84 119 89 107 C90 96 89 89 86 84 Z" fill="@GetFill("chest")" stroke="@GetStroke("chest")" />
-                    <path class="hs-body-muscle" d="M31 114 C38 116 42 124 41 146 C35 151 29 143 27 130 Z" fill="@GetFill("serratus")" stroke="@GetStroke("serratus")" />
-                    <path class="hs-body-muscle" d="M89 114 C82 116 78 124 79 146 C85 151 91 143 93 130 Z" fill="@GetFill("serratus")" stroke="@GetStroke("serratus")" />
-                    <path class="hs-body-muscle" d="M48 120 C55 116 65 116 72 120 L70 185 C67 197 53 197 50 185 Z" fill="@GetFill("abs")" stroke="@GetStroke("abs")" />
-                    <path class="hs-body-detail" d="M60 121 L60 193 M49 141 L71 141 M49 161 L71 161 M50 180 L70 180" />
-                    <path class="hs-body-muscle" d="M40 137 C47 145 48 171 44 190 C36 187 30 174 30 156 C32 145 35 139 40 137 Z" fill="@GetFill("obliques")" stroke="@GetStroke("obliques")" />
-                    <path class="hs-body-muscle" d="M80 137 C73 145 72 171 76 190 C84 187 90 174 90 156 C88 145 85 139 80 137 Z" fill="@GetFill("obliques")" stroke="@GetStroke("obliques")" />
-                    <path class="hs-body-muscle" d="M40 193 C48 190 54 198 55 220 C48 227 39 221 36 210 Z" fill="@GetFill("hip-flexors")" stroke="@GetStroke("hip-flexors")" />
-                    <path class="hs-body-muscle" d="M80 193 C72 190 66 198 65 220 C72 227 81 221 84 210 Z" fill="@GetFill("hip-flexors")" stroke="@GetStroke("hip-flexors")" />
-                    <path class="hs-body-muscle" d="M31 225 C42 218 53 225 56 245 C57 276 53 317 45 337 C34 337 28 321 27 292 C26 264 26 240 31 225 Z" fill="@GetFill("quads")" stroke="@GetStroke("quads")" />
-                    <path class="hs-body-muscle" d="M89 225 C78 218 67 225 64 245 C63 276 67 317 75 337 C86 337 92 321 93 292 C94 264 94 240 89 225 Z" fill="@GetFill("quads")" stroke="@GetStroke("quads")" />
-                    <path class="hs-body-muscle" d="M52 229 C59 239 59 304 52 329 C45 313 43 262 46 238 Z" fill="@GetFill("adductors")" stroke="@GetStroke("adductors")" />
-                    <path class="hs-body-muscle" d="M68 229 C61 239 61 304 68 329 C75 313 77 262 74 238 Z" fill="@GetFill("adductors")" stroke="@GetStroke("adductors")" />
-                    <path class="hs-body-muscle" d="M31 340 C41 335 50 342 51 359 C50 383 46 404 39 414 C30 408 27 386 28 361 Z" fill="@GetFill("calves")" stroke="@GetStroke("calves")" />
-                    <path class="hs-body-muscle" d="M89 340 C79 335 70 342 69 359 C70 383 74 404 81 414 C90 408 93 386 92 361 Z" fill="@GetFill("calves")" stroke="@GetStroke("calves")" />
+                <g transform="translate(0 0)">
+                    @RenderFigure(FrontFigure, "Front")
                 </g>
             }
-
             @if (ShowBack)
             {
-                <g transform="@GetBackTransform()">
-                    <text x="60" y="18" class="hs-body-figure-label">Back</text>
-                    @RenderBaseFigure()
-                    <path class="hs-body-muscle" d="M25 80 C31 72 42 72 48 83 C47 98 39 108 27 105 C21 98 21 88 25 80 Z" fill="@GetFill("rear-delts")" stroke="@GetStroke("rear-delts")" />
-                    <path class="hs-body-muscle" d="M95 80 C89 72 78 72 72 83 C73 98 81 108 93 105 C99 98 99 88 95 80 Z" fill="@GetFill("rear-delts")" stroke="@GetStroke("rear-delts")" />
-                    <path class="hs-body-muscle" d="M20 86 C13 92 12 104 17 113 C25 111 29 101 28 91 C26 87 23 85 20 86 Z" fill="@GetFill("side-delts")" stroke="@GetStroke("side-delts")" />
-                    <path class="hs-body-muscle" d="M100 86 C107 92 108 104 103 113 C95 111 91 101 92 91 C94 87 97 85 100 86 Z" fill="@GetFill("side-delts")" stroke="@GetStroke("side-delts")" />
-                    <path class="hs-body-muscle" d="M16 111 C10 127 12 153 20 166 C28 156 29 130 25 115 C22 110 19 109 16 111 Z" fill="@GetFill("triceps")" stroke="@GetStroke("triceps")" />
-                    <path class="hs-body-muscle" d="M104 111 C110 127 108 153 100 166 C92 156 91 130 95 115 C98 110 101 109 104 111 Z" fill="@GetFill("triceps")" stroke="@GetStroke("triceps")" />
-                    <path class="hs-body-muscle" d="M18 164 C12 181 14 209 21 224 C28 213 29 184 25 168 C23 164 21 163 18 164 Z" fill="@GetFill("forearms")" stroke="@GetStroke("forearms")" />
-                    <path class="hs-body-muscle" d="M102 164 C108 181 106 209 99 224 C92 213 91 184 95 168 C97 164 99 163 102 164 Z" fill="@GetFill("forearms")" stroke="@GetStroke("forearms")" />
-                    <path class="hs-body-muscle" d="M60 70 C53 83 44 91 39 105 C48 113 72 113 81 105 C76 91 67 83 60 70 Z" fill="@GetFill("traps")" stroke="@GetStroke("traps")" />
-                    <path class="hs-body-muscle" d="M42 104 C51 98 69 98 78 104 L76 146 C68 154 52 154 44 146 Z" fill="@GetFill("upper-back")" stroke="@GetStroke("upper-back")" />
-                    <path class="hs-body-muscle" d="M41 112 C29 119 25 142 30 168 C33 181 39 190 46 193 C51 173 51 139 48 116 Z" fill="@GetFill("lats")" stroke="@GetStroke("lats")" />
-                    <path class="hs-body-muscle" d="M79 112 C91 119 95 142 90 168 C87 181 81 190 74 193 C69 173 69 139 72 116 Z" fill="@GetFill("lats")" stroke="@GetStroke("lats")" />
-                    <path class="hs-body-muscle" d="M36 195 C43 187 56 190 59 204 L58 226 C51 237 37 232 32 219 C31 209 32 201 36 195 Z" fill="@GetFill("glutes")" stroke="@GetStroke("glutes")" />
-                    <path class="hs-body-muscle" d="M84 195 C77 187 64 190 61 204 L62 226 C69 237 83 232 88 219 C89 209 88 201 84 195 Z" fill="@GetFill("glutes")" stroke="@GetStroke("glutes")" />
-                    <path class="hs-body-muscle" d="M31 225 C24 242 25 293 33 325 C39 314 41 252 40 230 Z" fill="@GetFill("abductors")" stroke="@GetStroke("abductors")" />
-                    <path class="hs-body-muscle" d="M89 225 C96 242 95 293 87 325 C81 314 79 252 80 230 Z" fill="@GetFill("abductors")" stroke="@GetStroke("abductors")" />
-                    <path class="hs-body-muscle" d="M40 228 C51 224 57 239 57 265 C56 294 52 324 45 338 C34 333 31 303 32 270 C32 247 34 234 40 228 Z" fill="@GetFill("hamstrings")" stroke="@GetStroke("hamstrings")" />
-                    <path class="hs-body-muscle" d="M80 228 C69 224 63 239 63 265 C64 294 68 324 75 338 C86 333 89 303 88 270 C88 247 86 234 80 228 Z" fill="@GetFill("hamstrings")" stroke="@GetStroke("hamstrings")" />
-                    <path class="hs-body-muscle" d="M31 340 C42 331 52 345 52 365 C50 390 46 407 39 416 C29 408 26 378 28 355 Z" fill="@GetFill("calves")" stroke="@GetStroke("calves")" />
-                    <path class="hs-body-muscle" d="M89 340 C78 331 68 345 68 365 C70 390 74 407 81 416 C91 408 94 378 92 355 Z" fill="@GetFill("calves")" stroke="@GetStroke("calves")" />
+                <g transform="@BackTransform">
+                    @RenderFigure(BackFigure, "Back")
                 </g>
             }
         </svg>
@@ -99,6 +83,8 @@
 
     private bool ShowFront => !string.Equals(ViewMode, "back", StringComparison.OrdinalIgnoreCase);
     private bool ShowBack => !string.Equals(ViewMode, "front", StringComparison.OrdinalIgnoreCase);
+    private bool BothViews => ShowFront && ShowBack;
+
     private string BodyProfileKey
         => BiologicalSex switch
         {
@@ -109,6 +95,15 @@
     private string BodyProfileClass => $"is-{BodyProfileKey}";
     private string BodyMapAriaLabel
         => $"{BodyProfileKey} weekly muscle load map";
+
+    // Neutral falls back to the male figure; MuscleMap ships male + female only.
+    private bool UseFemaleBody => BiologicalSex == HealthBiologicalSex.Female;
+    private MuscleBodyMapFigure FrontFigure => UseFemaleBody ? MuscleBodyMapData.FemaleFront : MuscleBodyMapData.MaleFront;
+    private MuscleBodyMapFigure BackFigure => UseFemaleBody ? MuscleBodyMapData.FemaleBack : MuscleBodyMapData.MaleBack;
+
+    // Each figure occupies a 1024 x 1536 box; -60 top leaves room for the figure label.
+    private string ViewBox => BothViews ? "0 -60 2088 1620" : "0 -60 1024 1620";
+    private string BackTransform => BothViews ? "translate(1064 0)" : "translate(0 0)";
 
     private IEnumerable<MuscleLoadRegionResource> VisibleRegions =>
         Regions
@@ -130,86 +125,70 @@
         }
     }
 
-    private RenderFragment RenderBaseFigure() => builder =>
+    private RenderFragment RenderFigure(MuscleBodyMapFigure figure, string label) => builder =>
     {
-        var markup =
-            "<path class=\"hs-body-base\" d=\"M43 45 C43 27 50 18 60 18 C70 18 77 27 77 45 C77 58 70 68 60 68 C50 68 43 58 43 45 Z\" />"
-            + "<path class=\"hs-body-base\" d=\"M51 65 L69 65 L72 78 L48 78 Z\" />"
-            + $"<path class=\"hs-body-base\" d=\"{GetTorsoPath()}\" />"
-            + $"<path class=\"hs-body-base\" d=\"{GetPelvisPath()}\" />"
-            + "<path class=\"hs-body-base\" d=\"M28 82 C17 85 11 96 10 112 C9 138 13 164 15 188 C16 207 15 222 20 235 C24 240 29 236 29 229 C28 213 29 194 30 176 C31 151 34 124 38 99 C38 89 34 83 28 82 Z\" />"
-            + "<path class=\"hs-body-base\" d=\"M92 82 C103 85 109 96 110 112 C111 138 107 164 105 188 C104 207 105 222 100 235 C96 240 91 236 91 229 C92 213 91 194 90 176 C89 151 86 124 82 99 C82 89 86 83 92 82 Z\" />"
-            + "<path class=\"hs-body-base\" d=\"M20 232 C17 241 18 249 22 252 C27 253 31 247 29 235 Z\" />"
-            + "<path class=\"hs-body-base\" d=\"M100 232 C103 241 102 249 98 252 C93 253 89 247 91 235 Z\" />"
-            + "<path class=\"hs-body-base\" d=\"M35 218 C26 239 25 278 27 314 C28 339 25 372 27 405 C28 425 31 438 37 440 C44 439 47 428 47 414 C47 391 51 369 55 344 C58 312 59 268 56 231 C52 220 43 215 35 218 Z\" />"
-            + "<path class=\"hs-body-base\" d=\"M85 218 C94 239 95 278 93 314 C92 339 95 372 93 405 C92 425 89 438 83 440 C76 439 73 428 73 414 C73 391 69 369 65 344 C62 312 61 268 64 231 C68 220 77 215 85 218 Z\" />"
-            + "<path class=\"hs-body-base\" d=\"M27 430 C25 442 25 449 29 452 L50 452 C53 449 51 445 45 441 L38 436 Z\" />"
-            + "<path class=\"hs-body-base\" d=\"M93 430 C95 442 95 449 91 452 L70 452 C67 449 69 445 75 441 L82 436 Z\" />";
-        builder.AddMarkupContent(0, markup);
+        var markup = new StringBuilder();
+        markup.Append($"<text x=\"512\" y=\"-24\" class=\"hs-body-figure-label\">{label}</text>");
+        markup.Append($"<path class=\"hs-body-base\" d=\"{figure.Outline}\" />");
+
+        for (var i = 0; i < figure.Keys.Length; i++)
+        {
+            var key = figure.Keys[i];
+            markup.Append(
+                $"<path class=\"hs-body-muscle\" d=\"{figure.Paths[i]}\" fill=\"{GetFill(key)}\" stroke=\"{GetStroke(key)}\" />");
+        }
+
+        builder.AddMarkupContent(0, markup.ToString());
     };
-
-    private string GetTorsoPath()
-        => BiologicalSex switch
-        {
-            HealthBiologicalSex.Female =>
-                "M31 76 C40 70 49 72 60 75 C71 72 80 70 89 76 C91 98 86 124 84 151 C83 172 79 190 72 198 L48 198 C41 190 37 172 36 151 C34 124 29 98 31 76 Z",
-            HealthBiologicalSex.Male =>
-                "M23 78 C34 69 47 71 60 75 C73 71 86 69 97 78 C95 111 88 150 82 187 C75 196 45 196 38 187 C32 150 25 111 23 78 Z",
-            _ =>
-                "M27 77 C37 70 49 72 60 75 C71 72 83 70 93 77 C93 109 87 151 82 188 C74 197 46 197 38 188 C33 151 27 109 27 77 Z"
-        };
-
-    private string GetPelvisPath()
-        => BiologicalSex switch
-        {
-            HealthBiologicalSex.Female =>
-                "M39 188 C48 183 72 183 81 188 C91 196 94 211 91 225 C82 234 72 238 60 238 C48 238 38 234 29 225 C26 211 29 196 39 188 Z",
-            HealthBiologicalSex.Male =>
-                "M39 188 C49 185 71 185 81 188 C88 198 90 214 86 226 C78 232 69 235 60 235 C51 235 42 232 34 226 C30 214 32 198 39 188 Z",
-            _ =>
-                "M38 188 C48 184 72 184 82 188 C90 198 92 213 88 226 C80 234 70 237 60 237 C50 237 40 234 32 226 C28 213 30 198 38 188 Z"
-        };
-
-    private string GetFrontTransform()
-        => ShowFront && ShowBack ? "translate(42 34)" : "translate(50 20)";
-
-    private string GetBackTransform()
-        => ShowFront && ShowBack ? "translate(218 34)" : "translate(50 20)";
-
-    private string GetViewBox()
-        => ShowFront && ShowBack
-            ? "0 0 420 520"
-            : "0 0 220 500";
 
     private string GetFill(string key)
     {
         if (!_regionsByKey.TryGetValue(key, out var region) || region.RelativeLoad <= 0)
         {
-            return "rgba(215, 223, 226, 0.36)";
+            return "rgba(40, 48, 64, 0.45)";
         }
 
-        return InterpolateColor(region.RelativeLoad);
+        return LoadColor(region.RelativeLoad, 1d);
     }
 
     private string GetStroke(string key)
     {
         if (!_regionsByKey.TryGetValue(key, out var region) || region.RelativeLoad <= 0)
         {
-            return "#262C36";
+            return "var(--hs-border)";
         }
 
-        return InterpolateColor(Math.Min(1d, region.RelativeLoad + 0.12d));
+        return LoadColor(region.RelativeLoad, 0.72d);
     }
 
-    private static string InterpolateColor(double value)
+    // Traffic-light readiness ramp: done -> PR -> error as intensity rises.
+    private static readonly (int R, int G, int B) LoadLow = (47, 191, 113);   // --hs-done  #2FBF71
+    private static readonly (int R, int G, int B) LoadMid = (245, 184, 61);   // --hs-pr    #F5B83D
+    private static readonly (int R, int G, int B) LoadHigh = (241, 84, 91);   // --hs-err   #F1545B
+
+    private static string LoadColor(double value, double factor)
     {
         var clamped = Math.Clamp(value, 0d, 1d);
-        var start = (R: 22, G: 27, B: 34);   // --hs-card (no load)
-        var end = (R: 30, G: 111, B: 255);   // --hs-accent (max load)
+        int r, g, b;
 
-        var r = (int)Math.Round(start.R + ((end.R - start.R) * clamped));
-        var g = (int)Math.Round(start.G + ((end.G - start.G) * clamped));
-        var b = (int)Math.Round(start.B + ((end.B - start.B) * clamped));
+        if (clamped <= 0.5d)
+        {
+            var u = clamped / 0.5d;
+            r = (int)Math.Round(LoadLow.R + ((LoadMid.R - LoadLow.R) * u));
+            g = (int)Math.Round(LoadLow.G + ((LoadMid.G - LoadLow.G) * u));
+            b = (int)Math.Round(LoadLow.B + ((LoadMid.B - LoadLow.B) * u));
+        }
+        else
+        {
+            var u = (clamped - 0.5d) / 0.5d;
+            r = (int)Math.Round(LoadMid.R + ((LoadHigh.R - LoadMid.R) * u));
+            g = (int)Math.Round(LoadMid.G + ((LoadHigh.G - LoadMid.G) * u));
+            b = (int)Math.Round(LoadMid.B + ((LoadHigh.B - LoadMid.B) * u));
+        }
+
+        r = (int)Math.Round(r * factor);
+        g = (int)Math.Round(g * factor);
+        b = (int)Math.Round(b * factor);
 
         return $"rgb({r}, {g}, {b})";
     }

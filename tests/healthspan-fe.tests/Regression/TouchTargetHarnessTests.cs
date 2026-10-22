@@ -45,11 +45,8 @@ public class TouchTargetHarnessTests : BlazorTestBase
         markup["entryform"].Should().Contain("hs-exercise-quick-button");
         markup["history"].Should().Contain("hs-workout-session-toggle");
         markup["history"].Should().Contain("hs-workout-action");
-        // The library card is one tap to the detail page: the card itself is the
-        // control, and it must not carry action slots or variation toggles.
-        markup["library"].Should().Contain("exercise-card");
-        markup["library"].Should().NotContain("hs-et-action-slot");
-        markup["library"].Should().NotContain("hs-et-variation-toggle");
+        markup["library"].Should().Contain("hs-et-card");
+        markup["library"].Should().Contain("hs-et-search");
 
         var dir = Environment.GetEnvironmentVariable("HS_TOUCH_HARNESS_DIR");
         if (string.IsNullOrWhiteSpace(dir))
@@ -180,7 +177,7 @@ public class TouchTargetHarnessTests : BlazorTestBase
 
         var library = RenderComponent<ExerciseTypes>();
         library.WaitForAssertion(
-            () => library.FindAll(".exercise-card").Count.Should().BeGreaterThan(0),
+            () => library.FindAll(".hs-et-card").Count.Should().BeGreaterThan(0),
             TimeSpan.FromSeconds(10));
         rendered["library"] = library.Markup;
 

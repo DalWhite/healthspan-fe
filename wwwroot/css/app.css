@@ -3073,10 +3073,8 @@ a.hs-exercise-history-row:hover {
 .hs-body-map-stage {
   padding: 18px;
   border-radius: 20px;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(15, 95, 103, 0.08), transparent 34%),
-    linear-gradient(180deg, #f9fbfb 0%, #eef4f4 100%);
-  border: 1px solid rgba(15, 95, 103, 0.08);
+  background: var(--hs-card);
+  border: 1px solid var(--hs-border);
 }
 
 .hs-body-map-svg {
@@ -3085,29 +3083,30 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-body-base {
-  fill: rgba(222, 229, 231, 0.7);
-  stroke: #bdcbd0;
-  stroke-width: 1.35;
+  fill: var(--hs-raised);
+  stroke: var(--hs-border);
+  stroke-width: 4;
   stroke-linejoin: round;
 }
 
 .hs-body-muscle {
-  stroke-width: 1.25;
+  stroke-width: 4;
   stroke-linejoin: round;
 }
 
 .hs-body-detail {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.68);
-  stroke-width: 1;
+  stroke: var(--hs-border);
+  stroke-width: 2;
 }
 
 .hs-body-figure-label {
-  font-size: 0.8rem;
+  font-size: 34px;
   font-weight: 700;
-  fill: rgba(22, 48, 54, 0.7);
+  fill: var(--hs-t2);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  text-anchor: middle;
 }
 
 .hs-body-scale {
@@ -3116,14 +3115,14 @@ a.hs-exercise-history-row:hover {
   justify-content: flex-end;
   gap: 10px;
   font-size: 0.78rem;
-  color: rgba(22, 48, 54, 0.62);
+  color: var(--hs-t2);
 }
 
 .hs-body-scale-bar {
   width: 120px;
   height: 10px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgb(233, 239, 240), rgb(174, 29, 13));
+  background: linear-gradient(90deg, var(--hs-done), var(--hs-pr), var(--hs-err));
 }
 
 .hs-body-map-legend {
@@ -3139,8 +3138,8 @@ a.hs-exercise-history-row:hover {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 16px;
-  background: var(--mud-palette-surface);
-  border: 1px solid rgba(15, 95, 103, 0.08);
+  background: var(--hs-card);
+  border: 1px solid var(--hs-border);
 }
 
 .hs-body-map-legend-copy {
@@ -3150,12 +3149,12 @@ a.hs-exercise-history-row:hover {
 
 .hs-body-map-legend-label {
   font-weight: 700;
-  color: #17373c;
+  color: var(--hs-t1);
 }
 
 .hs-body-map-legend-meta {
   font-size: 0.78rem;
-  color: rgba(22, 48, 54, 0.62);
+  color: var(--hs-t2);
 }
 
 .hs-body-map-legend-metric {
@@ -3164,7 +3163,7 @@ a.hs-exercise-history-row:hover {
   gap: 10px;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #17373c;
+  color: var(--hs-t1);
 }
 
 .hs-body-map-legend-dot {
