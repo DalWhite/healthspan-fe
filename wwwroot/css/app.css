@@ -6030,7 +6030,7 @@ button.hs-health-overview-card {
 }
 
 .hs-routine-exercise.is-expanded {
-  border-color: var(--mud-palette-primary, #594ae2);
+  border-color: var(--hs-accent);
 }
 
 .hs-routine-exercise-summary {
@@ -6047,7 +6047,7 @@ button.hs-health-overview-card {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--mud-palette-primary, #594ae2);
+  background: var(--hs-accent);
   color: #fff;
   font-size: 0.8rem;
   font-weight: 600;
