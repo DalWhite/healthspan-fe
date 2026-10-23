@@ -75,5 +75,6 @@ builder.Services.AddSingleton(sp =>
 });
 builder.Services.AddMudServices();
 builder.Services.AddSingleton<HealthspanApiClient>();
+builder.Services.AddSingleton<ActivityClient>();
 
 await builder.Build().RunAsync();
