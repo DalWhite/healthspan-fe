@@ -122,6 +122,40 @@ public class LoginPageTests : BlazorTestBase
     }
 
     [Fact]
+    public void Login_Fields_Have_Visible_Labels_That_Never_Disappear_When_Typing()
+    {
+        var account = Substitute.For<IAccountManagement>();
+        Services.AddSingleton(account);
+
+        var cut = RenderComponent<Login>();
+
+        // Forms rule (DESIGN.md §5): labels above fields, never placeholder-as-label.
+        // Field identity must not depend on placeholder text that vanishes on typing.
+        var labels = cut.FindAll(".mud-input-label");
+        labels.Select(l => l.TextContent.Trim())
+            .Should().Contain(["Email", "Password"]);
+
+        foreach (var input in cut.FindAll("input"))
+        {
+            string.IsNullOrWhiteSpace(input.GetAttribute("placeholder")).Should()
+                .BeTrue("no login field may use a placeholder as its label");
+        }
+
+        // NN/g: when the user types, the field floats its label to the outline
+        // notch and it stays visible — the identity never disappears
+        // (the t_2e7e6867 regression). MudBlazor 6.21 drives this with the
+        // mud-shrink class on the input root (value) + :focus-within (focus).
+        var inputs = cut.FindAll("input");
+        inputs[0].Change("wall@example.com");
+        inputs[1].Change("correct-horse");
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll(".mud-input.mud-shrink").Should().HaveCount(2);
+        }, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
     public async Task Email_Login_Lands_Back_In_Origin_Context()
     {
         var account = Substitute.For<IAccountManagement>();
