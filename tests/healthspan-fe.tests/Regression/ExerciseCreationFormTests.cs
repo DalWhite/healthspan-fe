@@ -14,6 +14,27 @@ namespace healthspan_fe.tests.Regression;
 public class ExerciseCreationFormTests : BlazorTestBase
 {
     [Fact]
+    public void Prescription_Numeric_Fields_Have_No_Untargetable_Spin_Buttons()
+    {
+        // QA t_d99f727c F2: MudNumericField spin buttons are 20x22px with no aria-label —
+        // they violate the 44px touch-target rule, so the Hoy form hides them.
+        var cut = RenderComponent<ExerciseCreationForm>(parameters => parameters
+            .Add(component => component.ExerciseTypes, new[]
+            {
+                new GetExerciseTypeResource { Id = 21, Name = "Bench Press", WeightType = ExerciseWeightType.Standard }
+            })
+            .Add(component => component.InitialExerciseTypeId, 21)
+            .Add(component => component.InitialDate, DateTime.Today));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find(".hs-exercise-prescription-grid").Should().NotBeNull();
+        }, timeout: TimeSpan.FromSeconds(3));
+
+        cut.FindAll(".hs-exercise-prescription-grid button").Should().BeEmpty();
+    }
+
+    [Fact]
     public void Requires_Exercise_Selection_Before_Submit()
     {
         var cut = RenderComponent<ExerciseCreationForm>(parameters => parameters
