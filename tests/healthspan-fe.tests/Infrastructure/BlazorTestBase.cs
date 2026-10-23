@@ -45,6 +45,7 @@ public abstract class BlazorTestBase : TestContext
         Services.AddSingleton(new ThemeState());
         Services.AddSingleton(new ActiveSessionState());
         Services.AddSingleton(new HealthspanApiClient(httpClient));
+        Services.AddSingleton(new ActivityClient(httpClient));
 
         // Offline layer: MainLayout injects these; tests exercise the same
         // code paths with the in-memory store (no JS/SQLite needed).

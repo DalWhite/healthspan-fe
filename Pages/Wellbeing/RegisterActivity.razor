@@ -1,0 +1,616 @@
+@page "/wellbeing/register"
+@inject ActivityClient ActivityClient
+
+@* Registro de actividades de bienestar (ux-spec-registro-actividades-t_c35cb312.md).
+   Edición vía ?edit=<id>. Payload según api-contract-activities-t_0e23bbe6.md. *@
+
+<PageShell Narrow>
+    <PageHeader Title="@(_editingId is null ? "Registrar actividad" : "Editar actividad")" />
+
+    @if (_loading)
+    {
+        <LoadingState Message="Cargando registro..." />
+    }
+    else if (_saved is not null)
+    {
+        <section class="hs-reg-success" aria-live="polite">
+            <p class="hs-reg-success-title">Guardado · @_saved.Label · @_saved.DateLabel</p>
+            <div class="hs-reg-success-chips">
+                @foreach (var chip in _saved.Chips)
+                {
+                    <span class="hs-chip hs-chip-accent">@chip</span>
+                }
+            </div>
+            <div class="hs-reg-success-actions">
+                <button type="button" class="hs-cta hs-cta-primary" @onclick="RegisterAnother" @ref="_ctaRef">Registrar otra actividad</button>
+                <a class="hs-reg-history-link" href="wellbeing/activities">Ver historial</a>
+            </div>
+        </section>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(_banner))
+        {
+            <div class="hs-reg-banner" role="alert">@_banner</div>
+        }
+
+        <div class="hs-reg-block">
+            <span class="hs-micro-label">Tipo</span>
+            <div class="hs-chip-row" role="radiogroup" aria-label="Tipo de actividad">
+                @foreach (var type in WellbeingActivityTypes.All.Values)
+                {
+                    <button type="button" role="radio"
+                            aria-checked="@(_type == type.Key ? "true" : "false")"
+                            aria-pressed="@(_type == type.Key ? "true" : "false")"
+                            class="hs-chip hs-reg-chip @(type.Key == _type ? "hs-chip-selected" : "")"
+                            @onclick="() => PickType(type.Key)">@type.Label</button>
+                }
+                @if (!WellbeingActivityTypes.All.ContainsKey(_type))
+                {
+                    <button type="button" role="radio" aria-checked="true" aria-pressed="true"
+                            class="hs-chip hs-reg-chip hs-chip-selected">@WellbeingActivityTypes.Resolve(_type).Label</button>
+                }
+            </div>
+        </div>
+
+        <div class="hs-reg-block">
+            <span class="hs-micro-label">Dimensión</span>
+            <div class="hs-chip-row" role="radiogroup" aria-label="Dimensión">
+                @foreach (var (key, label) in WellbeingDimensions.Options)
+                {
+                    <button type="button" role="radio"
+                            aria-checked="@(_dimension == key ? "true" : "false")"
+                            aria-pressed="@(_dimension == key ? "true" : "false")"
+                            class="hs-chip hs-reg-chip @(_dimension == key ? "hs-chip-selected" : "")"
+                            @onclick="() => PickDimension(key)">@label</button>
+                }
+            </div>
+        </div>
+
+        <div class="hs-reg-field">
+            <label class="hs-micro-label" for="reg-date">Fecha</label>
+            <input id="reg-date" class="hs-reg-input @(_errors.ContainsKey("date") ? "hs-reg-invalid" : "")"
+                   type="date" aria-describedby="err-date"
+                   aria-invalid="@(_errors.ContainsKey("date") ? "true" : "false")"
+                   value="@_date.ToString("yyyy-MM-dd")" @onchange="OnDateChange" @ref="_dateRef" />
+            <div id="err-date" class="hs-field-error @(_errors.ContainsKey("date") ? "hs-field-error-show" : "")" role="alert">
+                @if (_errors.TryGetValue("date", out var dateError))
+                {
+                    <span>@dateError</span>
+                }
+            </div>
+        </div>
+
+        <div class="hs-reg-grid">
+            @foreach (var field in CurrentType.Fields)
+            {
+                var raw = _values.TryGetValue(field.Key, out var stored) ? stored : null;
+                var hasError = _errors.TryGetValue(field.Key, out var fieldError);
+                <div class="hs-reg-field">
+                    @if (field.Kind == ActivityFieldKind.Chips)
+                    {
+                        <span class="hs-micro-label" id="lbl-@field.Key">@field.Label</span>
+                        <div class="hs-chip-row" role="radiogroup" aria-labelledby="lbl-@field.Key">
+                            @for (var option = field.Min; option <= field.Max; option++)
+                            {
+                                var value = option;
+                                var selected = raw == value.ToString();
+                                <button type="button" role="radio"
+                                        aria-checked="@(selected ? "true" : "false")"
+                                        aria-pressed="@(selected ? "true" : "false")"
+                                        class="hs-chip hs-reg-chip @(selected ? "hs-chip-selected" : "")"
+                                        @onclick="() => PickChip(field, value)">@value</button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <label class="hs-micro-label" for="reg-@field.Key">@field.Label</label>
+                        @if (field.Kind == ActivityFieldKind.Select)
+                        {
+                            <select id="reg-@field.Key" class="hs-reg-input @(hasError ? "hs-reg-invalid" : "")"
+                                    aria-describedby="err-@field.Key" aria-invalid="@(hasError ? "true" : "false")"
+                                    value="@raw" @onchange="e => OnFieldChange(field, e)">
+                                <option value="">(opcional)</option>
+                                @foreach (var option in field.Options ?? Array.Empty<string>())
+                                {
+                                    <option value="@option" selected="@(option == raw)">@option</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input id="reg-@field.Key" class="hs-reg-input @(hasError ? "hs-reg-invalid" : "")"
+                                   type="@(field.Kind == ActivityFieldKind.Number ? "number" : "text")"
+                                   inputmode="@(field.Kind == ActivityFieldKind.Number ? "numeric" : "text")"
+                                   min="@(field.Kind == ActivityFieldKind.Number ? field.Min : (int?)null)"
+                                   max="@(field.Kind == ActivityFieldKind.Number ? field.Max : (int?)null)"
+                                   maxlength="@(field.MaxLength > 0 ? field.MaxLength : (int?)null)"
+                                   aria-describedby="err-@field.Key" aria-invalid="@(hasError ? "true" : "false")"
+                                   value="@raw" @onchange="e => OnFieldChange(field, e)" @ref="_fieldRefs[field.Key]" />
+                        }
+                        <div id="err-@field.Key" class="hs-field-error @(hasError ? "hs-field-error-show" : "")" role="alert">
+                            @if (hasError)
+                            {
+                                <span>@fieldError</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <details class="hs-reg-disclosure">
+            <summary>Parámetros avanzados</summary>
+
+            <div class="hs-reg-field">
+                <label class="hs-micro-label" for="reg-frequency">Frecuencia semanal</label>
+                <input id="reg-frequency" class="hs-reg-input @(_errors.ContainsKey("frequencyPerWeek") ? "hs-reg-invalid" : "")"
+                       type="number" min="1" max="7" inputmode="numeric"
+                       aria-describedby="err-frequencyPerWeek"
+                       aria-invalid="@(_errors.ContainsKey("frequencyPerWeek") ? "true" : "false")"
+                       value="@_frequency" @onchange="OnFrequencyChange" @ref="_frequencyRef" />
+                <div id="err-frequencyPerWeek" class="hs-field-error @(_errors.ContainsKey("frequencyPerWeek") ? "hs-field-error-show" : "")" role="alert">
+                    @if (_errors.TryGetValue("frequencyPerWeek", out var frequencyError))
+                    {
+                        <span>@frequencyError</span>
+                    }
+                </div>
+            </div>
+
+            <div class="hs-reg-field">
+                <label class="hs-micro-label" for="reg-notes">Notas</label>
+                <textarea id="reg-notes" class="hs-reg-input" rows="3" value="@_notes"
+                          @onchange="e => _notes = e.Value as string"></textarea>
+            </div>
+
+            <div class="hs-reg-block">
+                <span class="hs-micro-label">Campos adicionales</span>
+                @if (_extras.Count == 0)
+                {
+                    <div class="hs-reg-empty">Aún no has añadido campos extra.</div>
+                }
+                @foreach (var (row, index) in _extras.Select((row, index) => (row, index)))
+                {
+                    <div class="hs-extra-row">
+                        <input class="hs-reg-input" placeholder="Nombre" aria-label="Nombre del campo"
+                               value="@row.Key" @oninput="e => row.Key = e.Value as string ?? string.Empty" />
+                        <input class="hs-reg-input" placeholder="Valor" aria-label="Valor del campo"
+                               value="@row.Value" @oninput="e => row.Value = e.Value as string ?? string.Empty" />
+                        <button type="button" class="hs-chip hs-reg-chip" aria-label="Quitar campo"
+                                @onclick="() => _extras.RemoveAt(index)">✕</button>
+                    </div>
+                }
+                <button type="button" class="hs-chip hs-chip-more hs-reg-chip" @onclick="AddExtra">+ Añadir campo</button>
+            </div>
+        </details>
+
+        <button type="button" class="hs-cta hs-cta-primary" disabled="@_saving"
+                @onclick="SubmitAsync" @ref="_ctaRef">
+            @(_saving ? "Guardando…" : _editingId is null ? "Guardar actividad" : "Guardar cambios")
+        </button>
+    }
+</PageShell>
+
+@code {
+    [SupplyParameterFromQuery(Name = "edit")]
+    public string? EditId { get; set; }
+
+    private static readonly Dictionary<string, string> CodeToFieldKey = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["activity_type_invalid"] = "type",
+        ["activity_dimension_required"] = "dimension",
+        ["activity_dimension_invalid"] = "dimension",
+        ["activity_date_invalid"] = "date",
+        ["activity_duration_invalid"] = "durationMinutes",
+        ["activity_frequency_invalid"] = "frequencyPerWeek",
+        ["activity_intensity_invalid"] = "intensity",
+        ["activity_temperature_invalid"] = "temperatureC",
+        ["activity_cycles_invalid"] = "cycles",
+        ["activity_notes_too_long"] = "notes",
+    };
+
+    private static readonly Dictionary<string, string> ApiFieldToFormKey = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["occurredOnUtc"] = "date",
+        ["temperatureCelsius"] = "temperatureC",
+    };
+
+    private string _type = "sauna";
+    private string _dimension = "salud";
+    private DateOnly _date = DateOnly.FromDateTime(DateTime.Today);
+    private readonly Dictionary<string, Dictionary<string, string?>> _valuesByType = new();
+    private Dictionary<string, string?> _values = new();
+    private readonly List<ExtraFieldRow> _extras = new();
+    private string? _notes;
+    private string? _frequency;
+    private readonly Dictionary<string, string> _errors = new();
+    private string? _banner;
+    private bool _saving;
+    private bool _loading;
+    private Guid? _editingId;
+    private SavedSummary? _saved;
+
+    private readonly Dictionary<string, ElementReference> _fieldRefs = new();
+    private ElementReference _dateRef;
+    private ElementReference _frequencyRef;
+    private ElementReference _ctaRef;
+
+    private ActivityTypeSpec CurrentType => WellbeingActivityTypes.Resolve(_type);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _values = TypeValues();
+
+        if (Guid.TryParse(EditId, out var activityId))
+        {
+            _loading = true;
+            try
+            {
+                var resource = await ActivityClient.GetActivityAsync(activityId);
+                if (resource is null)
+                {
+                    _banner = "No se encontró el registro.";
+                }
+                else
+                {
+                    Prefill(resource);
+                }
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _banner = "No se encontró el registro.";
+            }
+            catch (HttpRequestException)
+            {
+                _banner = "No se pudo cargar el registro: no hay conexión con el servidor.";
+            }
+            _loading = false;
+        }
+    }
+
+    private void Prefill(WellbeingActivityResource resource)
+    {
+        _editingId = resource.Id;
+        _type = resource.Type;
+        _values = TypeValues();
+        _dimension = WellbeingDimensions.ToUiKey(resource.Dimension);
+        _date = DateOnly.FromDateTime(resource.OccurredOnUtc.ToUniversalTime());
+
+        var values = TypeValues();
+        if (resource.DurationMinutes is int duration)
+        {
+            values["durationMinutes"] = duration.ToString();
+        }
+        if (resource.Cycles is int cycles)
+        {
+            values["cycles"] = cycles.ToString();
+        }
+        if (resource.Intensity is decimal intensity)
+        {
+            values["intensity"] = intensity.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        if (resource.TemperatureCelsius is decimal temperature)
+        {
+            values["temperatureC"] = temperature.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        if (resource.FrequencyPerWeek is decimal frequency)
+        {
+            _frequency = frequency.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        _notes = resource.Notes;
+
+        foreach (var (key, value) in resource.Metadata ?? new Dictionary<string, System.Text.Json.JsonElement>())
+        {
+            if (WellbeingActivityTypes.IsMetadataField(key))
+            {
+                values[key] = value.ToString();
+            }
+        }
+
+        if (!WellbeingActivityTypes.All.ContainsKey(resource.Type) && !values.ContainsKey("name"))
+        {
+            values["name"] = resource.Type;
+        }
+    }
+
+    private void PickType(string key)
+    {
+        _type = key;
+        _dimension = CurrentType.Dimension;
+        _values = TypeValues();
+        foreach (var field in CurrentType.Fields)
+        {
+            _errors.Remove(field.Key);
+        }
+    }
+
+    private void PickDimension(string key) => _dimension = key;
+
+    private void PickChip(ActivityFieldSpec field, int value)
+    {
+        var stored = _values.TryGetValue(field.Key, out var raw) ? raw : null;
+        _values[field.Key] = stored == value.ToString() ? null : value.ToString();
+        _errors.Remove(field.Key);
+    }
+
+    private void OnFieldChange(ActivityFieldSpec field, ChangeEventArgs e)
+    {
+        var raw = e.Value as string;
+        _values[field.Key] = string.IsNullOrWhiteSpace(raw) ? null : raw;
+
+        var error = FieldError(field, _values[field.Key]);
+        if (error is null)
+        {
+            _errors.Remove(field.Key);
+        }
+        else
+        {
+            _errors[field.Key] = error;
+        }
+    }
+
+    private void OnDateChange(ChangeEventArgs e)
+    {
+        var raw = e.Value as string;
+        if (DateOnly.TryParse(raw, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+        {
+            _date = parsed;
+            _errors.Remove("date");
+        }
+        else
+        {
+            _errors["date"] = "Indica la fecha.";
+        }
+    }
+
+    private void OnFrequencyChange(ChangeEventArgs e)
+    {
+        var raw = e.Value as string;
+        _frequency = string.IsNullOrWhiteSpace(raw) ? null : raw.Trim();
+
+        if (_frequency is null)
+        {
+            _errors.Remove("frequencyPerWeek");
+            return;
+        }
+
+        var valid = int.TryParse(_frequency, out var value) && value >= 1 && value <= 7;
+        if (valid)
+        {
+            _errors.Remove("frequencyPerWeek");
+        }
+        else
+        {
+            _errors["frequencyPerWeek"] = "La frecuencia debe estar entre 1 y 7 sesiones por semana.";
+        }
+    }
+
+    private void AddExtra() => _extras.Add(new ExtraFieldRow());
+
+    private async Task SubmitAsync()
+    {
+        _banner = null;
+
+        var firstInvalid = ValidateAll();
+        if (firstInvalid is not null)
+        {
+            StateHasChanged();
+            await FocusFirstInvalidAsync(firstInvalid);
+            return;
+        }
+
+        var request = WellbeingActivityMapper.ToWriteRequest(_type, _dimension, _date, _values, _extras, _notes, _frequency);
+
+        _saving = true;
+        try
+        {
+            if (_editingId is null)
+            {
+                await ActivityClient.CreateActivityAsync(request);
+            }
+            else
+            {
+                await ActivityClient.UpdateActivityAsync(_editingId.Value, request);
+            }
+
+            _saved = BuildSavedSummary(request);
+        }
+        catch (ActivityApiException ex) when (ex.StatusCode >= System.Net.HttpStatusCode.BadRequest
+                                             && ex.StatusCode < System.Net.HttpStatusCode.InternalServerError)
+        {
+            ApplyServerErrors(ex);
+        }
+        catch (ActivityApiException)
+        {
+            _banner = "No se pudo guardar: no hay conexión con el servidor. Tu registro está intacto, reintenta.";
+        }
+        catch (Exception)
+        {
+            _banner = "No se pudo guardar: no hay conexión con el servidor. Tu registro está intacto, reintenta.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string? ValidateAll()
+    {
+        foreach (var field in CurrentType.Fields)
+        {
+            var error = FieldError(field, _values.TryGetValue(field.Key, out var raw) ? raw : null);
+            if (error is not null)
+            {
+                _errors[field.Key] = error;
+                return field.Key;
+            }
+
+            _errors.Remove(field.Key);
+        }
+
+        if (_frequency is not null)
+        {
+            var valid = int.TryParse(_frequency, out var value) && value >= 1 && value <= 7;
+            if (!valid)
+            {
+                _errors["frequencyPerWeek"] = "La frecuencia debe estar entre 1 y 7 sesiones por semana.";
+                return "frequencyPerWeek";
+            }
+        }
+
+        return null;
+    }
+
+    private static string? FieldError(ActivityFieldSpec field, string? raw)
+    {
+        if (field.Required && string.IsNullOrWhiteSpace(raw))
+        {
+            return $"{field.Label} es obligatorio.";
+        }
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        if (field.Kind == ActivityFieldKind.Number)
+        {
+            var valid = int.TryParse(raw, out var value) && value >= field.Min && value <= field.Max;
+            if (!valid)
+            {
+                return $"{field.Label} debe estar entre {field.Min} y {field.Max}.";
+            }
+        }
+
+        if (field.Kind == ActivityFieldKind.Text && field.MaxLength > 0 && raw.Length > field.MaxLength)
+        {
+            return $"{field.Label} no puede superar {field.MaxLength} caracteres.";
+        }
+
+        return null;
+    }
+
+    private async Task FocusFirstInvalidAsync(string key)
+    {
+        ElementReference reference;
+        if (key == "date")
+        {
+            reference = _dateRef;
+        }
+        else if (key == "frequencyPerWeek")
+        {
+            reference = _frequencyRef;
+        }
+        else if (!_fieldRefs.TryGetValue(key, out reference))
+        {
+            return;
+        }
+
+        try
+        {
+            await reference.FocusAsync();
+        }
+        catch (InvalidOperationException)
+        {
+            // Element not rendered (e.g. chip-only field); focus is best-effort.
+        }
+    }
+
+    private void ApplyServerErrors(ActivityApiException ex)
+    {
+        _banner = "El servidor rechazó el registro: revisa los campos marcados.";
+
+        var mapped = false;
+        foreach (var (apiField, message) in ex.FieldErrors ?? new Dictionary<string, string>())
+        {
+            var formKey = ApiFieldToFormKey.TryGetValue(apiField, out var key) ? key : apiField;
+            _errors[formKey] = message;
+            mapped = true;
+        }
+
+        if (!mapped && ex.Code is not null && CodeToFieldKey.TryGetValue(ex.Code, out var codeKey))
+        {
+            _errors[codeKey] = ex.Message;
+            mapped = true;
+        }
+
+        if (!mapped)
+        {
+            _banner = ex.Message;
+        }
+    }
+
+    private void RegisterAnother()
+    {
+        _saved = null;
+        _banner = null;
+        _notes = null;
+        _frequency = null;
+        _extras.Clear();
+        _errors.Clear();
+        _values = new Dictionary<string, string?>();
+        _valuesByType[_type] = _values;
+        _date = DateOnly.FromDateTime(DateTime.Today);
+    }
+
+    private SavedSummary BuildSavedSummary(WellbeingActivityWriteRequest request)
+    {
+        var chips = new List<string>();
+        if (request.DurationMinutes is > 0)
+        {
+            chips.Add($"{request.DurationMinutes} min");
+        }
+        if (request.Cycles is > 0)
+        {
+            chips.Add($"{request.Cycles} ciclos");
+        }
+        if (request.TemperatureCelsius is not null)
+        {
+            chips.Add($"{request.TemperatureCelsius} °C");
+        }
+        if (request.Intensity is > 0)
+        {
+            chips.Add($"intensidad {request.Intensity}");
+        }
+        if (request.FrequencyPerWeek is > 0)
+        {
+            chips.Add($"{request.FrequencyPerWeek}×/semana");
+        }
+        if (request.Metadata is not null)
+        {
+            if (request.Metadata.TryGetValue("name", out var name) && name is not null)
+            {
+                chips.Add(name.ToString()!);
+            }
+            if (request.Metadata.TryGetValue("style", out var style) && style is not null)
+            {
+                chips.Add(style.ToString()!);
+            }
+            if (request.Metadata.TryGetValue("breathsPerRound", out var breaths) && breaths is not null)
+            {
+                chips.Add($"{breaths} respiraciones/ronda");
+            }
+        }
+        chips.Add(WellbeingDimensions.Options.First(option => option.Key == _dimension).Label);
+
+        var dateLabel = request.OccurredOnUtc.StartsWith(_date.ToString("yyyy-MM-dd"), StringComparison.Ordinal)
+            ? "hoy"
+            : _date.ToString("dd/MM/yyyy");
+
+        return new SavedSummary(CurrentType.Label, dateLabel, chips);
+    }
+
+    private Dictionary<string, string?> TypeValues()
+    {
+        if (!_valuesByType.TryGetValue(_type, out var values))
+        {
+            values = new Dictionary<string, string?>();
+            _valuesByType[_type] = values;
+        }
+
+        return values;
+    }
+
+    private sealed record SavedSummary(string Label, string DateLabel, IReadOnlyList<string> Chips);
+}
