@@ -335,6 +335,13 @@ body {
   line-height: var(--hs-line-height-compact);
 }
 
+/* QA t_d99f727c F1: a focused page title must use the single accent, never
+   the UA amber ring (the global :focus-visible rule excludes [tabindex="-1"]). */
+.hs-page-title:focus-visible {
+  outline: 2px solid var(--hs-accent);
+  outline-offset: 3px;
+}
+
 .hs-native-page-title {
   margin: 0;
   color: var(--mud-palette-text-primary);
@@ -1793,7 +1800,7 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-main-exercise-card {
-  border-left: 4px solid #FFA000 !important;
+  border-left: 4px solid var(--hs-accent) !important;
   box-shadow: var(--hs-shadow-card-main) !important;
 }
 
@@ -2342,15 +2349,15 @@ a.hs-exercise-history-row:hover {
   padding: 26px;
   background:
     radial-gradient(circle at top right, rgba(255,255,255,0.12), transparent 30%),
-    linear-gradient(135deg, #0d5a61 0%, #103f45 100%);
-  color: #f5fbfb;
+    linear-gradient(135deg, var(--hs-accent-soft) 0%, color-mix(in srgb, var(--hs-accent) 30%, var(--hs-card)) 100%);
+  color: var(--hs-t1);
   border-radius: 22px;
-  box-shadow: 0 20px 44px rgba(8, 45, 49, 0.18);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.45);
 }
 
 .hs-dashboard-hero-copy {
   max-width: 560px;
-  color: rgba(245, 251, 251, 0.82);
+  color: var(--hs-t2);
   margin-top: 8px;
 }
 
@@ -2381,7 +2388,7 @@ a.hs-exercise-history-row:hover {
 .hs-dashboard-side-copy {
   max-width: 220px;
   text-align: right;
-  color: rgba(245, 251, 251, 0.72);
+  color: var(--hs-t2);
 }
 
 .hs-dashboard-hero-stats {
@@ -2462,7 +2469,7 @@ a.hs-exercise-history-row:hover {
 .hs-mobile-note {
   display: block;
   max-width: 40rem;
-  color: rgba(22, 48, 54, 0.72);
+  color: var(--hs-t2);
 }
 
 .hs-health-card-grid,
@@ -2530,22 +2537,22 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-status-card-processed {
-  border-color: rgba(15, 95, 103, 0.14);
-  background: linear-gradient(180deg, rgba(244, 248, 248, 0.98), #ffffff 100%);
+  border-color: rgba(30, 111, 255, 0.14);
+  background: var(--hs-card);
 }
 
 .hs-biomarker-card:hover,
 .hs-list-card:hover,
 .hs-widget-card:hover {
-  border-color: rgba(15, 95, 103, 0.28);
-  box-shadow: 0 14px 30px rgba(15, 95, 103, 0.08);
+  border-color: rgba(30, 111, 255, 0.28);
+  box-shadow: 0 14px 30px rgba(30, 111, 255, 0.08);
   transform: translateY(-1px);
 }
 
 .hs-biomarker-card.is-selected,
 .hs-list-card.is-selected {
-  border-color: #0f5f67;
-  box-shadow: 0 16px 34px rgba(15, 95, 103, 0.14);
+  border-color: var(--hs-accent);
+  box-shadow: 0 16px 34px rgba(30, 111, 255, 0.14);
 }
 
 .hs-biomarker-header,
@@ -2568,7 +2575,7 @@ a.hs-exercise-history-row:hover {
 .hs-biomarker-range,
 .hs-biomarker-meta,
 .hs-sparkline-empty {
-  color: rgba(22, 48, 54, 0.68);
+  color: var(--hs-t2);
 }
 
 .hs-list-card-title,
@@ -2581,7 +2588,7 @@ a.hs-exercise-history-row:hover {
 .hs-coverage-inline {
   margin-top: 8px;
   font-size: 0.78rem;
-  color: rgba(22, 48, 54, 0.68);
+  color: var(--hs-t2);
 }
 
 .hs-list-card-actions {
@@ -2655,7 +2662,7 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-kpi-card-neutral {
-  background: linear-gradient(180deg, #ffffff 0%, #f4f8f8 100%);
+  background: var(--hs-card);
 }
 
 .hs-kpi-topline,
@@ -2673,18 +2680,18 @@ a.hs-exercise-history-row:hover {
   padding: 6px 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(15, 95, 103, 0.08);
+  border: 1px solid rgba(30, 111, 255, 0.08);
 }
 
 .hs-kpi-card-accent {
-  background: linear-gradient(160deg, #0f5f67 0%, #176d74 100%);
-  color: #f5fbfb;
+  background: linear-gradient(160deg, var(--hs-accent-soft) 0%, color-mix(in srgb, var(--hs-accent) 35%, var(--hs-card)) 100%);
+  color: var(--hs-t1);
 }
 
 .hs-kpi-card-accent .hs-kpi-label,
 .hs-kpi-card-accent .hs-kpi-subtitle,
 .hs-kpi-card-accent .hs-kpi-trend {
-  color: rgba(245, 251, 251, 0.8);
+  color: var(--hs-t2);
 }
 
 .hs-kpi-card-accent .hs-kpi-trend-pill {
@@ -2710,7 +2717,7 @@ a.hs-exercise-history-row:hover {
 
 .hs-coverage-label {
   font-size: 0.76rem;
-  color: rgba(22, 48, 54, 0.62);
+  color: var(--hs-t3);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -2728,13 +2735,13 @@ a.hs-exercise-history-row:hover {
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--mud-palette-background-grey);
-  border: 1px dashed rgba(15, 95, 103, 0.2);
+  border: 1px dashed rgba(30, 111, 255, 0.2);
 }
 
 .hs-omitted-marker-label {
   font-size: 0.82rem;
   font-weight: 700;
-  color: rgba(22, 48, 54, 0.72);
+  color: var(--hs-t2);
 }
 
 .hs-omitted-marker-chips {
@@ -2756,7 +2763,7 @@ a.hs-exercise-history-row:hover {
 .hs-marker-card {
   padding: 16px;
   border-radius: 16px;
-  border: 1px solid rgba(15, 95, 103, 0.1);
+  border: 1px solid rgba(30, 111, 255, 0.1);
   background: linear-gradient(180deg, #ffffff 0%, #f7fbfb 100%);
 }
 
@@ -2792,7 +2799,7 @@ a.hs-exercise-history-row:hover {
   gap: 14px;
   padding: 14px 16px;
   border-radius: 16px;
-  border: 1px solid rgba(15, 95, 103, 0.08);
+  border: 1px solid rgba(30, 111, 255, 0.08);
   background: var(--mud-palette-surface);
 }
 
@@ -2832,7 +2839,7 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-alert-message {
-  color: rgba(22, 48, 54, 0.7);
+  color: var(--hs-t2);
   font-size: 0.92rem;
   margin-top: 2px;
 }
@@ -2853,7 +2860,7 @@ a.hs-exercise-history-row:hover {
 
 .hs-adaptation-row {
   padding: 10px 0;
-  border-bottom: 1px solid rgba(15, 95, 103, 0.08);
+  border-bottom: 1px solid rgba(30, 111, 255, 0.08);
 }
 
 .hs-adaptation-row:last-child {
@@ -2897,10 +2904,10 @@ a.hs-exercise-history-row:hover {
   padding: 28px;
   background:
     radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 28%),
-    linear-gradient(135deg, #133f44 0%, #0f5f67 52%, #0b7d86 100%);
-  color: #f4fbfb;
+    linear-gradient(135deg, var(--hs-accent-soft) 0%, color-mix(in srgb, var(--hs-accent) 28%, var(--hs-card)) 52%, color-mix(in srgb, var(--hs-accent) 45%, var(--hs-card)) 100%);
+  color: var(--hs-t1);
   border-radius: 24px;
-  box-shadow: 0 22px 46px rgba(12, 56, 60, 0.18);
+  box-shadow: 0 22px 46px rgba(0, 0, 0, 0.45);
 }
 
 .hs-profile-hero-copy {
@@ -2942,7 +2949,7 @@ a.hs-exercise-history-row:hover {
   display: block;
   margin-top: 8px;
   font-size: 0.78rem;
-  color: rgba(245, 251, 251, 0.7);
+  color: var(--hs-t2);
 }
 
 .hs-profile-week-select {
@@ -2988,7 +2995,7 @@ a.hs-exercise-history-row:hover {
 .hs-profile-summary-card {
   padding: 14px;
   border-radius: 16px;
-  border: 1px solid rgba(15, 95, 103, 0.08);
+  border: 1px solid rgba(30, 111, 255, 0.08);
   background: linear-gradient(180deg, #ffffff 0%, #f5f9f9 100%);
 }
 
@@ -2996,21 +3003,21 @@ a.hs-exercise-history-row:hover {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(22, 48, 54, 0.62);
+  color: var(--hs-t3);
 }
 
 .hs-profile-summary-value {
   margin-top: 6px;
   font-size: 1.6rem;
   font-weight: 700;
-  color: #17373c;
+  color: var(--hs-t1);
 }
 
 .hs-profile-insight-banner {
   padding: 16px 18px;
   border-radius: 18px;
-  border: 1px solid rgba(15, 95, 103, 0.12);
-  background: linear-gradient(135deg, rgba(15, 95, 103, 0.08), rgba(255, 255, 255, 0.96));
+  border: 1px solid rgba(30, 111, 255, 0.12);
+  background: var(--hs-card);
 }
 
 .hs-profile-insight-title {
@@ -3018,7 +3025,7 @@ a.hs-exercise-history-row:hover {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(22, 48, 54, 0.62);
+  color: var(--hs-t3);
 }
 
 .hs-profile-insight-copy {
@@ -3040,7 +3047,7 @@ a.hs-exercise-history-row:hover {
   gap: 14px;
   padding: 14px 16px;
   border-radius: 18px;
-  border: 1px solid rgba(15, 95, 103, 0.1);
+  border: 1px solid rgba(30, 111, 255, 0.1);
   background: var(--mud-palette-surface);
 }
 
@@ -3051,7 +3058,7 @@ a.hs-exercise-history-row:hover {
   gap: 4px;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #17373c;
+  color: var(--hs-t1);
 }
 
 .hs-profile-muscle-row {
@@ -3060,7 +3067,7 @@ a.hs-exercise-history-row:hover {
   gap: 14px;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(15, 95, 103, 0.08);
+  border-bottom: 1px solid rgba(30, 111, 255, 0.08);
 }
 
 .hs-profile-muscle-row:last-child {
@@ -3088,7 +3095,7 @@ a.hs-exercise-history-row:hover {
   transform: translateY(-50%);
   font-size: 0.76rem;
   font-weight: 700;
-  color: #17373c;
+  color: var(--hs-t1);
 }
 
 .hs-profile-session-grid {
@@ -3103,11 +3110,11 @@ a.hs-exercise-history-row:hover {
   gap: 14px;
   padding: 18px;
   border-radius: 20px;
-  border: 1px solid rgba(15, 95, 103, 0.1);
+  border: 1px solid rgba(30, 111, 255, 0.1);
   background:
-    radial-gradient(circle at top right, rgba(15, 95, 103, 0.07), transparent 30%),
+    radial-gradient(circle at top right, rgba(30, 111, 255, 0.07), transparent 30%),
     linear-gradient(180deg, #ffffff 0%, #f6faf9 100%);
-  box-shadow: 0 14px 28px rgba(15, 95, 103, 0.06);
+  box-shadow: 0 14px 28px rgba(30, 111, 255, 0.06);
 }
 
 .hs-profile-session-head {
@@ -3124,7 +3131,7 @@ a.hs-exercise-history-row:hover {
   gap: 4px;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #17373c;
+  color: var(--hs-t1);
 }
 
 .hs-profile-exercise-stack {
@@ -3139,7 +3146,7 @@ a.hs-exercise-history-row:hover {
   gap: 8px;
   padding: 14px;
   border-radius: 16px;
-  border: 1px solid rgba(15, 95, 103, 0.08);
+  border: 1px solid rgba(30, 111, 255, 0.08);
   background: rgba(255, 255, 255, 0.88);
 }
 
@@ -3168,7 +3175,7 @@ a.hs-exercise-history-row:hover {
   flex-wrap: wrap;
   gap: 8px 12px;
   font-size: 0.82rem;
-  color: rgba(22, 48, 54, 0.72);
+  color: var(--hs-t2);
 }
 
 .hs-profile-tag-row {
@@ -3182,8 +3189,8 @@ a.hs-exercise-history-row:hover {
   align-items: center;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(15, 95, 103, 0.09);
-  color: #0f5f67;
+  background: rgba(30, 111, 255, 0.09);
+  color: var(--hs-accent-ink);
   font-size: 0.74rem;
   font-weight: 700;
 }
@@ -3591,7 +3598,7 @@ a.hs-exercise-history-row:hover {
   padding: 10px 12px;
   border-radius: 14px;
   background: var(--mud-palette-surface);
-  border: 1px solid rgba(15, 95, 103, 0.08);
+  border: 1px solid rgba(30, 111, 255, 0.08);
 }
 
 .hs-radar-legend-swatch {
@@ -3603,12 +3610,12 @@ a.hs-exercise-history-row:hover {
 
 .hs-radar-legend-label {
   font-weight: 700;
-  color: #17373c;
+  color: var(--hs-t1);
 }
 
 .hs-radar-legend-caption {
   font-size: 0.78rem;
-  color: rgba(22, 48, 54, 0.62);
+  color: var(--hs-t3);
 }
 
 .hs-radar-svg {
@@ -3616,34 +3623,34 @@ a.hs-exercise-history-row:hover {
   max-height: 430px;
   padding: 8px;
   border-radius: 20px;
-  background: linear-gradient(180deg, #fbfdfd 0%, #eef4f4 100%);
-  border: 1px solid rgba(15, 95, 103, 0.08);
+  background: var(--hs-card);
+  border: 1px solid rgba(30, 111, 255, 0.08);
 }
 
 .hs-radar-grid-ring {
   fill: none;
-  stroke: rgba(15, 95, 103, 0.12);
+  stroke: rgba(30, 111, 255, 0.12);
   stroke-width: 1.5;
 }
 
 .hs-radar-axis-line {
-  stroke: rgba(15, 95, 103, 0.14);
+  stroke: rgba(30, 111, 255, 0.14);
   stroke-width: 1.25;
 }
 
 .hs-radar-axis-label {
-  fill: rgba(22, 48, 54, 0.72);
+  fill: var(--hs-t2);
   font-size: 10px;
   font-weight: 600;
 }
 
 .hs-radar-scale-label {
-  fill: rgba(22, 48, 54, 0.52);
+  fill: var(--hs-t3);
   font-size: 10px;
 }
 
 .hs-upload-panel {
-  border: 1px solid rgba(15, 95, 103, 0.14);
+  border: 1px solid rgba(30, 111, 255, 0.14);
   animation: hs-slide-down 0.2s ease-out;
 }
 
@@ -3658,7 +3665,7 @@ a.hs-exercise-history-row:hover {
   align-items: center;
   justify-content: center;
   padding: 28px 20px;
-  border: 2px dashed rgba(15, 95, 103, 0.24);
+  border: 2px dashed rgba(30, 111, 255, 0.24);
   border-radius: 16px;
   background: var(--mud-palette-background-grey);
   cursor: pointer;
@@ -3667,13 +3674,13 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-dropzone:hover {
-  border-color: rgba(15, 95, 103, 0.5);
+  border-color: rgba(30, 111, 255, 0.5);
   background: var(--mud-palette-surface);
 }
 
 .hs-dropzone-btn {
   padding: 24px 20px !important;
-  border: 2px dashed rgba(15, 95, 103, 0.24) !important;
+  border: 2px dashed rgba(30, 111, 255, 0.24) !important;
   border-radius: 16px !important;
   background: var(--mud-palette-background-grey) !important;
   text-transform: none !important;
@@ -3682,7 +3689,7 @@ a.hs-exercise-history-row:hover {
 }
 
 .hs-dropzone-btn:hover {
-  border-color: rgba(15, 95, 103, 0.5) !important;
+  border-color: rgba(30, 111, 255, 0.5) !important;
   background: var(--mud-palette-surface) !important;
 }
 
@@ -3709,7 +3716,7 @@ a.hs-exercise-history-row:hover {
 
 .hs-account-avatar {
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(15, 95, 103, 0.18);
+  box-shadow: 0 8px 18px rgba(30, 111, 255, 0.18);
 }
 
 @media (max-width: 960px) {
@@ -4578,19 +4585,19 @@ a.hs-exercise-history-row:hover {
   aspect-ratio: 1;
   justify-self: center;
   border-radius: 3px;
-  background: rgba(15, 95, 103, .08);
+  background: rgba(30, 111, 255, .08);
 }
 
 .hs-training-activity-day.level-1 {
-  background: rgba(15, 95, 103, .28);
+  background: rgba(30, 111, 255, .28);
 }
 
 .hs-training-activity-day.level-2 {
-  background: rgba(15, 95, 103, .48);
+  background: rgba(30, 111, 255, .48);
 }
 
 .hs-training-activity-day.level-3 {
-  background: rgba(15, 95, 103, .7);
+  background: rgba(30, 111, 255, .7);
 }
 
 .hs-training-activity-day.level-4 {
@@ -4603,7 +4610,7 @@ a.hs-exercise-history-row:hover {
 
 .hs-training-activity-day.is-future {
   background: transparent;
-  border: 1px solid rgba(15, 95, 103, .1);
+  border: 1px solid rgba(30, 111, 255, .1);
 }
 
 .hs-training-activity-legend {
@@ -5459,20 +5466,20 @@ button.hs-health-overview-card {
 
 .hs-coverage-radar-ring {
   fill: none;
-  stroke: rgba(15, 95, 103, 0.12);
+  stroke: rgba(30, 111, 255, 0.12);
   stroke-width: 1.25;
 }
 
 /* The outer ring is the weekly goal, not a grid line. */
 .hs-coverage-radar-target-ring {
   fill: none;
-  stroke: rgba(15, 95, 103, 0.6);
+  stroke: rgba(30, 111, 255, 0.6);
   stroke-width: 1.5;
   stroke-dasharray: 5 4;
 }
 
 .hs-coverage-radar-axis {
-  stroke: rgba(15, 95, 103, 0.16);
+  stroke: rgba(30, 111, 255, 0.16);
   stroke-width: 1.25;
 }
 

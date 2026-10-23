@@ -78,7 +78,8 @@
                              Label="Series"
                              Variant="Variant.Outlined"
                              Margin="Margin.Dense"
-                             InputType="InputType.Number" />
+                             InputType="InputType.Number"
+                             HideSpinButtons="true" />
 
             <MudNumericField T="int?"
                              Value="_exercise.Repetitions"
@@ -86,7 +87,8 @@
                              Label="Reps"
                              Variant="Variant.Outlined"
                              Margin="Margin.Dense"
-                             InputType="InputType.Number" />
+                             InputType="InputType.Number"
+                             HideSpinButtons="true" />
 
             @if (_exercise.WeightType == ExerciseWeightType.BodyWeight)
             {
@@ -95,14 +97,16 @@
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  InputType="InputType.Number"
-                                 Immediate="true" />
+                                 Immediate="true"
+                                 HideSpinButtons="true" />
 
                 <MudNumericField @bind-Value="_exercise.AddedWeight"
                                  Label="Peso añadido (kg)"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  InputType="InputType.Number"
-                                 Immediate="true" />
+                                 Immediate="true"
+                                 HideSpinButtons="true" />
             }
             else if (_exercise.WeightType != ExerciseWeightType.None)
             {
@@ -111,7 +115,8 @@
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
                                  Step=".5M"
-                                 InputType="InputType.Number" />
+                                 InputType="InputType.Number"
+                                 HideSpinButtons="true" />
             }
         </div>
 

@@ -142,6 +142,22 @@ public class SharedVisualFoundationTests : BlazorTestBase
         cssLower.Should().NotContain("#4d9f95", "legacy teal brand colour is not part of the v1 palette");
         cssLower.Should().NotContain("#1a3c3b", "legacy teal brand colour is not part of the v1 palette");
 
+        // QA t_d99f727c F3: the whole legacy teal family (health components) is off-system too.
+        foreach (var legacy in new[]
+                 {
+                     "#0f5f67", "#176d74", "#133f44", "#0b7d86", "#17373c",
+                     "#f5fbfb", "#f4fbfb", "#eef4f4", "#fbfdfd", "#f4f8f8",
+                     "#0d5a61", "#103f45", "#ffa000",
+                     "rgba(15, 95, 103", "rgba(22, 48, 54", "rgba(8, 45, 49",
+                     "rgba(12, 56, 60", "rgba(245, 251, 251", "rgba(244, 248, 248"
+                 })
+        {
+            cssLower.Should().NotContain(legacy, "legacy teal/amber value is not part of the v1 palette");
+        }
+
+        // QA t_d99f727c F1: a focused page title gets the accent ring, never the UA amber ring.
+        css.Should().Contain(".hs-page-title:focus-visible", "focused page titles must not fall back to the browser outline");
+
         // DESIGN.md §2: Inter is loaded by the app shell.
         index.Should().Contain("family=Inter");
         index.ToLowerInvariant().Should().NotContain("family=roboto", "Roboto is not the v1 typeface");
