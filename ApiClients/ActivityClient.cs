@@ -37,6 +37,39 @@ public class ActivityClient
                $"{ActivityRoutes.Activities}/{activityId}",
                cancellationToken);
 
+    /// <summary>
+    /// GET /api/activities with server-side filters + pagination (history UX
+    /// spec §3/§6): type, dimension, from, to, page, pageSize all travel as
+    /// query params; the FE renders exactly what the API returns and never
+    /// filters or paginates in memory.
+    /// </summary>
+    public async Task<PagedActivitiesResource> GetActivitiesAsync(
+        ActivityQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync(
+            $"{ActivityRoutes.Activities}?{query.ToQueryString()}",
+            cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+
+        return await response.Content
+                   .ReadFromJsonAsync<PagedActivitiesResource>(cancellationToken: cancellationToken)
+               ?? throw new InvalidOperationException("The activities list response was incomplete.");
+    }
+
+    /// <summary>
+    /// DELETE /api/activities/{id} → 204. A 404 surfaces as ActivityApiException
+    /// so the history can show "Esa actividad ya no existe en tu historial"
+    /// and reload (history UX spec §5/§6).
+    /// </summary>
+    public async Task DeleteActivityAsync(Guid activityId, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync(
+            $"{ActivityRoutes.Activities}/{activityId}",
+            cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task UpdateActivityAsync(
         Guid activityId,
         WellbeingActivityWriteRequest request,
