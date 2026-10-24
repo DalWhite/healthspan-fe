@@ -153,7 +153,7 @@
                 else if (Tracker.Status == "failed")
                 {
                     <MudText Typo="Typo.body2" Class="hs-import-failure mt-2">
-                        Import stopped unexpectedly. @Tracker.Processed of @Tracker.Total rows were imported before the failure.
+                        The import stopped unexpectedly. No rows were saved — nothing was added to your history. Upload the same CSV again; it is safe and won't duplicate anything.
                     </MudText>
                 }
                 else if (Tracker.Status is "completed" or "completed_with_errors")
@@ -440,9 +440,17 @@
         _ => MudBlazor.Color.Primary
     };
 
-    private string ProcessedText => $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows";
+    // t_4965e7c7: with the single transaction, "failed" means 0 committed
+    // rows — the counters are diagnostic only, so they must never read as a
+    // count of saved rows in that state. Live progress (running/queued)
+    // keeps the numbers as-is.
+    private string ProcessedText => Tracker.Status == "failed"
+        ? "No rows were saved"
+        : $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows";
 
-    private string BarValueText => $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows imported";
+    private string BarValueText => Tracker.Status == "failed"
+        ? "Import stopped — no rows were saved"
+        : $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows imported";
 
     private string StatsText
     {

@@ -361,6 +361,30 @@ public sealed class CsvImportProgressTests : BlazorTestBase
         tracker.Dispose();
     }
 
+    [Fact]
+    public void FailedJob_CopySaysNoRowsSaved_NoImportedCount()
+    {
+        // t_4965e7c7: with the single-transaction pipeline, "failed" implies 0
+        // committed rows — the copy must state that nothing was saved and point
+        // to re-uploading the (idempotent) CSV. The misleading
+        // "X of Y rows were imported before the failure" is a regression.
+        MockAcceptedImport();
+        MockHttp.When($"/data/import/{JobId}")
+            .Respond("application/json", StatusJson("failed", 5000, 0, "[]", "\"crash\""));
+
+        var cut = RenderComponent<Settings>();
+        SelectCsvFile(cut, "exercises.csv", 1024);
+        ClickButtonWithText(cut, "Import");
+
+        cut.WaitForElement(".hs-import-failure");
+        var failure = cut.Find(".hs-import-failure").TextContent;
+        Assert.Contains("No rows were saved", failure);
+        Assert.Contains("Upload the same CSV again", failure);
+        Assert.DoesNotContain("were imported", cut.Markup);
+        Assert.DoesNotContain("of 10,000 rows", cut.Markup);
+        Assert.DoesNotContain("5,000 of 10,000", cut.Markup);
+    }
+
     /// <summary>
     /// Replaces bUnit's fake NavigationManager with a fixed-URI stub so the
     /// pill can be rendered as if the user were on a given page.
