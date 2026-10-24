@@ -72,6 +72,11 @@ public abstract class BlazorTestBase : TestContext
         var syncLocalStorage = Substitute.For<ISyncLocalStorageService>();
         syncLocalStorage.ContainKey(Arg.Any<string>()).Returns(false);
         Services.AddSingleton(syncLocalStorage);
+        // CSV import tracker (Settings + layout pill). The substituted storage
+        // reports no stored job, so AttachAsync is a no-op by default.
+        Services.AddSingleton<Healthspan.Authentication.IAccountManagement>(
+            Substitute.For<Healthspan.Authentication.IAccountManagement>());
+        Services.AddSingleton<CsvImportTracker>();
         Services.AddMudServices(MudAppConfig.Configure);
 
         // Auth

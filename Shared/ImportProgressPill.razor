@@ -1,0 +1,30 @@
+@inject CsvImportTracker Tracker
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+@* Global import pill (ux spec t_d1db9866 §6): while a job runs and the user
+   is on any page other than Settings, a fixed bottom-left pill keeps the
+   progress visible. One concurrent job; the pill is the route back to the
+   result panel. *@
+@if (Tracker.IsBusy && !OnSettingsPage)
+{
+    <div class="hs-import-pill" role="status" aria-live="polite">
+        <span class="hs-import-pill-dot" aria-hidden="true"></span>
+        <span class="hs-import-pill-text">Importing — @((int)Tracker.Percent)%</span>
+        <button type="button" class="hs-import-pill-view" @onclick="GoToSettings">View</button>
+    </div>
+}
+
+@code {
+    private bool OnSettingsPage =>
+        NavigationManager.ToBaseRelativePath(NavigationManager.Uri)
+            .StartsWith("settings", StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnInitialized() => Tracker.Changed += HandleChanged;
+
+    private void HandleChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void GoToSettings() => NavigationManager.NavigateTo("/settings");
+
+    public void Dispose() => Tracker.Changed -= HandleChanged;
+}
