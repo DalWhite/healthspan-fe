@@ -1,0 +1,70 @@
+@*
+    History row card (ux-spec-historial-actividades-t_70d5d147 §4/§6):
+    title + compact param badges (max 3) + duration; whole row is the touch
+    target (≥44px) that opens the detail sheet. OnOpen hands the row's
+    ElementReference back to the page so closing the sheet can return focus
+    to the row (spec §5).
+*@
+<button type="button" class="hs-hist-row" @ref="_button" @onclick="OpenAsync" aria-label="@AriaLabel">
+    <span class="hs-hist-row-main">
+        <span class="hs-hist-row-title">@Title</span>
+        <span class="hs-hist-row-meta">
+            @if (DimensionLabel is not null)
+            {
+                <span class="hs-hist-badge @DimensionClass">@DimensionLabel</span>
+            }
+            @foreach (var badge in Badges)
+            {
+                <span class="hs-hist-badge">@badge</span>
+            }
+        </span>
+    </span>
+    <span class="hs-hist-row-trailing">
+        <span class="hs-hist-dur">@Duration</span>
+        <svg class="hs-hist-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" />
+        </svg>
+    </span>
+</button>
+
+@code {
+    [Parameter, EditorRequired]
+    public WellbeingActivityResource Item { get; set; } = default!;
+
+    [Parameter]
+    public string? DayLabel { get; set; }
+
+    [Parameter, EditorRequired]
+    public Func<WellbeingActivityResource, ElementReference, Task> OnOpen { get; set; } = default!;
+
+    private ElementReference _button;
+
+    private string Title => WellbeingActivityDisplay.RowTitle(Item);
+
+    private string? DimensionLabel => WellbeingActivityDisplay.DimensionBadgeLabel(Item);
+
+    private string DimensionClass => WellbeingActivityDisplay.DimensionBadgeClass(Item);
+
+    private List<string> Badges => WellbeingActivityDisplay.MainParamBadges(Item);
+
+    private string Duration => WellbeingActivityDisplay.DurationLabel(Item.DurationMinutes);
+
+    private string AriaLabel
+    {
+        get
+        {
+            var parts = new List<string> { Title };
+            if (!string.IsNullOrWhiteSpace(DayLabel))
+            {
+                parts.Add(DayLabel!);
+            }
+            if (Item.DurationMinutes is int minutes)
+            {
+                parts.Add($"{minutes} minutos");
+            }
+            return $"{string.Join(", ", parts)}. Ver detalle";
+        }
+    }
+
+    private Task OpenAsync() => OnOpen(Item, _button);
+}

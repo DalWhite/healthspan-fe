@@ -1,0 +1,622 @@
+@page "/wellbeing/activities"
+@implements IDisposable
+@using System.Globalization
+@using System.Text.Json
+@inject ActivityClient ActivityClient
+@inject NavigationManager Navigation
+
+@*
+    Historial de actividades de bienestar — implementation of
+    ux-spec-historial-actividades-t_70d5d147 (prototype
+    history-activities-t_70d5d147.html). All filtering/pagination is
+    server-side via GET /api/activities query params (spec §3/§6); the FE
+    renders exactly the envelope it gets. Delete is confirm-sheet + toast
+    with a single-use 6 s "Deshacer" (re-POST).
+*@
+
+<PageShell Narrow>
+    <PageHeader Title="Historial" />
+
+    @if (_banner is not null)
+    {
+        <div class="hs-hist-banner" role="alert">
+            <span class="hs-hist-banner-text">@_banner</span>
+            @if (_bannerRetry)
+            {
+                <button type="button" id="hist-retry" class="hs-hist-banner-cta" @onclick="RetryAsync">Reintentar</button>
+            }
+        </div>
+    }
+
+    <section class="hs-hist-filters" aria-label="Filtros del historial">
+        <span class="hs-hist-label" id="hist-type-label">Tipo</span>
+        <div class="hs-hist-chip-row" role="group" aria-labelledby="hist-type-label">
+            @foreach (var chip in TypeChips)
+            {
+                <button type="button"
+                        class="hs-chip hs-hist-chip @(chip.Value == _type ? "hs-chip-selected" : "")"
+                        aria-pressed="@(chip.Value == _type ? "true" : "false")"
+                        @onclick="() => SetTypeAsync(chip.Value)">@chip.Label</button>
+            }
+        </div>
+
+        <span class="hs-hist-label" id="hist-dim-label">Dimensión</span>
+        <div class="hs-hist-chip-row" role="group" aria-labelledby="hist-dim-label">
+            @foreach (var chip in DimensionChips)
+            {
+                <button type="button"
+                        class="hs-chip hs-hist-chip @(chip.Value == _dimension ? "hs-chip-selected" : "")"
+                        aria-pressed="@(chip.Value == _dimension ? "true" : "false")"
+                        @onclick="() => SetDimensionAsync(chip.Value)">@chip.Label</button>
+            }
+        </div>
+
+        <details class="hs-hist-disclosure">
+            <summary>Rango de fechas</summary>
+            <div class="hs-hist-date-row">
+                <label class="hs-hist-date-field">
+                    <span>Desde</span>
+                    <input type="date" value="@_from" @onchange="OnFromChanged" />
+                </label>
+                <label class="hs-hist-date-field">
+                    <span>Hasta</span>
+                    <input type="date" value="@_to" @onchange="OnToChanged" />
+                </label>
+            </div>
+        </details>
+
+        <div class="hs-hist-filter-foot">
+            <span class="hs-hist-count" aria-live="polite">@CountText</span>
+            @if (HasFilters)
+            {
+                <button type="button" id="hist-clear" class="hs-hist-clear" @onclick="ClearFiltersAsync">Limpiar filtros</button>
+            }
+        </div>
+    </section>
+
+    <div class="hs-hist-list" aria-busy="@(_loading ? "true" : "false")">
+        @if (_loading)
+        {
+            <div class="hs-hist-skeleton" aria-hidden="true">
+                @for (var i = 0; i < 4; i++)
+                {
+                    <div class="hs-hist-skel"></div>
+                }
+            </div>
+        }
+        else if (!_loadFailed)
+        {
+            @foreach (var group in DayGroups)
+            {
+                <div class="hs-hist-day">
+                    <div class="hs-hist-day-head">
+                        <h2 class="hs-hist-day-title">@group.Label</h2>
+                        <span class="hs-hist-day-total">@group.CountLabel</span>
+                    </div>
+                    @foreach (var item in group.Items)
+                    {
+                        <ActivityRow Item="item" DayLabel="@group.Label" OnOpen="OpenDetailAsync" />
+                    }
+                </div>
+            }
+
+            @if (_items.Count == 0)
+            {
+                <div class="hs-hist-empty">
+                    @if (HasFilters)
+                    {
+                        <p class="hs-hist-empty-title">Ningún resultado con estos filtros</p>
+                        <button type="button" class="hs-hist-clear" @onclick="ClearFiltersAsync">Limpiar filtros</button>
+                    }
+                    else
+                    {
+                        <p class="hs-hist-empty-title">Aún no has registrado actividades</p>
+                        <p class="hs-hist-empty-sub">Registra tu primera sauna, entreno o movilidad desde el botón Registrar.</p>
+                        <a class="hs-cta hs-cta-primary hs-hist-empty-cta" href="wellbeing/register">Registrar la primera</a>
+                    }
+                </div>
+            }
+
+            @if (_items.Count > 0)
+            {
+                <div class="hs-hist-loadmore">
+                    @if (_hasMore)
+                    {
+                        <button type="button" id="hist-loadmore" class="hs-cta hs-cta-secondary" @onclick="LoadMoreAsync" disabled="@_loadingMore">
+                            @(_loadingMore ? "Cargando…" : "Cargar más")
+                        </button>
+                    }
+                    <p class="hs-hist-hint" aria-live="polite">@LoadHint</p>
+                </div>
+            }
+        }
+    </div>
+</PageShell>
+
+@if (_detail is not null)
+{
+    <div class="hs-hist-scrim" @onclick="CloseSheets"></div>
+    <section class="hs-hist-sheet" role="dialog" aria-modal="true" aria-labelledby="hist-detail-title" @onkeydown="OnSheetKeyDown">
+        <button type="button" class="hs-hist-sheet-close" @onclick="CloseSheets" aria-label="Cerrar detalle">×</button>
+        <h2 id="hist-detail-title" class="hs-hist-sheet-title">@WellbeingActivityDisplay.RowTitle(_detail)</h2>
+        <dl class="hs-hist-kv">
+            @foreach (var (key, value) in DetailRows(_detail))
+            {
+                <dt>@key</dt>
+                <dd>@value</dd>
+            }
+        </dl>
+        @if (!string.IsNullOrWhiteSpace(_detail.Notes))
+        {
+            <p class="hs-hist-notes">@_detail.Notes</p>
+        }
+        <div class="hs-hist-actions">
+            <button type="button" id="hist-detail-edit" class="hs-cta hs-cta-primary" @ref="_detailFirstRef" @onclick="EditActivity">Editar</button>
+            <button type="button" id="hist-detail-delete" class="hs-cta hs-cta-danger" @onclick="OpenConfirm">Eliminar</button>
+        </div>
+    </section>
+}
+
+@if (_confirm is not null)
+{
+    <div class="hs-hist-scrim" @onclick="CloseSheets"></div>
+    <section class="hs-hist-sheet" role="dialog" aria-modal="true" aria-labelledby="hist-confirm-title" @onkeydown="OnSheetKeyDown">
+        <h2 id="hist-confirm-title" class="hs-hist-sheet-title">¿Eliminar «@WellbeingActivityDisplay.RowTitle(_confirm)»?</h2>
+        <p class="hs-hist-confirm-text">Podrás deshacerlo durante 6 segundos después de confirmar.</p>
+        <div class="hs-hist-actions">
+            <button type="button" id="hist-confirm-yes" class="hs-cta hs-cta-danger" @ref="_confirmFirstRef" @onclick="ConfirmDeleteAsync" disabled="@_confirmDeleting">
+                @(_confirmDeleting ? "Eliminando…" : "Sí, eliminar")
+            </button>
+            <button type="button" id="hist-confirm-cancel" class="hs-cta hs-cta-secondary" @onclick="CancelConfirm">Cancelar</button>
+        </div>
+    </section>
+}
+
+@if (_toastMessage is not null)
+{
+    <div class="hs-hist-toast" role="status">
+        <span>@_toastMessage</span>
+        @if (_toastUndoAvailable)
+        {
+            <button type="button" id="hist-toast-undo" class="hs-hist-toast-undo" @onclick="UndoDeleteAsync">Deshacer</button>
+        }
+    </div>
+}
+
+@code {
+    private const int ToastUndoWindowMs = 6000;
+
+    private static readonly (string Label, string? Value)[] TypeChips =
+        new[] { ("Todos", (string?)null) }
+            .Concat(WellbeingActivityTypes.All.Select(t => (t.Value.Label, (string?)t.Key)))
+            .ToArray();
+
+    private static readonly (string Label, string? Value)[] DimensionChips =
+        new[] { ("Todas", (string?)null) }
+            .Concat(WellbeingDimensions.Options.Select(d => (d.Label, (string?)d.Key)))
+            .ToArray();
+
+    private string? _type;
+    private string? _dimension;
+    private string? _from;
+    private string? _to;
+
+    private List<WellbeingActivityResource> _items = new();
+    private int? _total;
+    private int _page;
+    private bool _hasMore;
+
+    private bool _loading;
+    private bool _loadingMore;
+    private bool _loadFailed;
+
+    private string? _banner;
+    private bool _bannerRetry;
+
+    private WellbeingActivityResource? _detail;
+    private WellbeingActivityResource? _confirm;
+    private bool _confirmDeleting;
+
+    private ElementReference _returnRef;
+    private bool _hasReturnRef;
+    private ElementReference _detailFirstRef;
+    private ElementReference _confirmFirstRef;
+
+    private string? _toastMessage;
+    private bool _toastUndoAvailable;
+    private WellbeingActivityResource? _undoSlot;
+    private CancellationTokenSource? _toastCts;
+
+    private bool HasFilters =>
+        _type is not null || _dimension is not null || _from is not null || _to is not null;
+
+    private string CountText => _total is null
+        ? string.Empty
+        : HasFilters
+            ? $"{_total} actividades con los filtros aplicados"
+            : _total == 1 ? "1 actividad" : $"{_total} actividades";
+
+    private string LoadHint => _total is null
+        ? string.Empty
+        : $"Mostrando {_items.Count} de {_total}";
+
+    private sealed record ActivityDayGroup(string Label, string CountLabel, List<WellbeingActivityResource> Items);
+
+    private List<ActivityDayGroup> DayGroups
+    {
+        get
+        {
+            var today = DateTime.Now;
+            var buckets = new List<(DateTime Day, List<WellbeingActivityResource> Items)>();
+            foreach (var item in _items)
+            {
+                var day = item.OccurredOnUtc.Date;
+                if (buckets.Count > 0 && buckets[^1].Day == day)
+                {
+                    buckets[^1].Items.Add(item);
+                }
+                else
+                {
+                    buckets.Add((day, new List<WellbeingActivityResource> { item }));
+                }
+            }
+
+            return buckets
+                .Select(b => new ActivityDayGroup(
+                    WellbeingActivityDisplay.DayLabel(b.Day, today),
+                    WellbeingActivityDisplay.DayCountLabel(b.Items.Count),
+                    b.Items))
+                .ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        _items = new List<WellbeingActivityResource>();
+        _total = null;
+        _hasMore = false;
+        await FetchPageAsync(page: 1, replace: true);
+    }
+
+    private async Task FetchPageAsync(int page, bool replace)
+    {
+        if (_loading || _loadingMore)
+        {
+            return;
+        }
+
+        if (replace)
+        {
+            _loading = true;
+        }
+        else
+        {
+            _loadingMore = true;
+        }
+
+        try
+        {
+            var envelope = await ActivityClient.GetActivitiesAsync(BuildQuery(page));
+            if (replace)
+            {
+                _items = envelope.Items;
+            }
+            else
+            {
+                _items.AddRange(envelope.Items);
+            }
+
+            _total = envelope.Total;
+            _page = envelope.Page;
+            _hasMore = envelope.HasMore;
+            _loadFailed = false;
+        }
+        catch (HttpRequestException)
+        {
+            _loadFailed = true;
+            _banner = "No se pudo cargar el historial: no hay conexión con el servidor. Tus registros están intactos.";
+            _bannerRetry = true;
+        }
+        finally
+        {
+            _loading = false;
+            _loadingMore = false;
+        }
+    }
+
+    private ActivityQuery BuildQuery(int page) => new()
+    {
+        Type = _type,
+        DimensionUiKey = _dimension,
+        From = ParseDate(_from),
+        To = ParseDate(_to),
+        Page = page,
+    };
+
+    private static DateOnly? ParseDate(string? value)
+        => DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+            ? parsed
+            : null;
+
+    private async Task SetTypeAsync(string? value)
+    {
+        _type = value;
+        await ReloadAsync();
+    }
+
+    private async Task SetDimensionAsync(string? value)
+    {
+        _dimension = value;
+        await ReloadAsync();
+    }
+
+    private async Task OnFromChanged(ChangeEventArgs e)
+    {
+        _from = e.Value?.ToString();
+        await ReloadAsync();
+    }
+
+    private async Task OnToChanged(ChangeEventArgs e)
+    {
+        _to = e.Value?.ToString();
+        await ReloadAsync();
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _type = null;
+        _dimension = null;
+        _from = null;
+        _to = null;
+        await ReloadAsync();
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (!_hasMore || _loadingMore)
+        {
+            return;
+        }
+
+        await FetchPageAsync(page: _page + 1, replace: false);
+    }
+
+    private async Task RetryAsync()
+    {
+        _banner = null;
+        _bannerRetry = false;
+        await ReloadAsync();
+    }
+
+    // ── Sheets ────────────────────────────────────────────────────────────
+
+    private async Task OpenDetailAsync(WellbeingActivityResource item, ElementReference sourceRef)
+    {
+        _detail = item;
+        _confirm = null;
+        _returnRef = sourceRef;
+        _hasReturnRef = true;
+        StateHasChanged();
+        await FocusFirstAsync(_detailFirstRef);
+    }
+
+    private async Task OpenConfirm()
+    {
+        _confirm = _detail;
+        StateHasChanged();
+        await FocusFirstAsync(_confirmFirstRef);
+    }
+
+    private void CancelConfirm() => _confirm = null;
+
+    private void CloseSheets()
+    {
+        _detail = null;
+        _confirm = null;
+        if (_hasReturnRef)
+        {
+            _hasReturnRef = false;
+            try
+            {
+                _ = _returnRef.FocusAsync();
+            }
+            catch (InvalidOperationException)
+            {
+                // Row re-rendered (reload) — focus return is best-effort.
+            }
+        }
+    }
+
+    private void OnSheetKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            CloseSheets();
+        }
+    }
+
+    private async Task FocusFirstAsync(ElementReference target)
+    {
+        try
+        {
+            await target.FocusAsync();
+        }
+        catch (InvalidOperationException)
+        {
+            // Best-effort focus (spec §5).
+        }
+    }
+
+    private void EditActivity()
+    {
+        if (_detail is null)
+        {
+            return;
+        }
+
+        // RegisterActivity supports edit mode via ?edit=<id> (t_78447e2e, spec §5).
+        Navigation.NavigateTo($"wellbeing/register?edit={_detail.Id}");
+    }
+
+    private static List<(string Key, string Value)> DetailRows(WellbeingActivityResource item)
+    {
+        var rows = new List<(string, string)>();
+
+        rows.Add(("Dimensión", WellbeingActivityDisplay.DimensionBadgeLabel(item)));
+
+        if (item.DurationMinutes is int duration)
+        {
+            rows.Add(("Duración", $"{duration} min"));
+        }
+
+        if (item.TemperatureCelsius is decimal temperature)
+        {
+            rows.Add(("Temperatura", $"{FormatNumber(temperature)} °C"));
+        }
+
+        if (item.Cycles is int cycles)
+        {
+            rows.Add((item.Type == "wim_hof" ? "Rondas" : "Ciclos", cycles.ToString()));
+        }
+
+        if (item.Intensity is decimal intensity)
+        {
+            rows.Add(("Intensidad", $"{FormatNumber(intensity)} / 5"));
+        }
+
+        if (item.FrequencyPerWeek is decimal frequency)
+        {
+            rows.Add(("Frecuencia", $"{FormatNumber(frequency)} /semana"));
+        }
+
+        if (item.Metadata is { } metadata)
+        {
+            foreach (var (key, value) in metadata)
+            {
+                // "name" is already the row title for "Otra actividad" (spec §4).
+                if (key == "name")
+                {
+                    continue;
+                }
+
+                rows.Add((key, JsonValueToText(value)));
+            }
+        }
+
+        return rows;
+    }
+
+    // ── Delete + single-use undo (spec §5/§6) ─────────────────────────────
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_confirm is null)
+        {
+            return;
+        }
+
+        var target = _confirm;
+        _confirmDeleting = true;
+
+        try
+        {
+            await ActivityClient.DeleteActivityAsync(target.Id);
+            CloseSheets();
+            ShowToast($"«{WellbeingActivityDisplay.RowTitle(target)}» eliminada", undo: true, slot: target);
+            await ReloadAsync();
+        }
+        catch (ActivityApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            CloseSheets();
+            ShowToast("Esa actividad ya no existe en tu historial", undo: false);
+            await ReloadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            CloseSheets();
+            _banner = "No se pudo eliminar: no hay conexión. La actividad sigue en tu historial.";
+            _bannerRetry = false;
+        }
+        finally
+        {
+            _confirmDeleting = false;
+        }
+    }
+
+    private async Task UndoDeleteAsync()
+    {
+        var slot = _undoSlot;
+        if (slot is null)
+        {
+            return;
+        }
+
+        // Single slot, consumed on first click: a second "Deshacer" must not
+        // duplicate the record (spec §5).
+        _undoSlot = null;
+        _toastUndoAvailable = false;
+
+        try
+        {
+            await ActivityClient.CreateActivityAsync(WellbeingActivityMapper.ToWriteRequest(slot));
+            ShowToast("Registro restaurado", undo: false);
+            await ReloadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _banner = "No se pudo restaurar: no hay conexión. La actividad sigue eliminada.";
+            _bannerRetry = false;
+        }
+    }
+
+    private void ShowToast(string message, bool undo, WellbeingActivityResource? slot = null)
+    {
+        _toastCts?.Cancel();
+        _toastCts?.Dispose();
+        _toastCts = null;
+
+        _toastMessage = message;
+        _toastUndoAvailable = undo;
+        _undoSlot = slot;
+
+        if (undo && slot is not null)
+        {
+            var cts = new CancellationTokenSource();
+            _toastCts = cts;
+            _ = Task.Delay(ToastUndoWindowMs, cts.Token).ContinueWith(
+                task =>
+                {
+                    if (task.IsCompletedSuccessfully && ReferenceEquals(_toastCts, cts))
+                    {
+                        _toastMessage = null;
+                        _toastUndoAvailable = false;
+                        _undoSlot = null;
+                        _ = InvokeAsync(StateHasChanged);
+                    }
+                },
+                TaskScheduler.Default);
+        }
+    }
+
+    private static string JsonValueToText(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString() ?? string.Empty,
+        JsonValueKind.Number => value.GetDecimal().ToString(CultureInfo.InvariantCulture),
+        JsonValueKind.True => "sí",
+        JsonValueKind.False => "no",
+        _ => value.ToString(),
+    };
+
+    private static string FormatNumber(decimal value)
+        => value == decimal.Truncate(value)
+            ? ((int)value).ToString(CultureInfo.InvariantCulture)
+            : value.ToString(CultureInfo.InvariantCulture);
+
+    public void Dispose()
+    {
+        _toastCts?.Cancel();
+        _toastCts?.Dispose();
+    }
+}
