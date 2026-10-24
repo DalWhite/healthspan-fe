@@ -26,18 +26,20 @@ public class WorkoutsPageTests : BlazorTestBase
 
         var cut = RenderComponent<Workouts>();
 
-        cut.WaitForAssertion(() =>
-        {
-            cut.FindAll(".hs-workout-session-card").Should().HaveCount(2);
-            cut.Markup.Should().Contain("Push");
-            cut.Markup.Should().Contain("Pull");
-            // DESIGN.md §5.5: name line carries the leading muscles, the hero
-            // metric sits on the right as value + label.
-            cut.Markup.Should().Contain("Chest");
-            cut.Find(".hs-workout-metric-value").TextContent.Trim().Should().Be("2,560 kg");
-            cut.Find(".hs-workout-metric-label").TextContent.Trim().Should().Be("volume");
-            cut.Markup.Should().NotContain("fixed-create-button");
-        });
+        // Polling wait (WaitForState) instead of render-event WaitForAssertion:
+        // under load the data-carrying render can land between WaitForAssertion
+        // creation and its next render event, timing out despite the data being
+        // present. WaitForState re-checks every 100 ms regardless of renders.
+        cut.WaitForState(() => cut.FindAll(".hs-workout-session-card").Count == 2);
+
+        cut.Markup.Should().Contain("Push");
+        cut.Markup.Should().Contain("Pull");
+        // DESIGN.md §5.5: name line carries the leading muscles, the hero
+        // metric sits on the right as value + label.
+        cut.Markup.Should().Contain("Chest");
+        cut.Find(".hs-workout-metric-value").TextContent.Trim().Should().Be("2,560 kg");
+        cut.Find(".hs-workout-metric-label").TextContent.Trim().Should().Be("volume");
+        cut.Markup.Should().NotContain("fixed-create-button");
     }
 
     [Fact]

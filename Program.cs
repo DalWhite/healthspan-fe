@@ -73,7 +73,7 @@ builder.Services.AddSingleton(sp =>
 		Timeout = TimeSpan.FromSeconds(timeoutSeconds)
 	};
 });
-builder.Services.AddMudServices();
+builder.Services.AddMudServices(MudAppConfig.Configure);
 builder.Services.AddSingleton<HealthspanApiClient>();
 builder.Services.AddSingleton<ActivityClient>();
 

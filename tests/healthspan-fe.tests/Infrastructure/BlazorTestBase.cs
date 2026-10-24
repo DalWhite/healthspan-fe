@@ -26,6 +26,13 @@ public abstract class BlazorTestBase : TestContext
 
     protected BlazorTestBase()
     {
+        // bUnit's default wait ceiling is 1 s. Under full-suite load the render
+        // that carries async data can legitimately take longer, which showed up
+        // as flaky WaitFor* timeouts (RegisterActivityTests/ProfilePageTests/
+        // WorkoutsPageTests) in full-suite runs. Raise the ceiling for every
+        // WaitFor* helper that does not pass an explicit timeout.
+        DefaultWaitTimeout = TimeSpan.FromSeconds(10);
+
         MockHttp = new MockHttpMessageHandler();
         TitleService = new TitleService();
 
@@ -64,7 +71,7 @@ public abstract class BlazorTestBase : TestContext
         var syncLocalStorage = Substitute.For<ISyncLocalStorageService>();
         syncLocalStorage.ContainKey(Arg.Any<string>()).Returns(false);
         Services.AddSingleton(syncLocalStorage);
-        Services.AddMudServices();
+        Services.AddMudServices(MudAppConfig.Configure);
 
         // Auth
         AuthContext = this.AddTestAuthorization();
