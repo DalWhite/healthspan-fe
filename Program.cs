@@ -76,5 +76,8 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddMudServices(MudAppConfig.Configure);
 builder.Services.AddSingleton<HealthspanApiClient>();
 builder.Services.AddSingleton<ActivityClient>();
+// CSV import job tracker (202 + polling contract, t_c1f8e6ac): singleton so
+// the job survives navigation and a reload re-attaches from localStorage.
+builder.Services.AddSingleton<CsvImportTracker>();
 
 await builder.Build().RunAsync();
