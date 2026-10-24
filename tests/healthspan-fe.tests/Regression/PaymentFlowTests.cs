@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using Bunit;
 using Bunit.TestDoubles;
 using FluentAssertions;
@@ -163,7 +164,8 @@ public class PaymentFlowTests : BlazorTestBase
         var link = await BillingApi().UpsertPaymentLinkAsync(string.Empty);
 
         link.Should().BeNull();
-        body.Should().Be("""{ "url": "" }""");
+        // JsonContent.Create serializa compacto: {"url":""}.
+        body.Should().Be("""{"url":""}""");
     }
 
     // ── A2/A4 — Premium: selección de plan y handoff ───────────────────────
@@ -269,8 +271,10 @@ public class PaymentFlowTests : BlazorTestBase
 
         cut.Find(".hs-checkout-cta").Click();
 
-        // A4: handoff hosted con forceLoad (salida real de la SPA).
+        // A4: handoff hosted con forceLoad (salida real de la SPA). El POST es
+        // asíncrono: esperar a que la navegación quede registrada.
         var navigation = (FakeNavigationManager)Services.GetRequiredService<NavigationManager>();
+        cut.WaitForState(() => navigation.History.Count > 0, TimeSpan.FromSeconds(10));
         navigation.History.Should().Contain(n =>
             n.Uri == "https://checkout.stripe.com/c/pay/cs_test_123" && n.Options.ForceLoad);
     }
@@ -299,6 +303,8 @@ public class PaymentFlowTests : BlazorTestBase
 
         var cut = RenderComponent<BillingHome>();
         cut.WaitForState(() => cut.Markup.Contains("Prueba Premium · termina el"));
+        // A12: el vacío útil aparece cuando los recibos terminan de cargar.
+        cut.WaitForState(() => cut.Markup.Contains("Aún no hay recibos"), TimeSpan.FromSeconds(10));
 
         // D5: fecha absoluta + "Día X de 7".
         cut.Markup.Should().Contain("31 oct 2026");
@@ -319,6 +325,8 @@ public class PaymentFlowTests : BlazorTestBase
 
         var cut = RenderComponent<BillingHome>();
         cut.WaitForState(() => cut.Markup.Contains("Premium activo · renueva el"));
+        // Los recibos se cargan en paralelo: esperar al recibo mockeado.
+        cut.WaitForState(() => cut.Markup.Contains("HS-0001"), TimeSpan.FromSeconds(10));
 
         // D9: icono + texto (no solo color) + fecha absoluta.
         cut.FindAll(".hs-status-badge .mud-icon-root").Should().NotBeEmpty();
@@ -368,15 +376,17 @@ public class PaymentFlowTests : BlazorTestBase
         var dialogs = RenderComponent<MudDialogProvider>();
         var cut = RenderComponent<BillingHome>();
         cut.WaitForState(() => cut.Markup.Contains("Premium activo · renueva el"));
+        cut.WaitForState(() => cut.Markup.Contains("hs-billing-receipts") && !cut.Markup.Contains("hs-skeleton"), TimeSpan.FromSeconds(10));
 
-        // A7: abrir sheet desde el switch.
-        cut.Find(".mud-switch-input").Click();
+        // A7: abrir sheet desde el switch (MudSwitch dispara onchange).
+        cut.Find(".mud-switch-input").Change(true);
         dialogs.WaitForState(() => dialogs.FindAll(".mud-dialog").Count > 0);
 
         // Hoja honesta (D10): qué se bloquea y qué se conserva, con fecha.
-        dialogs.Markup.Should().Contain("Mantendrás todo el acceso hasta el");
-        dialogs.Markup.Should().Contain("se bloquea el análisis avanzado");
-        dialogs.Markup.Should().Contain("no borramos nada");
+        // Copy canónico; aserciones insensibles a los saltos de línea del fuente.
+        Normalize(dialogs.Markup).Should().Contain("Mantendrás todo el acceso hasta el");
+        Normalize(dialogs.Markup).Should().Contain("se bloquea el análisis avanzado");
+        Normalize(dialogs.Markup).Should().Contain("no borramos nada");
 
         dialogs.FindAll("button")
             .First(b => b.TextContent.Contains("Confirmar cancelación"))
@@ -426,10 +436,12 @@ public class PaymentFlowTests : BlazorTestBase
 
         cut.WaitForState(() => cut.Markup.Contains("El pago no se completó"),
             TimeSpan.FromSeconds(15));
+        var copy = cut.Markup;
 
-        // A9: copy honesto, sin alarmismo.
-        cut.Markup.Should().Contain("No se te ha cobrado nada");
-        cut.Markup.Should().Contain("Reintentar");
+        // A9: copy honesto, sin alarmismo (el markup conserva los saltos de línea
+        // del fuente Razor → aserción insensible a whitespace).
+        Normalize(copy).Should().Contain("No se te ha cobrado nada");
+        copy.Should().Contain("Reintentar");
     }
 
     [Fact]
@@ -478,9 +490,9 @@ public class PaymentFlowTests : BlazorTestBase
         var link = cut.Find("a.hs-payment-link-open");
         link.GetAttribute("target").Should().Be("_blank");
         link.GetAttribute("rel").Should().Contain("noopener");
-        // D7: divulgación de sitio externo accesible.
+        // D7: divulgación de sitio externo accesible (whitespace-insensitive).
         link.QuerySelector(".hs-visually-hidden")!
-            .TextContent.Should().Be(" (abre un sitio externo)");
+            .TextContent.Trim().Trim('(', ')').Should().Be("abre un sitio externo");
         cut.Markup.Should().Contain("Healthspan no cobra, no retiene");
     }
 
@@ -506,10 +518,11 @@ public class PaymentFlowTests : BlazorTestBase
         var cut = RenderComponent<PaymentLinkForm>();
         cut.WaitForElement("#payment-link-url");
 
-        // D8: allowlist ANTES del input.
+        // D8: allowlist ANTES del <input> (el id también aparece en el label
+        // for=, así que se compara contra el elemento input real).
         var markup = cut.Markup;
         markup.IndexOf("Direcciones permitidas", StringComparison.Ordinal)
-            .Should().BeLessThan(markup.IndexOf("payment-link-url", StringComparison.Ordinal));
+            .Should().BeLessThan(markup.IndexOf("<input id=\"payment-link-url\"", StringComparison.Ordinal));
         markup.Should().Contain("buy.stripe.com");
         markup.Should().Contain("paypal.me");
     }
@@ -527,7 +540,7 @@ public class PaymentFlowTests : BlazorTestBase
         var cut = RenderComponent<PaymentLinkForm>();
         cut.WaitForElement("#payment-link-url");
 
-        cut.Find("#payment-link-url").Change("https://paypal.me/entrenador-fuera-de-allowlist");
+        cut.Find("#payment-link-url").Input("https://paypal.me/entrenador-fuera-de-allowlist");
         cut.FindAll("button").First(b => b.TextContent.Contains("Publicar enlace")).Click();
 
         cut.WaitForState(() => cut.Markup.Contains("no está en una dirección permitida"));
@@ -553,7 +566,7 @@ public class PaymentFlowTests : BlazorTestBase
         var cut = RenderComponent<PaymentLinkForm>();
         cut.WaitForElement("#payment-link-url");
 
-        cut.Find("#payment-link-url").Change("https://buy.stripe.com/test_abc");
+        cut.Find("#payment-link-url").Input("https://buy.stripe.com/test_abc");
         cut.FindAll("button").First(b => b.TextContent.Contains("Publicar enlace")).Click();
 
         cut.WaitForState(() => cut.Markup.Contains("Publicado · visible para tus trainees"));
@@ -642,4 +655,9 @@ public class PaymentFlowTests : BlazorTestBase
         cut.WaitForState(() => cut.Markup.Contains("Premium"));
         cut.FindAll("a").Should().Contain(a => a.GetAttribute("href") == "billing");
     }
+
+    // Copy canónico en varias aserciones: el render conserva los saltos de línea
+    // del fuente Razor, así que se compara en una sola línea.
+    private static string Normalize(string markup)
+        => Regex.Replace(markup, @"\s+", " ").Trim();
 }

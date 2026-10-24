@@ -185,6 +185,9 @@
         finally
         {
             _loadingReceipts = false;
+            // Se invoca fire-and-forget tras cargar la suscripción: sin este
+            // StateHasChanged el skeleton de recibos no se sustituye nunca.
+            StateHasChanged();
         }
     }
 
