@@ -8,6 +8,7 @@
 @inject Healthspan.Offline.SyncEngine SyncEngine
 @inject AppStateService AppState
 @inject ActiveSessionState ActiveSession
+@inject CsvImportTracker ImportTracker
 @implements IDisposable
 
 <MudThemeProvider IsDarkMode="@ThemeState.IsDarkMode" Theme="@HealthspanTheme.Default" />
@@ -107,6 +108,8 @@
             <span>Biblioteca</span>
         </NavLink>
     </nav>
+
+    <ImportProgressPill />
 </div>
 
 @code {
@@ -128,6 +131,10 @@
         await JS.InvokeVoidAsync("hsdb.setConnectivityBridge", _selfRef);
         SyncCoordinator.Register(SyncEngine);
         SyncEngine.Start(CancellationToken.None);
+
+        // Re-attach a CSV import job that survived a reload so the pill shows
+        // on any page, not only Settings (t_7bb5d76a).
+        await ImportTracker.AttachAsync();
         _jsBridgeRegistered = true;
     }
 
@@ -149,6 +156,7 @@
     {
         ThemeState.Changed += HandleThemeChanged;
         ActiveSession.Changed += HandleActiveSessionChanged;
+        ImportTracker.Changed += HandleImportTrackerChanged;
 
         // Redirect based on auth state
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -206,6 +214,9 @@
     private void HandleActiveSessionChanged()
         => _ = InvokeAsync(StateHasChanged);
 
+    private void HandleImportTrackerChanged()
+        => _ = InvokeAsync(StateHasChanged);
+
     private void HandleThemeChanged()
         => _ = InvokeAsync(StateHasChanged);
 
@@ -213,6 +224,7 @@
     {
         ThemeState.Changed -= HandleThemeChanged;
         ActiveSession.Changed -= HandleActiveSessionChanged;
+        ImportTracker.Changed -= HandleImportTrackerChanged;
         SyncCoordinator.Unregister(SyncEngine);
         SyncEngine.Stop();
         _selfRef?.Dispose();

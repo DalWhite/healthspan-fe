@@ -1,6 +1,5 @@
 @page "/settings"
 @using Healthspan.Authentication
-@using System.Net.Http.Headers
 @using System.Security.Claims
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
@@ -11,6 +10,8 @@
 @inject ISnackbar Snackbar
 @inject ThemeState ThemeState
 @inject AppStateService AppState
+@inject CsvImportTracker Tracker
+@implements IDisposable
 
 <PageTitle>Settings</PageTitle>
 
@@ -67,11 +68,38 @@
                 @if (_selectedFile != null)
                 {
                     <MudButton OnClick="ImportFile" Color="MudBlazor.Color.Success" Variant="Variant.Filled"
-                               StartIcon="@Icons.Material.Filled.Upload">
-                        Import "@_selectedFile.Name"
+                               StartIcon="@Icons.Material.Filled.Upload"
+                               Disabled="_isImportStarting || Tracker.IsBusy">
+                        @(_isImportStarting ? "Starting…" : $"Import \"{_selectedFile.Name}\"")
                     </MudButton>
                 }
             </div>
+
+            @if (_preflightError is not null)
+            {
+                <div class="hs-import-inline-error mt-3" role="alert">@_preflightError</div>
+            }
+
+            @if (_structuralErrors.Count > 0)
+            {
+                <div class="hs-import-structural mt-3" role="alert">
+                    @foreach (var error in _structuralErrors)
+                    {
+                        <MudText Typo="Typo.body2">@error</MudText>
+                    }
+                </div>
+            }
+
+            @* Panel closed while the job runs: compact row keeps the result
+               reachable without hijacking the page (spec §6). Hide ≠ cancel. *@
+            @if (Tracker.HasJob && !_panelVisible)
+            {
+                <div class="hs-import-compact mt-3" role="status">
+                    <span>@(Tracker.IsBusy ? $"Import in progress — {ProcessedText}" : ChipLabel)</span>
+                    <MudSpacer />
+                    <MudButton OnClick="ShowPanel" Variant="Variant.Text" Color="MudBlazor.Color.Primary" Class="hs-import-action">View</MudButton>
+                </div>
+            }
         </MudCardContent>
     </MudCard>
 
@@ -86,6 +114,105 @@
         </MudCard>
     }
 
+    @* Inline progress panel (ux spec t_d1db9866): 202 → poll → real states.
+       Not a dialog/snackbar — the page stays navigable while importing. *@
+    @if (Tracker.HasJob && _panelVisible)
+    {
+        <MudCard Class="mb-4 hs-surface hs-import-panel">
+            <MudCardContent>
+                <div class="d-flex align-center gap-3">
+                    <MudChip T="string" Variant="Variant.Text" Class="@ChipCss">@ChipLabel</MudChip>
+                    <MudSpacer />
+                    @if (Tracker.IsBusy)
+                    {
+                        <MudButton OnClick="HidePanel" Variant="Variant.Text" Color="MudBlazor.Color.Primary" Class="hs-import-action">
+                            Hide progress
+                        </MudButton>
+                    }
+                </div>
+
+                <div class="hs-import-bar-wrap mt-3"
+                     role="progressbar"
+                     aria-valuemin="0" aria-valuemax="100" aria-valuenow="@((int)Tracker.Percent)"
+                     aria-valuetext="@BarValueText">
+                    <MudProgressLinear Value="@Tracker.Percent" Height="10" Color="@BarColor"
+                                       Class="hs-import-bar" aria-hidden="true" />
+                </div>
+
+                <MudText Typo="Typo.body2" Class="hs-import-count mt-2">@ProcessedText</MudText>
+                <MudText Typo="Typo.caption" Class="hs-import-stats">@StatsText</MudText>
+
+                @if (Tracker.PollingFailed)
+                {
+                    @* A poll failure is a visibility loss, never a job failure. *@
+                    <MudText Typo="Typo.body2" Class="hs-import-reconnect mt-2">
+                        No connection — reconnecting… progress may be a few seconds behind.
+                    </MudText>
+                }
+                else if (Tracker.IsBusy)
+                {
+                    <MudText Typo="Typo.caption" Class="hs-import-stats mt-1">
+                        You can keep using the app — the import continues in the background.
+                    </MudText>
+                }
+
+                @if (Tracker.Status == "not_found")
+                {
+                    <MudText Typo="Typo.body2" Class="hs-import-failure mt-2">
+                        We couldn't find this import. It may have finished more than 24 hours ago.
+                    </MudText>
+                }
+                else if (Tracker.Status == "failed")
+                {
+                    <MudText Typo="Typo.body2" Class="hs-import-failure mt-2">
+                        Import stopped unexpectedly. @Tracker.Processed of @Tracker.Total rows were imported before the failure.
+                    </MudText>
+                }
+                else if (Tracker.Status is "completed" or "completed_with_errors")
+                {
+                    <MudText Typo="Typo.body2" Class="hs-import-finished mt-2">@FinishedText</MudText>
+                }
+
+                @if (Tracker.Errors.Count > 0)
+                {
+                    <MudExpansionPanel Class="hs-import-errors mt-2"
+                                       Text="@($"Row errors ({Tracker.ErrorCount})")"
+                                       Expanded="@(Tracker.Status == "completed_with_errors")">
+                        @foreach (var error in Tracker.Errors)
+                        {
+                            <MudText Typo="Typo.body2" Class="hs-import-error-row">Row @error.Row — @error.Message</MudText>
+                        }
+                        @if (Tracker.ErrorCount > Tracker.Errors.Count)
+                        {
+                            <MudText Typo="Typo.caption" Class="hs-import-stats">
+                                Showing first @Tracker.Errors.Count of @Tracker.ErrorCount errors.
+                            </MudText>
+                        }
+                    </MudExpansionPanel>
+                }
+
+                <div class="d-flex gap-3 mt-3">
+                    @if (Tracker.Status is "completed" or "completed_with_errors")
+                    {
+                        <MudButton OnClick="DismissJob" Color="MudBlazor.Color.Primary" Variant="Variant.Filled">Done</MudButton>
+                    }
+                    else if (Tracker.Status is "failed" or "cancelled" or "not_found")
+                    {
+                        <MudButton OnClick="DismissJob" Variant="Variant.Outlined" Color="MudBlazor.Color.Primary">Dismiss</MudButton>
+                        @if (Tracker.Status == "failed" && _selectedFile != null)
+                        {
+                            <MudButton OnClick="TryAgain" Variant="Variant.Outlined" Color="MudBlazor.Color.Primary">Try again</MudButton>
+                        }
+                    }
+                </div>
+
+                @* aria-live announces state changes only, never counter ticks
+                   (spec §9: avoid screen-reader spam). *@
+                <div class="mud-sr-only" aria-live="polite">@_statusAnnouncement</div>
+            </MudCardContent>
+        </MudCard>
+    }
+
 </MudContainer>
 
 @code {
@@ -94,9 +221,17 @@
     private string? _email;
     private bool _isExporting;
     private bool _isTrainer;
+    private bool _isImportStarting;
+    private bool _panelVisible = true;
+    private string? _preflightError;
+    private IReadOnlyList<string> _structuralErrors = [];
+    private string _statusAnnouncement = string.Empty;
+    private string _lastStatus = "idle";
 
     protected override async Task OnInitializedAsync()
     {
+        Tracker.Changed += HandleTrackerChanged;
+
         var authState =
             await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
@@ -109,6 +244,11 @@
             ?? user.FindFirst("name")?.Value
             ?? _email
             ?? "Signed-in user";
+
+        // Reload / re-attach: a job started earlier (or from another page)
+        // resumes its panel here (spec §4, localStorage key hs.import.job).
+        await Tracker.AttachAsync();
+        _lastStatus = Tracker.Status;
     }
 
     private async Task Logout()
@@ -160,7 +300,11 @@
     }
 
     private void OnFileSelected(IBrowserFile file)
-        => _selectedFile = file;
+    {
+        _selectedFile = file;
+        _preflightError = null;
+        _structuralErrors = [];
+    }
 
     private async Task ImportFile()
     {
@@ -170,28 +314,184 @@
             return;
         }
 
+        _preflightError = null;
+        _structuralErrors = [];
+
+        // Client preflight (spec §2.2): the contract limits are 5 MB / ~50k
+        // rows; catch the predictable failures without a round-trip.
+        if (!_selectedFile.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            _preflightError = "Imports support CSV files up to 5 MB (about 50,000 rows).";
+            return;
+        }
+
+        if (_selectedFile.Size > CsvImportTracker.MaxUploadBytes)
+        {
+            var sizeMb = _selectedFile.Size / (1024.0 * 1024.0);
+            _preflightError =
+                $"That file is {sizeMb:0.#} MB. Imports support CSV files up to 5 MB (about 50,000 rows).";
+            return;
+        }
+
+        var dataRows = await CountCsvDataRowsAsync(_selectedFile);
+        if (dataRows > CsvImportTracker.MaxUploadRows)
+        {
+            _preflightError =
+                $"That file has {dataRows:N0} rows. Imports support CSV files up to 5 MB (about 50,000 rows).";
+            return;
+        }
+
+        _isImportStarting = true;
         try
         {
-            using var content = new MultipartFormDataContent();
-            var fileContent = new StreamContent(_selectedFile.OpenReadStream());
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue(_selectedFile.ContentType);
-            content.Add(fileContent, "file", "exercises.csv");
+            // QA t_79d39b1e finding: OpenReadStream() with no argument capped
+            // the upload at the 512 KB default. Stream the full 5 MB the API
+            // accepts.
+            using var stream = _selectedFile.OpenReadStream(CsvImportTracker.MaxUploadBytes);
+            var (started, errors) = await Tracker.StartAsync(
+                stream, _selectedFile.Name, _selectedFile.ContentType);
 
-            var response = await Http.PostAsync("/data/import", content);
-
-            if (response.IsSuccessStatusCode)
+            if (started)
             {
-                Snackbar.Add("Import completed successfully!", Severity.Success);
                 _selectedFile = null;
+                _panelVisible = true;
             }
             else
             {
-                Snackbar.Add("Import failed. Please check your file and try again.", Severity.Error);
+                _structuralErrors = errors;
             }
         }
-        catch (Exception ex)
+        catch (IOException)
         {
-            Snackbar.Add($"Import error: {ex.Message}", Severity.Error);
+            _preflightError = "That file is too large to upload (max 5 MB).";
+        }
+        finally
+        {
+            _isImportStarting = false;
         }
     }
+
+    private void HidePanel() => _panelVisible = false;
+
+    /// <summary>
+    /// Client row-count preflight (spec §2.2): cheap newline count over the
+    /// upload stream, stopping as soon as the 50k limit is exceeded. The
+    /// server stays the authority; this only avoids a pointless round-trip.
+    /// </summary>
+    private static async Task<int> CountCsvDataRowsAsync(IBrowserFile file)
+    {
+        using var stream = file.OpenReadStream(CsvImportTracker.MaxUploadBytes);
+        using var reader = new System.IO.StreamReader(stream);
+        var newLines = 0;
+        var buffer = new char[16384];
+        int read;
+        while ((read = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        {
+            for (var i = 0; i < read; i++)
+            {
+                if (buffer[i] == '\n') newLines++;
+            }
+            if (newLines > CsvImportTracker.MaxUploadRows) break; // header + >50k rows
+        }
+        return Math.Max(0, newLines - 1);
+    }
+    private void ShowPanel() => _panelVisible = true;
+
+    private void DismissJob()
+    {
+        Tracker.Dismiss();
+        _selectedFile = null;
+        _panelVisible = true;
+    }
+
+    private void TryAgain()
+    {
+        // Keep the selected file: the failure was server-side, the file is
+        // still what the user wants to import. No auto-retry — reimporting
+        // duplicates is the user's call (baseline doc §6.3).
+        Tracker.Dismiss();
+        _panelVisible = true;
+    }
+
+    private void HandleTrackerChanged()
+    {
+        if (Tracker.Status != _lastStatus)
+        {
+            _lastStatus = Tracker.Status;
+            _statusAnnouncement = ChipLabel;
+        }
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private string ChipLabel => Tracker.Status switch
+    {
+        // A poll failure only costs visibility: the job is still importing
+        // (spec §3 — never show a job failure because of a failed fetch).
+        _ when Tracker.PollingFailed && Tracker.IsBusy => "Importing",
+        "queued" => "Queued",
+        "running" => "Importing",
+        "completed" => "Completed",
+        "completed_with_errors" => "Completed with issues",
+        "failed" => "Stopped",
+        "cancelled" => "Cancelled",
+        "not_found" => "Not found",
+        _ => ""
+    };
+
+    private string ChipCss => Tracker.Status switch
+    {
+        "queued" or "running" => "hs-import-chip hs-import-chip-accent",
+        "completed" => "hs-import-chip hs-import-chip-done",
+        "completed_with_errors" => "hs-import-chip hs-import-chip-pr",
+        _ => "hs-import-chip hs-import-chip-err"
+    };
+
+    private MudBlazor.Color BarColor => Tracker.Status switch
+    {
+        "completed" => MudBlazor.Color.Success,
+        "completed_with_errors" => MudBlazor.Color.Warning,
+        "failed" or "cancelled" or "not_found" => MudBlazor.Color.Error,
+        _ => MudBlazor.Color.Primary
+    };
+
+    private string ProcessedText => $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows";
+
+    private string BarValueText => $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows imported";
+
+    private string StatsText
+    {
+        get
+        {
+            if (!Tracker.HasJob)
+            {
+                return string.Empty;
+            }
+
+            var rate = Tracker.RowsPerSecond is > 0
+                ? $"≈ {Tracker.RowsPerSecond:N0} rows/s"
+                : "measuring speed…";
+            return $"{rate} · {ElapsedText} elapsed";
+        }
+    }
+
+    private string ElapsedText
+    {
+        get
+        {
+            var elapsed = Tracker.Elapsed;
+            if (elapsed < TimeSpan.FromMinutes(1))
+            {
+                return $"{elapsed.TotalSeconds:0.#} s";
+            }
+            return $"{(int)elapsed.TotalMinutes} m {elapsed.Seconds} s";
+        }
+    }
+
+    private string FinishedText => Tracker.Status switch
+    {
+        "completed" => $"Import finished — {Tracker.Processed:N0} rows added to your history.",
+        _ => $"Import finished — {Tracker.Processed:N0} rows added, {Tracker.ErrorCount:N0} rows skipped."
+    };
+
+    public void Dispose() => Tracker.Changed -= HandleTrackerChanged;
 }
