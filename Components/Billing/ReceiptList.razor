@@ -1,0 +1,43 @@
+@* A6/A12: lista de recibos (listrow 44 px) + vacío útil que explica el porqué
+   durante el trial. Links externos ↗ con aria-label. *@
+
+@if (Receipts.Count == 0)
+{
+    <EmptyState Icon="@Icons.Material.Filled.ReceiptLong"
+                Title="Aún no hay recibos"
+                Subtitle="@EmptyCopy" />
+}
+else
+{
+    <div class="hs-receipt-list" role="list">
+        @foreach (var receipt in Receipts)
+        {
+            <div class="hs-receipt-row" role="listitem">
+                <div class="hs-receipt-main">
+                    <span class="hs-receipt-number">@receipt.Id</span>
+                    <span class="hs-receipt-date">@receipt.Date.ToString("d MMM yyyy", Es)</span>
+                </div>
+                <span class="hs-receipt-amount">@PremiumPlan.FormatPrice(receipt.AmountCents, "EUR")</span>
+                @if (!string.IsNullOrWhiteSpace(receipt.ReceiptUrl))
+                {
+                    <a class="hs-receipt-link"
+                       href="@receipt.ReceiptUrl"
+                       target="_blank"
+                       rel="noopener"
+                       aria-label="Recibo (abre un sitio externo)">Recibo ↗</a>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ReceiptResource> Receipts { get; set; } = default!;
+    [Parameter] public bool DuringTrial { get; set; }
+
+    private static readonly CultureInfo Es = CultureInfo.GetCultureInfo("es-ES");
+
+    private string EmptyCopy => DuringTrial
+        ? "Durante la prueba de 7 días aún no se ha generado ningún recibo. El primero llegará cuando empiece el periodo de pago."
+        : "Todavía no hay cobros en tu cuenta.";
+}

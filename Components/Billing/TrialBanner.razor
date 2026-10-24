@@ -1,0 +1,18 @@
+@* A3: chip persistente del trial. Fecha absoluta (no "quedan unos días") + "Día X de 7". *@
+
+<div class="hs-trial-banner" role="status">
+    <span class="hs-chip hs-chip-pr hs-trial-chip">
+        Prueba Premium · termina el @EndsLabel
+    </span>
+    @if (DayOf is not null)
+    {
+        <span class="hs-trial-day">Día @DayOf.Value de 7</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DateTime EndsAt { get; set; }
+    [Parameter] public int? DayOf { get; set; }
+
+    private string EndsLabel => EndsAt.ToString("d MMM yyyy", CultureInfo.GetCultureInfo("es-ES"));
+}

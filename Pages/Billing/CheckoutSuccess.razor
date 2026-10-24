@@ -1,0 +1,104 @@
+@page "/billing/success"
+@inject BillingClient Billing
+
+@* A10 → A5/A9: vuelta de Stripe. El FE NUNCA infiere el estado desde el redirect:
+   sondea GET /api/billing/subscription cada 5 s, máx 60 s, en región
+   aria-live="polite" (D6). Si el webhook llega → A5 confirmación; si expira →
+   A9 "tarda más de lo normal". *@
+
+<PageShell Narrow Class="hs-checkout-result">
+    <PageHeader Title="Confirmando tu pago" />
+
+    <div aria-live="polite">
+        @if (_phase == PollPhase.Pending)
+        {
+            <div class="hs-checkout-pending" role="status">
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" aria-hidden="true" />
+                <span>Confirmando tu pago… Stripe ha aceptado el pago. Esto suele tardar unos segundos.</span>
+            </div>
+        }
+        else if (_phase == PollPhase.Confirmed)
+        {
+            <div class="hs-checkout-confirmed" role="status">
+                <MudText Typo="Typo.h6">Pago confirmado</MudText>
+                <ul class="hs-premium-list mt-2">
+                    <li>Análisis avanzado de entrenamiento (Insights) desbloqueado</li>
+                    @if (_subscription?.CurrentPeriodEnd is { } periodEnd)
+                    {
+                        <li>@RenewalLabel @periodEnd.ToString("d MMM yyyy", Es)</li>
+                    }
+                </ul>
+                <a class="hs-cta hs-cta-primary mt-3" href="billing">Gestionar suscripción</a>
+            </div>
+        }
+        else if (_phase == PollPhase.TimedOut)
+        {
+            <div class="hs-checkout-failed" role="alert">
+                <MudText Typo="Typo.h6">El pago no se completó</MudText>
+                <MudText Typo="Typo.body2" Class="hs-muted-copy mt-1">
+                    La confirmación está tardando más de lo normal. No se te ha
+                    cobrado nada; si el cobro aparece más tarde, podrás cancelarlo
+                    desde tu suscripción.
+                </MudText>
+                <a class="hs-cta hs-cta-primary mt-3" href="premium">Reintentar</a>
+            </div>
+        }
+    </div>
+</PageShell>
+
+@code {
+    private enum PollPhase { Pending, Confirmed, TimedOut }
+
+    // A10: polling 5 s / máx 60 s. Ajustable por parámetro para pruebas bUnit.
+    [Parameter] public int PollIntervalSeconds { get; set; } = 5;
+    [Parameter] public int MaxWaitSeconds { get; set; } = 60;
+
+    private static readonly CultureInfo Es = CultureInfo.GetCultureInfo("es-ES");
+
+    private PollPhase _phase = PollPhase.Pending;
+    private SubscriptionResource? _subscription;
+
+    private string RenewalLabel =>
+        _subscription?.Status == SubscriptionStates.Trialing ? "Prueba hasta el" : "Renovación el";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var deadline = DateTime.UtcNow.AddSeconds(MaxWaitSeconds);
+
+        while (true)
+        {
+            SubscriptionResource? subscription = null;
+            try
+            {
+                subscription = await Billing.GetSubscriptionAsync();
+            }
+            catch (BillingApiException)
+            {
+                // Un fallo de red durante el sondeo NO confirma ni falla: sigue
+                // sondeando hasta el límite (D6: límite 60 s).
+            }
+
+            if (subscription is not null && SubscriptionStates.IsLive(subscription.Status))
+            {
+                _subscription = subscription;
+                _phase = PollPhase.Confirmed;
+                StateHasChanged();
+                return;
+            }
+
+            if (DateTime.UtcNow >= deadline)
+            {
+                _phase = PollPhase.TimedOut;
+                StateHasChanged();
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(PollIntervalSeconds));
+        }
+    }
+}

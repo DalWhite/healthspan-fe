@@ -1,0 +1,49 @@
+@page "/billing/cancel"
+@inject BillingClient Billing
+
+@* A9: vuelta de Stripe con pago cancelado/fallado. Copy honesto: no se ha
+   cobrado nada; si había trial, sigue intacto (se comprueba por API, no por
+   el redirect). *@
+
+<PageShell Narrow Class="hs-checkout-cancelled">
+    <PageHeader Title="Pago cancelado" />
+
+    <div class="hs-checkout-failed" role="alert">
+        <MudText Typo="Typo.h6">El pago no se completó</MudText>
+        <MudText Typo="Typo.body2" Class="hs-muted-copy mt-1">
+            No se te ha cobrado nada.
+        </MudText>
+        @if (!_loadingSubscription && _trialIntact)
+        {
+            <MudText Typo="Typo.body2" Class="hs-muted-copy mt-1" role="status">
+                Tu prueba de 7 días sigue activa.
+            </MudText>
+        }
+        <div class="hs-checkout-cancelled-actions mt-3">
+            <a class="hs-cta hs-cta-primary" href="premium">Reintentar pago</a>
+            <a class="hs-cta hs-cta-secondary" href="billing">Volver a mi suscripción</a>
+        </div>
+    </div>
+</PageShell>
+
+@code {
+    private bool _loadingSubscription = true;
+    private bool _trialIntact;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var subscription = await Billing.GetSubscriptionAsync();
+            _trialIntact = subscription.Status == SubscriptionStates.Trialing;
+        }
+        catch (BillingApiException)
+        {
+            // Sin confirmación: la nota de trial simplemente no se muestra.
+        }
+        finally
+        {
+            _loadingSubscription = false;
+        }
+    }
+}

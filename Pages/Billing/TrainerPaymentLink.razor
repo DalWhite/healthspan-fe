@@ -1,0 +1,49 @@
+@page "/trainers/{TrainerId}/payment-link"
+@inject BillingClient Billing
+
+@* B4/B5: pago del entrenador visto por el trainee. La tarjeta SOLO se renderiza
+   si hay link publicado; sin link, nota neutra (B5). Si el GET falla, la tarjeta
+   se omite y el resto queda intacto (matriz §4). *@
+
+<PageShell Narrow Class="hs-trainer-payment-link">
+    <PageHeader Title="Método de pago del entrenador" />
+
+    @if (_loading)
+    {
+        <div class="hs-skeleton hs-skeleton-card" aria-busy="true"></div>
+    }
+    else if (_link is not null)
+    {
+        <PaymentLinkCard Link="@_link" />
+    }
+    else
+    {
+        <EmptyState Icon="@Icons.Material.Filled.Handshake"
+                    Title="Este entrenador no tiene enlace de pago"
+                    Subtitle="Acuerda el pago directamente con él." />
+    }
+</PageShell>
+
+@code {
+    [Parameter, EditorRequired] public string TrainerId { get; set; } = default!;
+
+    private bool _loading = true;
+    private PaymentLinkResource? _link;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _link = await Billing.GetTrainerPaymentLinkAsync(TrainerId);
+        }
+        catch (BillingApiException)
+        {
+            // GET falla → la tarjeta se omite (B5 neutro), sin error ruidoso.
+            _link = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

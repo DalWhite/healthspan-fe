@@ -1,0 +1,163 @@
+@* Flujo B (B1–B3): publicación del payment link del entrenador. Allowlist visible
+   ANTES del input (D8); error inline con valor conservado + ejemplo válido;
+   quitar = PUT con url vacía (204). *@
+
+<div class="hs-payment-link-form">
+    <label class="hs-micro-label" for="payment-link-url">Enlace de pago (Stripe o PayPal)</label>
+    <MudText Typo="Typo.body2" Class="hs-muted-copy mb-2">
+        El pago se gestiona fuera de Healthspan. Healthspan no cobra, no retiene
+        ni intermedia el pago.
+    </MudText>
+
+    <div class="hs-payment-link-allowlist" aria-label="Direcciones permitidas">
+        <span class="hs-micro-label">Direcciones permitidas</span>
+        <div class="hs-chip-row">
+            @foreach (var domain in AllowedDomains)
+            {
+                <span class="hs-chip">@domain</span>
+            }
+        </div>
+    </div>
+
+    <input id="payment-link-url"
+           class="hs-payment-link-input @(string.IsNullOrWhiteSpace(_error) ? "" : "hs-payment-link-input-error")"
+           type="url"
+           inputmode="url"
+           autocomplete="url"
+           placeholder="https://buy.stripe.com/…"
+           aria-invalid="@(!string.IsNullOrWhiteSpace(_error) ? "true" : "false")"
+           aria-describedby="@(_errorId)"
+           @bind="_url"
+           @bind:event="oninput" />
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div id="@_errorId" class="hs-payment-link-error" role="alert">@_error</div>
+    }
+
+    @if (_published is not null)
+    {
+        <div class="hs-payment-link-published" role="status">
+            <span class="hs-chip hs-chip-done">Publicado · visible para tus trainees</span>
+            <span class="hs-muted-copy">@_published.VerifiedDomain · actualizado el @UpdatedAtLabel</span>
+        </div>
+    }
+
+    <div class="hs-payment-link-actions">
+        <button type="button"
+                class="hs-cta hs-cta-primary"
+                disabled="@(_saving || _loading)"
+                aria-busy="@(_saving ? "true" : "false")"
+                @onclick="SaveAsync">
+            @(_saving ? "Guardando…" : (_published is null ? "Publicar enlace" : "Actualizar enlace"))
+        </button>
+        @if (_published is not null)
+        {
+            <button type="button"
+                    class="hs-cta hs-cta-secondary"
+                    disabled="@_saving"
+                    @onclick="RemoveAsync">
+                Quitar enlace
+            </button>
+        }
+    </div>
+
+    <MudText Typo="Typo.body2" Class="hs-muted-copy mt-2">
+        Los cobros y disputas de un enlace externo se gestionan fuera de Healthspan.
+    </MudText>
+</div>
+
+@code {
+    [Inject] private BillingClient Billing { get; set; } = default!;
+
+    public static readonly string[] AllowedDomains =
+        { "checkout.stripe.com", "buy.stripe.com", "paypal.me", "paypal.com" };
+
+    private static readonly Guid _errorId = Guid.NewGuid();
+
+    private PaymentLinkResource? _published;
+    private string _url = string.Empty;
+    private string? _error;
+    private bool _saving;
+    private bool _loading = true;
+
+    private string UpdatedAtLabel =>
+        _published!.UpdatedAt.ToString("d MMM yyyy", CultureInfo.GetCultureInfo("es-ES"));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _published = await Billing.GetMyPaymentLinkAsync();
+            _url = _published?.Url ?? string.Empty;
+        }
+        catch (BillingApiException)
+        {
+            // B1: un fallo de carga no bloquea el formulario; se muestra vacío.
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_saving)
+        {
+            return;
+        }
+
+        _saving = true;
+        _error = null;
+
+        try
+        {
+            _published = await Billing.UpsertPaymentLinkAsync(_url);
+            if (_published is null)
+            {
+                _error = "Escribe un enlace para publicarlo.";
+            }
+        }
+        catch (BillingApiException ex) when (ex.Code == BillingCodes.PaymentLinkNotAllowed)
+        {
+            // B2: valor conservado + ejemplo válido (D8).
+            _error = "Ese enlace no está en una dirección permitida. "
+                   + "Ejemplo válido: https://buy.stripe.com/…";
+        }
+        catch (BillingApiException)
+        {
+            _error = "No se pudo guardar el enlace. Inténtalo de nuevo.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task RemoveAsync()
+    {
+        if (_saving)
+        {
+            return;
+        }
+
+        _saving = true;
+        _error = null;
+
+        try
+        {
+            // Quitar = PUT con url vacía → 204 (QA-B7).
+            _published = await Billing.UpsertPaymentLinkAsync(string.Empty);
+            _url = string.Empty;
+        }
+        catch (BillingApiException)
+        {
+            _error = "No se pudo quitar el enlace. Inténtalo de nuevo.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

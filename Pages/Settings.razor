@@ -10,6 +10,7 @@
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 @inject ThemeState ThemeState
+@inject AppStateService AppState
 
 <PageTitle>Settings</PageTitle>
 
@@ -74,6 +75,17 @@
         </MudCardContent>
     </MudCard>
 
+    <!-- Payment link section (Flujo B, solo entrenadores) -->
+    @if (_isTrainer)
+    {
+        <MudCard Class="mb-4 hs-surface">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" Class="mb-3">Método de pago</MudText>
+                <PaymentLinkForm />
+            </MudCardContent>
+        </MudCard>
+    }
+
 </MudContainer>
 
 @code {
@@ -81,12 +93,14 @@
     private string _displayName = "Signed-in user";
     private string? _email;
     private bool _isExporting;
+    private bool _isTrainer;
 
     protected override async Task OnInitializedAsync()
     {
         var authState =
             await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
+        _isTrainer = (await AppState.GetUserRolesAsync()).Contains("Trainer");
         _email = user.FindFirst(ClaimTypes.Email)?.Value
             ?? user.FindFirst("email")?.Value
             ?? user.Identity?.Name;
