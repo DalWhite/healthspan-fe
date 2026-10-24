@@ -456,9 +456,8 @@
             return;
         }
 
-        // Edit page is a separate card (t_5ad7cef5); spec §5 fallback until it
-        // exists: open the register form carrying the activity id.
-        Navigation.NavigateTo($"wellbeing/register?activity={_detail.Id}");
+        // RegisterActivity supports edit mode via ?edit=<id> (t_78447e2e, spec §5).
+        Navigation.NavigateTo($"wellbeing/register?edit={_detail.Id}");
     }
 
     private static List<(string Key, string Value)> DetailRows(WellbeingActivityResource item)

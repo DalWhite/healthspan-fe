@@ -5,6 +5,8 @@ using Bunit;
 using FluentAssertions;
 using healthspan_fe.tests.Infrastructure;
 using healthspan_fe_wasm_pwa.Pages.Wellbeing;
+using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 using RichardSzalay.MockHttp;
 using Xunit;
 
@@ -371,6 +373,11 @@ public class ActivityHistoryTests : BlazorTestBase
             .And.Contain("Temperatura").And.Contain("85 °C")
             .And.Contain("Ciclos").And.Contain("Intensidad").And.Contain("3 / 5");
         cut.Find(".hs-hist-notes").TextContent.Should().Contain("Sesión post-entreno");
+
+        // Editar navigates to the register page in edit mode (?edit=id, spec §5).
+        cut.Find("#hist-detail-edit").Click();
+        cut.Services.GetRequiredService<NavigationManager>()
+            .Uri.Should().Contain($"wellbeing/register?edit={FirstActivityId}");
     }
 
     [Fact]
