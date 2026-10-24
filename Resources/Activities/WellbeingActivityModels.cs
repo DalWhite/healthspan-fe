@@ -171,10 +171,166 @@ public sealed class PagedActivitiesResource
     public bool HasMore { get; set; }
 }
 
+/// <summary>
+/// Server-side filter/pagination params for GET /api/activities (history
+/// UX spec §3/§6): every filter travels as a query param — the FE never
+/// filters or paginates in memory. Dimension is translated to the canonical
+/// string before it leaves the FE.
+/// </summary>
+public sealed class ActivityQuery
+{
+    public const int DefaultPageSize = 10;
+
+    public string? Type { get; init; }
+    public string? DimensionUiKey { get; init; }
+    public DateOnly? From { get; init; }
+    public DateOnly? To { get; init; }
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = DefaultPageSize;
+
+    public string ToQueryString()
+    {
+        var pairs = new List<string>();
+        if (!string.IsNullOrWhiteSpace(Type))
+        {
+            pairs.Add($"type={Uri.EscapeDataString(Type)}");
+        }
+        if (!string.IsNullOrWhiteSpace(DimensionUiKey))
+        {
+            pairs.Add($"dimension={Uri.EscapeDataString(WellbeingDimensions.ToCanonical(DimensionUiKey))}");
+        }
+        if (From is DateOnly from)
+        {
+            pairs.Add($"from={from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}");
+        }
+        if (To is DateOnly to)
+        {
+            pairs.Add($"to={to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}");
+        }
+        pairs.Add($"page={Page}");
+        pairs.Add($"pageSize={PageSize}");
+        return string.Join("&", pairs);
+    }
+}
+
 public sealed class ExtraFieldRow
 {
     public string Key { get; set; } = string.Empty;
     public string Value { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Presentation helpers for the history list/detail (history UX spec §4/§6):
+/// row title fallbacks, main-param badges, dimension badge, day-group labels.
+/// Pure functions so the page stays thin and the rules are unit-testable.
+/// </summary>
+public static class WellbeingActivityDisplay
+{
+    private const string WimHofKey = "wim_hof";
+
+    /// <summary>
+    /// Row title: type label from the catalog; for "Otra actividad" the
+    /// metadata.name when present; unknown types render the raw type string
+    /// (history UX spec §6 — never crash on a type the FE doesn't know).
+    /// </summary>
+    public static string RowTitle(WellbeingActivityResource resource)
+    {
+        if (resource.Type == WellbeingActivityTypes.OtherKey
+            && resource.Metadata is { } metadata
+            && metadata.TryGetValue("name", out var name)
+            && name.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(name.GetString()))
+        {
+            return name.GetString()!;
+        }
+
+        return WellbeingActivityTypes.All.TryGetValue(resource.Type, out var spec)
+            ? spec.Label
+            : resource.Type;
+    }
+
+    /// <summary>Dimension badge UI label ("Fuerza"/"Salud"/"Movilidad") via the shared UI-key mapping.</summary>
+    public static string DimensionBadgeLabel(WellbeingActivityResource resource)
+    {
+        var uiKey = WellbeingDimensions.ToUiKey(resource.Dimension);
+        return WellbeingDimensions.Options.FirstOrDefault(o => o.Key == uiKey).Label;
+    }
+
+    public static string DimensionBadgeClass(WellbeingActivityResource resource)
+        => $"hs-hist-badge-dim-{WellbeingDimensions.ToUiKey(resource.Dimension)}";
+
+    /// <summary>
+    /// Compact param badges, max 3 (spec §4): temperature, cycles ("rondas" for
+    /// Wim Hof), intensity, style/series from metadata.
+    /// </summary>
+    public static List<string> MainParamBadges(WellbeingActivityResource resource)
+    {
+        var badges = new List<string>();
+
+        if (resource.TemperatureCelsius is decimal temperature)
+        {
+            badges.Add($"{FormatNumber(temperature)} °C");
+        }
+
+        if (resource.Cycles is int cycles)
+        {
+            badges.Add(resource.Type == WimHofKey
+                ? $"{cycles} rondas"
+                : $"{cycles} ciclos");
+        }
+
+        if (resource.Intensity is decimal intensity)
+        {
+            badges.Add($"int. {FormatNumber(intensity)}");
+        }
+
+        if (resource.Metadata is { } metadata)
+        {
+            if (metadata.TryGetValue("style", out var style) && style.ValueKind == JsonValueKind.String)
+            {
+                badges.Add(style.GetString() ?? string.Empty);
+            }
+            else if (metadata.TryGetValue("series", out var series) && series.ValueKind == JsonValueKind.Number)
+            {
+                badges.Add($"{series.GetDecimal()} series");
+            }
+            else if (metadata.TryGetValue("series", out var textSeries) && textSeries.ValueKind == JsonValueKind.String)
+            {
+                badges.Add(textSeries.GetString() ?? string.Empty);
+            }
+        }
+
+        return badges.Take(3).ToList();
+    }
+
+    /// <summary>
+    /// Day-group heading: "Hoy" / "Ayer" / long es-ES date (spec §4). The API
+    /// stores occurredOnUtc at midnight UTC of the user's local date, so the
+    /// UTC date IS the activity's day.
+    /// </summary>
+    public static string DayLabel(DateTime occurredOnUtc, DateTime todayLocal)
+    {
+        var day = occurredOnUtc.Date;
+        if (day == todayLocal.Date)
+        {
+            return "Hoy";
+        }
+        if (day == todayLocal.Date.AddDays(-1))
+        {
+            return "Ayer";
+        }
+
+        return day.ToString("dddd, d 'de' MMMM", new CultureInfo("es-ES"));
+    }
+
+    public static string DayCountLabel(int count) => count == 1 ? "1 actividad" : $"{count} actividades";
+
+    public static string DurationLabel(int? minutes) => minutes is int value ? $"{value} min" : string.Empty;
+
+    private static string FormatNumber(decimal value)
+        => value == decimal.Truncate(value)
+            ? ((int)value).ToString(CultureInfo.InvariantCulture)
+            : value.ToString(CultureInfo.InvariantCulture);
 }
 
 /// <summary>
@@ -246,6 +402,53 @@ public static class WellbeingActivityMapper
         if (int.TryParse((frequencyPerWeek ?? string.Empty).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var frequency))
         {
             request.FrequencyPerWeek = frequency;
+        }
+
+        return request;
+    }
+
+    /// <summary>
+    /// Inbound resource → outbound write payload, used by the history "Deshacer"
+    /// (re-POST of the deleted activity; history UX spec §6 — undo ≤6 s, new id
+    /// is acceptable). Dimension arrives canonical from the API and travels back
+    /// unchanged.
+    /// </summary>
+    public static WellbeingActivityWriteRequest ToWriteRequest(WellbeingActivityResource resource)
+    {
+        var request = new WellbeingActivityWriteRequest
+        {
+            Type = resource.Type,
+            Dimension = resource.Dimension,
+            OccurredOnUtc = resource.OccurredOnUtc
+                .ToUniversalTime()
+                .ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+            DurationMinutes = resource.DurationMinutes,
+            Intensity = resource.Intensity is decimal intensity ? (int)intensity : null,
+            TemperatureCelsius = resource.TemperatureCelsius is decimal temperature ? (int)temperature : null,
+            Cycles = resource.Cycles,
+            Notes = resource.Notes,
+        };
+
+        if (resource.FrequencyPerWeek is decimal frequency)
+        {
+            request.FrequencyPerWeek = (int)frequency;
+        }
+
+        if (resource.Metadata is { Count: > 0 } metadata)
+        {
+            request.Metadata = new Dictionary<string, object?>();
+            foreach (var (key, value) in metadata)
+            {
+                request.Metadata[key] = value.ValueKind switch
+                {
+                    JsonValueKind.Number => value.TryGetInt32(out var number) ? number : value.GetDecimal(),
+                    JsonValueKind.String => value.GetString(),
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    JsonValueKind.Null => null,
+                    _ => value.ToString(),
+                };
+            }
         }
 
         return request;
