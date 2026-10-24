@@ -88,18 +88,20 @@ public class ProfilePageTests : BlazorTestBase
 
         var cut = RenderComponent<Profile>();
 
-        cut.WaitForAssertion(() =>
-        {
-            cut.Markup.Should().Contain("Insights");
-            cut.Markup.Should().Contain("Muscle load");
-            cut.Markup.Should().Contain("Sessions");
-            cut.Markup.Should().Contain("Exercises");
-            cut.Markup.Should().Contain("Bench Press");
-            cut.Markup.Should().Contain("Deadlift");
-            cut.Markup.Should().Contain("4 x 8 @ 80 kg");
-            cut.Markup.Should().Contain("Chest");
-            cut.Markup.Should().Contain("data-body-profile=\"female\"");
-        });
+        // Polling wait instead of render-event WaitForAssertion (flaky under
+        // full-suite load; see BlazorTestBase wait-ceiling note).
+        cut.WaitForState(() =>
+            cut.Markup.Contains("Insights") && cut.Markup.Contains("Bench Press"));
+
+        cut.Markup.Should().Contain("Insights");
+        cut.Markup.Should().Contain("Muscle load");
+        cut.Markup.Should().Contain("Sessions");
+        cut.Markup.Should().Contain("Exercises");
+        cut.Markup.Should().Contain("Bench Press");
+        cut.Markup.Should().Contain("Deadlift");
+        cut.Markup.Should().Contain("4 x 8 @ 80 kg");
+        cut.Markup.Should().Contain("Chest");
+        cut.Markup.Should().Contain("data-body-profile=\"female\"");
     }
 
     [Fact]
@@ -111,11 +113,10 @@ public class ProfilePageTests : BlazorTestBase
             .Respond("application/json", """{ "biologicalSex": 0 }""");
         var cut = RenderComponent<Profile>();
 
-        cut.WaitForAssertion(() =>
-        {
-            cut.Markup.Should().Contain("No training data yet");
-            cut.Markup.Should().Contain(
-                "Log a workout to start seeing weekly load");
-        });
+        cut.WaitForState(() => cut.Markup.Contains("No training data yet"));
+
+        cut.Markup.Should().Contain("No training data yet");
+        cut.Markup.Should().Contain(
+            "Log a workout to start seeing weekly load");
     }
 }

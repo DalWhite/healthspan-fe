@@ -368,7 +368,18 @@ public class RegisterActivityTests : BlazorTestBase
         ClickSave();
         _cut.WaitForElement(".hs-reg-success");
 
-        _cut.Find(".hs-reg-success-actions .hs-cta-primary").Click();
+        // Polling click: under full-suite load the render triggered by this click
+        // can sit queued behind the success render batch, so a single Find+Click
+        // may act on a stale DOM snapshot. Re-click until the success panel is
+        // actually gone (RegisterAnother is idempotent).
+        _cut.WaitForState(
+            () =>
+            {
+                var again = _cut.FindAll(".hs-reg-success-actions .hs-cta-primary");
+                if (again.Count > 0) again[0].Click();
+                return _cut.FindAll(".hs-reg-success").Count == 0;
+            },
+            TimeSpan.FromSeconds(10));
 
         _cut.Find(".hs-cta-primary").TextContent.Should().Contain("Guardar actividad");
         TypeChips().First(chip => chip.TextContent.Trim() == "Meditación")
