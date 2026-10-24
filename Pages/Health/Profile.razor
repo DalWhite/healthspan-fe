@@ -5,6 +5,7 @@
 @inject HealthspanApiClient ApiClient
 @inject HttpClient Http
 @inject TitleService TitleService
+@inject BillingClient Billing
 
 <PageTitle>Training insights</PageTitle>
 
@@ -31,6 +32,14 @@
             }
         </Actions>
     </PageHeader>
+
+    @* A1 (pago-ux-spec-t_5b46e650 §2): paywall SOLO en la capa de análisis
+       avanzado. El log, las rutinas y el historial nunca se bloquean (D1):
+       la card es un aviso con CTA, no un candado. *@
+    @if (_showPaywall)
+    {
+        <PaywallUpgradeCard />
+    }
 
     @if (_isLoading)
     {
@@ -174,6 +183,7 @@
     ];
 
     private bool _isLoading = true;
+    private bool _showPaywall;
     private DateTime _selectedWeekStart;
     private string _bodyViewMode = "both";
     private HealthProfileResource _healthProfile = new();
@@ -234,7 +244,27 @@
     protected override async Task OnInitializedAsync()
     {
         TitleService.Title = "Training insights";
+        _ = LoadPaywallStateAsync();
         await LoadInsightsAsync();
+    }
+
+    private async Task LoadPaywallStateAsync()
+    {
+        try
+        {
+            var subscription = await Billing.GetSubscriptionAsync();
+            // Premium visible (trial/active/past_due o cancelación futura) →
+            // sin paywall. none/canceled/incomplete → aviso de mejora (A1).
+            var live = SubscriptionStates.IsLive(subscription.Status)
+                || (subscription.CancelAtPeriodEnd
+                    && subscription.Status is not SubscriptionStates.Canceled);
+            _showPaywall = !live;
+        }
+        catch (BillingApiException)
+        {
+            // Sin confirmación de suscripción no se interrumpe el análisis.
+            _showPaywall = false;
+        }
     }
 
     private async Task LoadInsightsAsync()

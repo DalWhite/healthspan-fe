@@ -76,5 +76,6 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddMudServices(MudAppConfig.Configure);
 builder.Services.AddSingleton<HealthspanApiClient>();
 builder.Services.AddSingleton<ActivityClient>();
+builder.Services.AddSingleton<BillingClient>();
 
 await builder.Build().RunAsync();

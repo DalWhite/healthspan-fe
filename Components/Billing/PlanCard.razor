@@ -1,0 +1,35 @@
+@* A2: card de plan (radio-group real mensual/anual). Mensual preseleccionado (D3);
+   el anual lleva badge de ahorro con texto, no solo color. *@
+
+<div class="hs-plan-card @(Selected ? "hs-plan-card-selected" : "")"
+     role="radio"
+     aria-checked="@(Selected ? "true" : "false")"
+     tabindex="0"
+     @onclick="SelectAsync"
+     @onkeydown="OnKeyDownAsync">
+    <div class="hs-plan-card-head">
+        <span class="hs-plan-name">@Plan.Name</span>
+        @if (!string.IsNullOrWhiteSpace(Plan.SaveBadge))
+        {
+            <span class="hs-chip hs-chip-done hs-plan-save-badge">@Plan.SaveBadge</span>
+        }
+    </div>
+    <div class="hs-plan-price" tabindex="-1">@Plan.PriceLabel</div>
+    <div class="hs-plan-interval">por @Plan.Interval</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PremiumPlan Plan { get; set; } = default!;
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public EventCallback<PremiumPlan> OnSelected { get; set; }
+
+    private async Task SelectAsync() => await OnSelected.InvokeAsync(Plan);
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            await SelectAsync();
+        }
+    }
+}

@@ -1,0 +1,81 @@
+@* A7: sheet de cancelación sin dark patterns. Lista honesta: pierdes análisis
+   avanzado, conservas log + rutinas + historial. POST cancel dentro del sheet;
+   si falla, alerta en el sheet y el estado NO cambia (matriz §4). *@
+
+<MudDialog Class="hs-cancel-sheet">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Cancelar Premium</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-3">
+            Mantendrás todo el acceso hasta el @EndsLabel. Después: se bloquea el
+            análisis avanzado; tu registro, rutinas e historial siguen gratis —
+            no borramos nada.
+        </MudText>
+        <MudText Typo="Typo.body2" Class="hs-muted-copy mb-3">
+            Tu registro y todo tu historial siguen siendo gratis para siempre.
+        </MudText>
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <div class="hs-reg-banner" role="alert">@_error</div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled"
+                   Color="MudBlazor.Color.Primary"
+                   OnClick="KeepPremium">
+            Mantener Premium
+        </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="MudBlazor.Color.Error"
+                   Disabled="@_submitting"
+                   aria-busy="@(_submitting ? "true" : "false")"
+                   OnClick="ConfirmCancelAsync">
+            @(_submitting ? "Cancelando…" : "Confirmar cancelación")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public DateTime? CurrentPeriodEnd { get; set; }
+    [Inject] private BillingClient Billing { get; set; } = default!;
+
+    private bool _submitting;
+    private string? _error;
+
+    private string EndsLabel =>
+        CurrentPeriodEnd?.ToString("d MMM yyyy", CultureInfo.GetCultureInfo("es-ES"))
+        ?? "el fin del periodo";
+
+    private void KeepPremium() => MudDialog.Cancel();
+
+    private async Task ConfirmCancelAsync()
+    {
+        if (_submitting)
+        {
+            return;
+        }
+
+        _submitting = true;
+        _error = null;
+
+        try
+        {
+            var subscription = await Billing.CancelSubscriptionAsync();
+            MudDialog.Close(DialogResult.Ok(subscription));
+        }
+        catch (BillingApiException ex) when (ex.Code == BillingCodes.SubscriptionNotFound)
+        {
+            _error = "No hay ninguna suscripción que cancelar.";
+        }
+        catch (BillingApiException)
+        {
+            _error = "No se pudo cancelar la suscripción. Inténtalo de nuevo.";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}

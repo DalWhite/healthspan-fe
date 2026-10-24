@@ -1,0 +1,180 @@
+@page "/premium"
+@inject BillingClient Billing
+@inject NavigationManager Navigation
+
+@* Flujo A — A2 (selección de plan) + A4 (handoff a Stripe Checkout hosted).
+   Decisión de producto (QA-B9): trial 7 días CON tarjeta obligatoria — el BE
+   aplica siempre trial_period_days=7 en el checkout, así que hay UN solo CTA
+   honesto; no existe "pago directo sin trial".
+   A4: Idempotency-Key único por intento, reutilizado en reintento (misma clave,
+   mismo plan); timeout de handoff 10 s → estado A9 con reintento. *@
+
+<PageShell Narrow Class="hs-premium-page">
+    <PageHeader Title="Healthspan Premium" />
+
+    @if (_loadingSubscription)
+    {
+        <LoadingState Message="Comprobando tu suscripción…" />
+    }
+    else if (_liveSubscription is not null)
+    {
+        <div class="hs-premium-existing" role="status">
+            <BillingStatusBadge Subscription="@_liveSubscription" />
+            <MudText Typo="Typo.body2" Class="hs-muted-copy mt-2">
+                Ya tienes una suscripción Premium. Puedes gestionarla o cancelarla
+                desde tu página de suscripción.
+            </MudText>
+            <a class="hs-cta hs-cta-secondary mt-3" href="billing">Gestionar suscripción</a>
+        </div>
+    }
+    else
+    {
+        <MudText Typo="Typo.body1" Class="hs-premium-lead">
+            7 días gratis, luego se cobra automáticamente. Cancela cuando quieras.
+        </MudText>
+
+        <div class="hs-premium-lists">
+            <div>
+                <span class="hs-micro-label">Con Premium</span>
+                <ul class="hs-premium-list">
+                    <li>Análisis avanzado de entrenamiento (Insights)</li>
+                </ul>
+            </div>
+            <div>
+                <span class="hs-micro-label">Gratis para siempre</span>
+                <ul class="hs-premium-list hs-premium-list-free">
+                    <li>Registro y log de entrenamiento</li>
+                    <li>Rutinas e historial completo</li>
+                    <li>Actividades de bienestar</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="hs-plan-cards" role="radiogroup" aria-label="Periodo de facturación">
+            @foreach (var plan in PremiumPlans.All)
+            {
+                <PlanCard Plan="@plan"
+                          Selected="@(plan.Slug == _selectedPlan.Slug)"
+                          OnSelected="SelectPlan" />
+            }
+        </div>
+
+        <div class="hs-checkout-handoff" role="note">
+            Te llevamos a Stripe. Stripe es la pasarela que procesa el pago.
+            Healthspan no ve ni guarda los datos de tu tarjeta.
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_checkoutError))
+        {
+            <div class="hs-reg-banner" role="alert">@_checkoutError</div>
+        }
+
+        <CheckoutButton Label="Empezar prueba gratis de 7 días"
+                        Loading="@_checkoutStarting"
+                        OnClick="StartCheckoutAsync" />
+
+        <MudText Typo="Typo.body2" Class="hs-muted-copy mt-3">
+            Tu registro y todo tu historial siguen siendo gratis para siempre.
+        </MudText>
+    }
+</PageShell>
+
+@code {
+    private const int HandoffTimeoutSeconds = 10;
+
+    private bool _loadingSubscription = true;
+    private SubscriptionResource? _liveSubscription;
+    private PremiumPlan _selectedPlan = PremiumPlans.Monthly;
+
+    // Una clave por intento de checkout: el reintento la reutiliza (spec A4:
+    // timeout → reintento con la MISMA Idempotency-Key, sin doble sesión).
+    private string _idempotencyKey = Guid.NewGuid().ToString("N");
+    private bool _checkoutStarting;
+    private string? _checkoutError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var subscription = await Billing.GetSubscriptionAsync();
+            if (SubscriptionStates.IsLive(subscription.Status))
+            {
+                _liveSubscription = subscription;
+            }
+        }
+        catch (BillingApiException)
+        {
+            // Sin suscripción confirmable: se ofrece el plan igualmente; el BE
+            // responderá 409 subscription_active si ya existe una viva.
+        }
+        finally
+        {
+            _loadingSubscription = false;
+        }
+    }
+
+    private void SelectPlan(PremiumPlan plan)
+    {
+        if (plan.Slug != _selectedPlan.Slug)
+        {
+            _selectedPlan = plan;
+            // Cambiar de plan invalida la clave anterior (evita 409
+            // idempotency_conflict: la clave queda ligada a un plan).
+            _idempotencyKey = Guid.NewGuid().ToString("N");
+        }
+    }
+
+    private async Task StartCheckoutAsync()
+    {
+        if (_checkoutStarting)
+        {
+            return;
+        }
+
+        _checkoutStarting = true;
+        _checkoutError = null;
+
+        try
+        {
+            using var timeout = new CancellationTokenSource(
+                TimeSpan.FromSeconds(HandoffTimeoutSeconds));
+
+            var session = await Billing.CreateCheckoutSessionAsync(
+                _selectedPlan.Slug,
+                _idempotencyKey,
+                timeout.Token);
+
+            if (!string.IsNullOrWhiteSpace(session.CheckoutUrl))
+            {
+                // A4: redirigir solo si hay checkoutUrl (handoff hosted).
+                Navigation.NavigateTo(session.CheckoutUrl, forceLoad: true);
+                return;
+            }
+
+            _checkoutError = "No se pudo abrir la página de pago. Inténtalo de nuevo.";
+        }
+        catch (OperationCanceledException)
+        {
+            // A9 por timeout: reintento con la misma clave → misma sesión, sin doble cargo.
+            _checkoutError = "El pago no se completó. No se te ha cobrado nada. Inténtalo de nuevo.";
+        }
+        catch (BillingApiException ex) when (ex.Code == BillingCodes.SubscriptionActive)
+        {
+            _checkoutError = "Ya tienes una suscripción Premium activa. "
+                           + "Cancela la actual antes de contratar otra.";
+        }
+        catch (BillingApiException ex) when (ex.Code == BillingCodes.BillingNotConfigured)
+        {
+            _checkoutError = "El pago no está disponible en este entorno en este momento. "
+                           + "Inténtalo más tarde.";
+        }
+        catch (BillingApiException)
+        {
+            _checkoutError = "El pago no se completó. No se te ha cobrado nada. Inténtalo de nuevo.";
+        }
+        finally
+        {
+            _checkoutStarting = false;
+        }
+    }
+}

@@ -1,0 +1,25 @@
+@* B4: tarjeta "Método de pago" en el perfil del entrenador para el trainee.
+   Chip "Externo ↗" + disclosure legal; el enlace abre pestaña nueva con texto
+   accesible "abre un sitio externo" (D7). *@
+
+<div class="hs-payment-link-card">
+    <div class="hs-payment-link-card-head">
+        <MudText Typo="Typo.h6">Método de pago</MudText>
+        <span class="hs-chip hs-chip-accent">Externo ↗</span>
+    </div>
+    <MudText Typo="Typo.body2" Class="hs-muted-copy mt-1">
+        El pago se gestiona fuera de Healthspan. Healthspan no cobra, no retiene
+        ni intermedia el pago.
+    </MudText>
+    <a class="hs-payment-link-open hs-cta hs-cta-secondary mt-3"
+       href="@Link.Url"
+       target="_blank"
+       rel="noopener">
+        Ir al enlace de pago <span class="hs-visually-hidden">(abre un sitio externo)</span>↗
+    </a>
+    <span class="hs-muted-copy hs-payment-link-domain">@Link.VerifiedDomain</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PaymentLinkResource Link { get; set; } = default!;
+}

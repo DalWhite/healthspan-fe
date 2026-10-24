@@ -1,0 +1,70 @@
+@* D9: estado = icono + texto + color, nunca solo color; badges con fecha absoluta.
+   Vocabulario: status de la API (none/trialing/active/past_due/canceled) +
+   cancelAtPeriodEnd → "Cancelado · acceso hasta {fecha}" (A8). *@
+
+<span class="hs-status-badge hs-status-@CssKey">
+    <MudIcon Icon="@Icon" Size="Size.Small" aria-hidden="true" />
+    <span>@Text</span>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public SubscriptionResource Subscription { get; set; } = default!;
+
+    private static readonly CultureInfo Es = CultureInfo.GetCultureInfo("es-ES");
+
+    private bool CancelScheduled =>
+        Subscription.CancelAtPeriodEnd
+        && Subscription.Status is SubscriptionStates.Trialing or SubscriptionStates.Active;
+
+    private string CssKey => Subscription.Status switch
+    {
+        SubscriptionStates.None => "free",
+        SubscriptionStates.Trialing => "trial",
+        SubscriptionStates.Active => "active",
+        SubscriptionStates.PastDue => "pr",
+        SubscriptionStates.Canceled => "free",
+        _ => "free",
+    };
+
+    private string Icon => Subscription.Status switch
+    {
+        SubscriptionStates.None => Icons.Material.Filled.PersonOutline,
+        SubscriptionStates.Trialing => Icons.Material.Filled.Schedule,
+        SubscriptionStates.Active => Icons.Material.Filled.CheckCircle,
+        SubscriptionStates.PastDue => Icons.Material.Filled.WarningAmber,
+        SubscriptionStates.Canceled => Icons.Material.Filled.Cancel,
+        _ => Icons.Material.Filled.HelpOutline,
+    };
+
+    private string Text
+    {
+        get
+        {
+            if (CancelScheduled)
+            {
+                return Subscription.CurrentPeriodEnd is { } end
+                    ? $"Cancelado · acceso hasta {end.ToString("d MMM yyyy", Es)}"
+                    : "Cancelado · acceso hasta el fin del periodo";
+            }
+
+            return Subscription.Status switch
+            {
+                SubscriptionStates.None => "Cuenta gratuita",
+                SubscriptionStates.Trialing => Subscription.TrialEnd is { } trialEnd
+                    ? $"Prueba activa · hasta {trialEnd.ToString("d MMM yyyy", Es)}"
+                    : "Prueba activa",
+                SubscriptionStates.Active => Subscription.CurrentPeriodEnd is { } activeEnd
+                    ? $"Premium activo · renueva el {activeEnd.ToString("d MMM yyyy", Es)}"
+                    : "Premium activo",
+                SubscriptionStates.PastDue => "Pago pendiente · revisa tu método de pago",
+                SubscriptionStates.Canceled => Subscription.Refunded
+                    ? "Acceso cancelado (pago reembolsado)"
+                    : Subscription.CurrentPeriodEnd is { } canceledEnd
+                        ? $"Cancelado · acceso hasta {canceledEnd.ToString("d MMM yyyy", Es)}"
+                        : "Cancelado",
+                SubscriptionStates.Incomplete => "Pago incompleto",
+                _ => Subscription.Status,
+            };
+        }
+    }
+}

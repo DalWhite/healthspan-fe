@@ -1,0 +1,217 @@
+@page "/billing"
+@inject BillingClient Billing
+@inject IDialogService DialogService
+
+@* A6: gestión de Premium — BillingStatusBadge, plan, fecha de renovación,
+   switch cancelAtPeriodEnd (abre el sheet A7), ReceiptList (A12 vacío útil).
+   A3 TrialBanner · A8 cancelado con fecha exacta + "Reactivar".
+   A11: skeleton de carga; GET que falla → nota err + reintentar (matriz §4). *@
+
+<PageShell Narrow Class="hs-billing-page">
+    <PageHeader Title="Mi suscripción" />
+
+    @if (_loading)
+    {
+        <div class="hs-billing-skeleton" aria-busy="true">
+            <div class="hs-skeleton hs-skeleton-card"></div>
+            <div class="hs-skeleton hs-skeleton-row"></div>
+            <div class="hs-skeleton hs-skeleton-row"></div>
+        </div>
+    }
+    else if (_loadError is not null)
+    {
+        <ErrorState Title="No se pudo cargar tu suscripción"
+                    Message="@_loadError"
+                    ActionLabel="Reintentar"
+                    OnAction="LoadAsync" />
+    }
+    else if (_subscription is null || _subscription.Status == SubscriptionStates.None)
+    {
+        <EmptyState Icon="@Icons.Material.Filled.WorkspacePremium"
+                    Title="Sin suscripción Premium"
+                    Subtitle="Tu registro, rutinas e historial son gratis para siempre. Premium añade el análisis avanzado."
+                    ActionLabel="Ver planes Premium"
+                    OnAction='() => Navigation.NavigateTo("premium")' />
+    }
+    else
+    {
+        @if (_subscription.Status == SubscriptionStates.Trialing && _subscription.TrialEnd is { } trialEnd)
+        {
+            <TrialBanner EndsAt="@trialEnd" DayOf="@TrialDayOf" />
+        }
+
+        <div class="hs-billing-panel">
+            <BillingStatusBadge Subscription="@_subscription" />
+
+            <div class="hs-billing-rows">
+                <div class="hs-billing-row">
+                    <span class="hs-billing-label">Plan</span>
+                    <span>@PlanLabel</span>
+                </div>
+                @if (_subscription.CurrentPeriodEnd is { } periodEnd)
+                {
+                    <div class="hs-billing-row">
+                        <span class="hs-billing-label">@(CancelScheduled ? "Acceso hasta" : "Renovación")</span>
+                        <span>@periodEnd.ToString("d MMM yyyy", Es)</span>
+                    </div>
+                }
+                <div class="hs-billing-row hs-billing-row-switch">
+                    <label class="hs-billing-label" for="cancel-switch">Cancelar al final del periodo</label>
+                    <MudSwitch id="cancel-switch"
+                               T="bool"
+                               Value="CancelScheduled"
+                               ValueChanged="OnCancelSwitchAsync"
+                               Color="MudBlazor.Color.Error" />
+                </div>
+            </div>
+
+            @if (_subscription.Refunded)
+            {
+                <MudText Typo="Typo.body2" Class="hs-muted-copy mt-2">
+                    Tu pago fue reembolsado y el acceso Premium se canceló.
+                </MudText>
+            }
+
+            @if (CancelScheduled)
+            {
+                <div class="hs-billing-cancelled-note" role="status">
+                    No se hará ningún cobro después del
+                    @(_subscription.CurrentPeriodEnd?.ToString("d MMM yyyy", Es) ?? "fin del periodo").
+                    <a class="hs-billing-reactivate" href="premium">Reactivar</a>
+                </div>
+            }
+
+            @if (_subscription.Status == SubscriptionStates.PastDue)
+            {
+                <MudText Typo="Typo.body2" Class="hs-muted-copy mt-2">
+                    El último cobro falló. Stripe reintentará el pago automáticamente.
+                </MudText>
+            }
+        </div>
+
+        <div class="hs-billing-receipts">
+            <span class="hs-micro-label">Recibos</span>
+            @if (_loadingReceipts)
+            {
+                <div class="hs-skeleton hs-skeleton-row" aria-busy="true"></div>
+            }
+            else if (_receiptsError is not null)
+            {
+                <ErrorState Title="No se pudieron cargar los recibos"
+                            Message="@_receiptsError"
+                            ActionLabel="Reintentar"
+                            OnAction="LoadReceiptsAsync" />
+            }
+            else
+            {
+                <ReceiptList Receipts="@_receipts"
+                             DuringTrial="@(_subscription.Status == SubscriptionStates.Trialing)" />
+            }
+        </div>
+    }
+</PageShell>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private static readonly CultureInfo Es = CultureInfo.GetCultureInfo("es-ES");
+
+    private bool _loading = true;
+    private SubscriptionResource? _subscription;
+    private string? _loadError;
+
+    private bool _loadingReceipts = true;
+    private IReadOnlyList<ReceiptResource> _receipts = Array.Empty<ReceiptResource>();
+    private string? _receiptsError;
+
+    private bool CancelScheduled =>
+        _subscription?.CancelAtPeriodEnd == true
+        && _subscription.Status is SubscriptionStates.Trialing or SubscriptionStates.Active;
+
+    private string PlanLabel =>
+        PremiumPlans.Find(_subscription?.Plan)?.Name ?? _subscription?.Plan ?? "Premium";
+
+    private int? TrialDayOf
+    {
+        get
+        {
+            if (_subscription?.TrialEnd is not { } trialEnd)
+            {
+                return null;
+            }
+
+            var remaining = Math.Ceiling((trialEnd - DateTime.UtcNow).TotalDays);
+            var day = 7 - (int)remaining + 1;
+            return Math.Clamp(day, 1, 7);
+        }
+    }
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _loadError = null;
+
+        try
+        {
+            _subscription = await Billing.GetSubscriptionAsync();
+        }
+        catch (BillingApiException)
+        {
+            _loadError = "No se pudo cargar tu suscripción. Inténtalo de nuevo.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        _ = LoadReceiptsAsync();
+    }
+
+    private async Task LoadReceiptsAsync()
+    {
+        _loadingReceipts = true;
+        _receiptsError = null;
+
+        try
+        {
+            _receipts = await Billing.GetReceiptsAsync();
+        }
+        catch (BillingApiException)
+        {
+            _receiptsError = "No se pudieron cargar los recibos. Inténtalo de nuevo.";
+        }
+        finally
+        {
+            _loadingReceipts = false;
+            // Se invoca fire-and-forget tras cargar la suscripción: sin este
+            // StateHasChanged el skeleton de recibos no se sustituye nunca.
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnCancelSwitchAsync(bool value)
+    {
+        if (!value || _subscription is null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            { nameof(CancelSubscriptionDialog.CurrentPeriodEnd), _subscription.CurrentPeriodEnd },
+        };
+
+        var dialog = await DialogService.ShowAsync<CancelSubscriptionDialog>(
+            "Cancelar Premium", parameters,
+            new MudBlazor.DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraSmall });
+
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is SubscriptionResource cancelled)
+        {
+            _subscription = cancelled;
+        }
+    }
+}
