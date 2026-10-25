@@ -1,4 +1,5 @@
 using System.Net;
+using System.Linq;
 using System.Text;
 using Blazored.LocalStorage;
 using Bunit;
@@ -383,6 +384,51 @@ public sealed class CsvImportProgressTests : BlazorTestBase
         Assert.DoesNotContain("were imported", cut.Markup);
         Assert.DoesNotContain("of 10,000 rows", cut.Markup);
         Assert.DoesNotContain("5,000 of 10,000", cut.Markup);
+    }
+
+    [Fact]
+    public void FailedJob_ActionsOfferDismissOnly_NoDeadTryAgain()
+    {
+        // t_a0c76b0e: the old "Try again" button was gated on _selectedFile,
+        // which ImportFile() clears as soon as the job starts — so it never
+        // rendered for a job that actually failed. The copy already points to
+        // re-uploading via the picker; the dead affordance is removed.
+        MockAcceptedImport();
+        MockHttp.When($"/data/import/{JobId}")
+            .Respond("application/json", StatusJson("failed", 5000, 0, "[]", "\"crash\""));
+
+        var cut = RenderComponent<Settings>();
+        SelectCsvFile(cut, "exercises.csv", 1024);
+        ClickButtonWithText(cut, "Import");
+
+        cut.WaitForElement(".hs-import-failure");
+        Assert.DoesNotContain("Try again", cut.Markup);
+        var buttons = cut.FindAll(".hs-import-panel .mud-button-root");
+        Assert.Equal(new[] { "Dismiss" }, buttons.Select(b => b.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void CancelledJob_CopySaysNoRowsSaved_NoImportedCount()
+    {
+        // t_a0c76b0e: same single-transaction logic as "failed" — cancelled
+        // also means 0 committed rows, so the counters must not read as saved.
+        MockAcceptedImport();
+        MockHttp.When($"/data/import/{JobId}")
+            .Respond("application/json", StatusJson("cancelled", 5000));
+
+        var cut = RenderComponent<Settings>();
+        SelectCsvFile(cut, "exercises.csv", 1024);
+        ClickButtonWithText(cut, "Import");
+
+        cut.WaitForElement(".hs-import-chip");
+        cut.WaitForState(() => cut.Find(".hs-import-chip").TextContent.Contains("Cancelled"));
+
+        Assert.Contains("No rows were saved", cut.Find(".hs-import-count").TextContent);
+        Assert.Equal(
+            "Import cancelled — no rows were saved",
+            cut.Find(".hs-import-bar-wrap").GetAttribute("aria-valuetext"));
+        Assert.DoesNotContain("5,000 of 10,000", cut.Markup);
+        Assert.DoesNotContain("were imported", cut.Markup);
     }
 
     /// <summary>

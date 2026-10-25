@@ -199,10 +199,6 @@
                     else if (Tracker.Status is "failed" or "cancelled" or "not_found")
                     {
                         <MudButton OnClick="DismissJob" Variant="Variant.Outlined" Color="MudBlazor.Color.Primary">Dismiss</MudButton>
-                        @if (Tracker.Status == "failed" && _selectedFile != null)
-                        {
-                            <MudButton OnClick="TryAgain" Variant="Variant.Outlined" Color="MudBlazor.Color.Primary">Try again</MudButton>
-                        }
                     }
                 </div>
 
@@ -404,15 +400,6 @@
         _panelVisible = true;
     }
 
-    private void TryAgain()
-    {
-        // Keep the selected file: the failure was server-side, the file is
-        // still what the user wants to import. No auto-retry — reimporting
-        // duplicates is the user's call (baseline doc §6.3).
-        Tracker.Dismiss();
-        _panelVisible = true;
-    }
-
     private void HandleTrackerChanged()
     {
         if (Tracker.Status != _lastStatus)
@@ -454,17 +441,20 @@
         _ => MudBlazor.Color.Primary
     };
 
-    // t_4965e7c7: with the single transaction, "failed" means 0 committed
-    // rows — the counters are diagnostic only, so they must never read as a
-    // count of saved rows in that state. Live progress (running/queued)
-    // keeps the numbers as-is.
-    private string ProcessedText => Tracker.Status == "failed"
+    // t_4965e7c7 + t_a0c76b0e: with the single transaction, "failed" and
+    // "cancelled" both mean 0 committed rows — the counters are diagnostic
+    // only, so they must never read as a count of saved rows in those states.
+    // Live progress (running/queued) keeps the numbers as-is.
+    private string ProcessedText => Tracker.Status is "failed" or "cancelled"
         ? "No rows were saved"
         : $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows";
 
-    private string BarValueText => Tracker.Status == "failed"
-        ? "Import stopped — no rows were saved"
-        : $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows imported";
+    private string BarValueText => Tracker.Status switch
+    {
+        "failed" => "Import stopped — no rows were saved",
+        "cancelled" => "Import cancelled — no rows were saved",
+        _ => $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows imported"
+    };
 
     private string StatsText
     {
