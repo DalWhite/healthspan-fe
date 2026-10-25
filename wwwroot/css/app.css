@@ -6013,6 +6013,8 @@ button.hs-health-overview-card {
   .hs-tile {
     flex: 1 1 0;
   }
+}
+
 /* Trainer routine editor */
 .hs-routine-editor-head {
   display: grid;
@@ -6651,8 +6653,6 @@ button.hs-health-overview-card {
   display: block;
   margin-top: var(--hs-space-2);
   font-size: var(--hs-font-size-sm);
-}
-
 }
 
 /* ── Historial de actividades (t_ce09f2ab) ───────────────────────────────
