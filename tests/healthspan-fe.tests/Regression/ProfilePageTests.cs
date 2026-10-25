@@ -94,9 +94,9 @@ public class ProfilePageTests : BlazorTestBase
             cut.Markup.Contains("Insights") && cut.Markup.Contains("Bench Press"));
 
         cut.Markup.Should().Contain("Insights");
-        cut.Markup.Should().Contain("Muscle load");
-        cut.Markup.Should().Contain("Sessions");
-        cut.Markup.Should().Contain("Exercises");
+        cut.Markup.Should().Contain("Carga muscular");
+        cut.Markup.Should().Contain("Sesiones");
+        cut.Markup.Should().Contain("Ejercicios");
         cut.Markup.Should().Contain("Bench Press");
         cut.Markup.Should().Contain("Deadlift");
         cut.Markup.Should().Contain("4 x 8 @ 80 kg");
@@ -113,10 +113,10 @@ public class ProfilePageTests : BlazorTestBase
             .Respond("application/json", """{ "biologicalSex": 0 }""");
         var cut = RenderComponent<Profile>();
 
-        cut.WaitForState(() => cut.Markup.Contains("No training data yet"));
+        cut.WaitForState(() => cut.Markup.Contains("Aún no hay datos de entrenamiento"));
 
-        cut.Markup.Should().Contain("No training data yet");
+        cut.Markup.Should().Contain("Aún no hay datos de entrenamiento");
         cut.Markup.Should().Contain(
-            "Log a workout to start seeing weekly load");
+            "Registra un entreno para empezar a ver la carga semanal");
     }
 }
