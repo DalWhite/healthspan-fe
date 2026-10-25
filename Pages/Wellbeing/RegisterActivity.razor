@@ -218,7 +218,7 @@
 
     private string _type = "sauna";
     private string _dimension = "salud";
-    private DateOnly _date = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _date = WellbeingActivityDates.TodayForRegistration();
     private readonly Dictionary<string, Dictionary<string, string?>> _valuesByType = new();
     private Dictionary<string, string?> _values = new();
     private readonly List<ExtraFieldRow> _extras = new();
@@ -275,7 +275,7 @@
         _type = resource.Type;
         _values = TypeValues();
         _dimension = WellbeingDimensions.ToUiKey(resource.Dimension);
-        _date = DateOnly.FromDateTime(resource.OccurredOnUtc.ToUniversalTime());
+        _date = WellbeingActivityDates.ToLocalDay(resource.OccurredOnUtc);
 
         var values = TypeValues();
         if (resource.DurationMinutes is int duration)
@@ -525,13 +525,13 @@
         foreach (var (apiField, message) in ex.FieldErrors ?? new Dictionary<string, string>())
         {
             var formKey = ApiFieldToFormKey.TryGetValue(apiField, out var key) ? key : apiField;
-            _errors[formKey] = message;
+            _errors[formKey] = LocalizeServerFieldError(formKey, message);
             mapped = true;
         }
 
         if (!mapped && ex.Code is not null && CodeToFieldKey.TryGetValue(ex.Code, out var codeKey))
         {
-            _errors[codeKey] = ex.Message;
+            _errors[codeKey] = LocalizeServerFieldError(codeKey, ex.Message);
             mapped = true;
         }
 
@@ -540,6 +540,14 @@
             _banner = ex.Message;
         }
     }
+
+    /// <summary>
+    /// ProblemDetails field messages arrive in English; the whole page copy is
+    /// es-ES, so mirror the client-side date message for the date field
+    /// (activity_date_invalid). Other fields keep the server text (t_249c6eec B).
+    /// </summary>
+    private static string LocalizeServerFieldError(string formKey, string serverMessage)
+        => formKey == "date" ? "La fecha es obligatoria y no puede ser futura." : serverMessage;
 
     private void RegisterAnother()
     {
@@ -551,7 +559,7 @@
         _errors.Clear();
         _values = new Dictionary<string, string?>();
         _valuesByType[_type] = _values;
-        _date = DateOnly.FromDateTime(DateTime.Today);
+        _date = WellbeingActivityDates.TodayForRegistration();
     }
 
     private SavedSummary BuildSavedSummary(WellbeingActivityWriteRequest request)

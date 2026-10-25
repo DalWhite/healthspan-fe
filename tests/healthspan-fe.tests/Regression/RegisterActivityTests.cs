@@ -23,7 +23,7 @@ public class RegisterActivityTests : BlazorTestBase
 {
     private static readonly Guid ActivityId = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6");
 
-    private static string TodayIso => DateTime.Today.ToString("yyyy-MM-dd");
+    private static string TodayIso => WellbeingActivityDates.TodayForRegistration().ToString("yyyy-MM-dd");
 
     private IRenderedComponent<RegisterActivity> _cut = default!;
     private string? _postedBody;
@@ -33,13 +33,14 @@ public class RegisterActivityTests : BlazorTestBase
     private static string ActivityJson(
         string type = "sauna",
         string dimension = "health",
-        string? metadata = "{\"humidity_percent\":15}")
+        string? metadata = "{\"humidity_percent\":15}",
+        string? occurredOnUtc = null)
         => $$"""
            {
              "id": "{{ActivityId}}",
              "type": "{{type}}",
              "dimension": "{{dimension}}",
-             "occurredOnUtc": "{{TodayIso}}T00:00:00Z",
+             "occurredOnUtc": "{{occurredOnUtc ?? TodayIso + "T00:00:00Z"}}",
              "durationMinutes": 20,
              "frequencyPerWeek": 3,
              "intensity": 3,
@@ -418,5 +419,75 @@ public class RegisterActivityTests : BlazorTestBase
         root.GetProperty("type").GetString().Should().Be("meditation");
         root.GetProperty("dimension").GetString().Should().Be("health");
         root.GetProperty("metadata").GetProperty("style").GetString().Should().Be("Guiada");
+    }
+
+    // ===== Date contract (t_249c6eec) =====
+
+    [Fact]
+    public void Edit_Mode_Prefills_Exactly_The_Stored_Day_No_Timezone_Drift()
+    {
+        MockHttp.When(HttpMethod.Get, $"/api/activities/{ActivityId}")
+            .Respond("application/json", ActivityJson(
+                "meditation", metadata: "{\"style\":\"Guiada\"}", occurredOnUtc: "2026-10-24T00:00:00Z"));
+        MockActivitiesPut();
+
+        Services.GetRequiredService<NavigationManager>()
+            .NavigateTo($"/wellbeing/register?edit={ActivityId}");
+        Render();
+
+        _cut.WaitForElement("#reg-style");
+        _cut.Find("#reg-date").GetAttribute("value").Should().Be(
+            "2026-10-24", "a UTC+ device must show the stored day, not the day before");
+
+        // Saving only touches other fields: occurredOnUtc must travel identical.
+        ClickSave();
+        _cut.WaitForState(() => _putBody is not null, TimeSpan.FromSeconds(5));
+
+        JsonDocument.Parse(_putBody!).RootElement
+            .GetProperty("occurredOnUtc").GetString()
+            .Should().Be("2026-10-24T00:00:00Z", "edit must not displace the activity day");
+    }
+
+    [Fact]
+    public void Edit_Mode_Legacy_Response_Without_Z_Parses_As_The_Utc_Day()
+    {
+        MockHttp.When(HttpMethod.Get, $"/api/activities/{ActivityId}")
+            .Respond("application/json", ActivityJson(
+                "meditation", metadata: "{\"style\":\"Guiada\"}", occurredOnUtc: "2026-10-24T00:00:00"));
+        MockActivitiesPut();
+
+        Services.GetRequiredService<NavigationManager>()
+            .NavigateTo($"/wellbeing/register?edit={ActivityId}");
+        Render();
+
+        _cut.WaitForElement("#reg-style");
+        _cut.Find("#reg-date").GetAttribute("value").Should().Be(
+            "2026-10-24", "occurredOnUtc without offset is UTC, never device-local");
+    }
+
+    [Fact]
+    public void Server_Date_Rejection_Shows_Field_Error_In_Spanish()
+    {
+        MockActivitiesPost(
+            HttpStatusCode.BadRequest,
+            """
+            {
+              "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+              "title": "Validation error",
+              "status": 400,
+              "code": "activity_date_invalid",
+              "errors": { "occurredOnUtc": ["Activity date is required and cannot be in the future."] }
+            }
+            """);
+        Render();
+
+        FillSaunaForm(duration: "20");
+        ClickSave();
+
+        _cut.WaitForElement(".hs-reg-banner");
+        _cut.Find(".hs-reg-banner").TextContent.Should().Contain("El servidor rechazó el registro");
+        _cut.Find("#err-date").TextContent
+            .Should().Contain("no puede ser futura")
+            .And.NotContain("cannot be in the future", "field copy must match the page language");
     }
 }

@@ -412,6 +412,8 @@ public class ActivityHistoryTests : BlazorTestBase
 
         var posted = JsonSerializer.Deserialize<JsonElement>(_undoPosts[0]);
         posted.GetProperty("type").GetString().Should().Be("sauna");
+        posted.GetProperty("occurredOnUtc").GetString().Should().Be(
+            $"{DateIso(0)}T00:00:00Z", "undo must restore the exact day, no timezone drift (t_249c6eec)");
         posted.GetProperty("dimension").GetString().Should().Be("health");
         posted.GetProperty("durationMinutes").GetInt32().Should().Be(20);
         posted.GetProperty("temperatureCelsius").GetInt32().Should().Be(85);

@@ -1,12 +1,84 @@
 #nullable enable
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 // Models, type catalog and payload mapper for /api/activities.
 // Contract fixed in t_0e23bbe6 (api-contract-activities-t_0e23bbe6.md):
 // dimension travels as the canonical string (strength|health|mobility),
 // occurredOnUtc is explicit UTC, per-type dynamic params travel inside
 // `metadata`, and unknown root fields are rejected with 400.
+
+/// <summary>
+/// Single source of truth for the activity-date contract (t_249c6eec):
+/// an activity's day is a LOCAL day and it travels as that day's midnight
+/// UTC — "{yyyy-MM-dd}T00:00:00Z". Every path (register, edit prefill,
+/// history undo, history day-grouping) goes through these helpers so the
+/// same DateOnly round-trips unchanged; no path may apply local-time
+/// conversions to the stored instant (that was the -1 day drift).
+/// </summary>
+public static class WellbeingActivityDates
+{
+    /// <summary>Wire form of a day: midnight UTC of that calendar day.</summary>
+    public static string ToWire(DateOnly day)
+        => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "T00:00:00Z";
+
+    /// <summary>
+    /// Day of a stored occurredOnUtc. By contract the instant is midnight UTC
+    /// of the activity's day, so the UTC date IS the day — reading it must
+    /// never go through the device's local timezone.
+    /// </summary>
+    public static DateOnly ToLocalDay(DateTimeOffset occurredOnUtc)
+        => DateOnly.FromDateTime(occurredOnUtc.UtcDateTime);
+
+    /// <summary>
+    /// Default "hoy" for the register form: the API rejects any day after
+    /// today's UTC date, and midnight UTC of the LOCAL today is in the future
+    /// during the first hours of a UTC+ day. Clamp to the UTC today then, so
+    /// the prefilled date is always acceptable (t_249c6eec finding B).
+    /// </summary>
+    public static DateOnly TodayForRegistration()
+        => TodayForRegistration(
+            DateOnly.FromDateTime(DateTime.Today),
+            DateOnly.FromDateTime(DateTime.UtcNow));
+
+    public static DateOnly TodayForRegistration(DateOnly localToday, DateOnly utcToday)
+        => localToday > utcToday ? utcToday : localToday;
+}
+
+/// <summary>
+/// Reads occurredOnUtc as an absolute instant: strings with 'Z' parse exactly,
+/// strings without offset (legacy API responses) are assumed UTC instead of
+/// being treated as device-local — the conversion that produced the -1 day
+/// drift on edit (t_249c6eec finding A).
+/// </summary>
+public sealed class UtcInstantConverter : JsonConverter<DateTimeOffset>
+{
+    public override DateTimeOffset Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String
+            || !DateTimeOffset.TryParse(
+                reader.GetString(),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var value))
+        {
+            throw new JsonException("Expected an ISO-8601 UTC instant for occurredOnUtc.");
+        }
+
+        return value;
+    }
+
+    public override void Write(
+        Utf8JsonWriter writer,
+        DateTimeOffset value,
+        JsonSerializerOptions options)
+        => writer.WriteStringValue(
+            value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
+}
 
 public static class ActivityRoutes
 {
@@ -150,7 +222,8 @@ public sealed class WellbeingActivityResource
     public Guid Id { get; set; }
     public string Type { get; set; } = string.Empty;
     public string Dimension { get; set; } = string.Empty;
-    public DateTime OccurredOnUtc { get; set; }
+    [JsonConverter(typeof(UtcInstantConverter))]
+    public DateTimeOffset OccurredOnUtc { get; set; }
     public int? DurationMinutes { get; set; }
     public decimal? FrequencyPerWeek { get; set; }
     public decimal? Intensity { get; set; }
@@ -306,16 +379,15 @@ public static class WellbeingActivityDisplay
     /// <summary>
     /// Day-group heading: "Hoy" / "Ayer" / long es-ES date (spec §4). The API
     /// stores occurredOnUtc at midnight UTC of the user's local date, so the
-    /// UTC date IS the activity's day.
+    /// UTC date IS the activity's day (WellbeingActivityDates.ToLocalDay).
     /// </summary>
-    public static string DayLabel(DateTime occurredOnUtc, DateTime todayLocal)
+    public static string DayLabel(DateOnly day, DateOnly todayLocal)
     {
-        var day = occurredOnUtc.Date;
-        if (day == todayLocal.Date)
+        if (day == todayLocal)
         {
             return "Hoy";
         }
-        if (day == todayLocal.Date.AddDays(-1))
+        if (day == todayLocal.AddDays(-1))
         {
             return "Ayer";
         }
@@ -352,7 +424,7 @@ public static class WellbeingActivityMapper
         {
             Type = typeKey,
             Dimension = WellbeingDimensions.ToCanonical(dimensionUiKey),
-            OccurredOnUtc = occurredOn.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "T00:00:00Z",
+            OccurredOnUtc = WellbeingActivityDates.ToWire(occurredOn),
             Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
         };
 
@@ -419,9 +491,11 @@ public static class WellbeingActivityMapper
         {
             Type = resource.Type,
             Dimension = resource.Dimension,
-            OccurredOnUtc = resource.OccurredOnUtc
-                .ToUniversalTime()
-                .ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+            // Normalize to the day's midnight UTC (WellbeingActivityDates):
+            // undo must restore the exact day, never re-apply an offset —
+            // that drift moved restored records a day back (t_249c6eec A).
+            OccurredOnUtc = WellbeingActivityDates.ToWire(
+                WellbeingActivityDates.ToLocalDay(resource.OccurredOnUtc)),
             DurationMinutes = resource.DurationMinutes,
             Intensity = resource.Intensity is decimal intensity ? (int)intensity : null,
             TemperatureCelsius = resource.TemperatureCelsius is decimal temperature ? (int)temperature : null,
