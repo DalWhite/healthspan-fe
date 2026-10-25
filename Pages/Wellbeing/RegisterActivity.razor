@@ -72,7 +72,7 @@
             <input id="reg-date" class="hs-reg-input @(_errors.ContainsKey("date") ? "hs-reg-invalid" : "")"
                    type="date" aria-describedby="err-date"
                    aria-invalid="@(_errors.ContainsKey("date") ? "true" : "false")"
-                   value="@_date.ToString("yyyy-MM-dd")" @onchange="OnDateChange" @ref="_dateRef" />
+                   value="@_date.ToString("yyyy-MM-dd")" max="@MaxDateIso" @onchange="OnDateChange" @ref="_dateRef" />
             <div id="err-date" class="hs-field-error @(_errors.ContainsKey("date") ? "hs-field-error-show" : "")" role="alert">
                 @if (_errors.TryGetValue("date", out var dateError))
                 {
@@ -219,6 +219,10 @@
     private string _type = "sauna";
     private string _dimension = "salud";
     private DateOnly _date = WellbeingActivityDates.TodayForRegistration();
+    // The API rejects any day after TodayForRegistration() (min(local, UTC));
+    // expose it as the input's max so the native date picker cannot offer a
+    // future day (t_49c66509). Inline validation and server 400 remain.
+    private string MaxDateIso => WellbeingActivityDates.TodayForRegistration().ToString("yyyy-MM-dd");
     private readonly Dictionary<string, Dictionary<string, string?>> _valuesByType = new();
     private Dictionary<string, string?> _values = new();
     private readonly List<ExtraFieldRow> _extras = new();
