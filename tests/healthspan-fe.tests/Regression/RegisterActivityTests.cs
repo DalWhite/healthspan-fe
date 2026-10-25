@@ -238,6 +238,41 @@ public class RegisterActivityTests : BlazorTestBase
         _cut.Find(".hs-reg-success").TextContent.Should().Contain("Guardado · Sauna");
     }
 
+    // t_0420b752: the saved summary must show the REAL saved day, using the
+    // same labels the history uses (Hoy / Ayer / "martes, 20 de octubre"),
+    // never an unconditional "hoy".
+    [Fact]
+    public void SavedSummary_Uses_The_Actual_Saved_Day_Label()
+    {
+        MockActivitiesPost();
+        Render();
+
+        FillSaunaForm();
+        var pastDay = DateOnly.FromDateTime(DateTime.Now).AddDays(-5);
+        _cut.Find("#reg-date").Change(pastDay.ToString("yyyy-MM-dd"));
+
+        ClickSave();
+        _cut.WaitForState(() => _postedBody is not null, TimeSpan.FromSeconds(5));
+
+        var expected = pastDay.ToString("dddd, d 'de' MMMM", new System.Globalization.CultureInfo("es-ES"));
+        _cut.Find(".hs-reg-success-title").TextContent.Trim()
+            .Should().Be($"Guardado · Sauna · {expected}");
+    }
+
+    [Fact]
+    public void SavedSummary_Says_Hoy_For_Today()
+    {
+        MockActivitiesPost();
+        Render();
+
+        FillSaunaForm();
+        ClickSave();
+        _cut.WaitForState(() => _postedBody is not null, TimeSpan.FromSeconds(5));
+
+        _cut.Find(".hs-reg-success-title").TextContent.Trim()
+            .Should().Be("Guardado · Sauna · Hoy");
+    }
+
     [Fact]
     public void Wim_Hof_Breaths_Per_Round_Travels_In_Metadata()
     {

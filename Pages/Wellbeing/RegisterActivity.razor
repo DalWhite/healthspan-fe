@@ -602,9 +602,12 @@
         }
         chips.Add(WellbeingDimensions.Options.First(option => option.Key == _dimension).Label);
 
-        var dateLabel = request.OccurredOnUtc.StartsWith(_date.ToString("yyyy-MM-dd"), StringComparison.Ordinal)
-            ? "hoy"
-            : _date.ToString("dd/MM/yyyy");
+        // The day saved, not the day the form happened to show (t_0420b752):
+        // parse the sent instant back to its day and reuse the exact label
+        // the history already uses ("Hoy" / "Ayer" / "martes, 20 de octubre").
+        var savedDay = WellbeingActivityDates.ToLocalDay(
+            DateTimeOffset.Parse(request.OccurredOnUtc, System.Globalization.CultureInfo.InvariantCulture));
+        var dateLabel = WellbeingActivityDisplay.DayLabel(savedDay, DateOnly.FromDateTime(DateTime.Now));
 
         return new SavedSummary(CurrentType.Label, dateLabel, chips);
     }
