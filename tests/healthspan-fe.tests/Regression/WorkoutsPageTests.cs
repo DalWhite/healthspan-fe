@@ -391,15 +391,19 @@ public class WorkoutsPageTests : BlazorTestBase
 
         var cut = RenderComponent<Workouts>();
 
-        cut.WaitForAssertion(() => ExpandPushWorkout(cut), TimeSpan.FromSeconds(20));
+        // CI runners intermittently need more than 20s to render the sheet
+        // round-trip (2026-10-25 run 40160444654 timed out at exactly 20s;
+        // passes in 3-5s locally). bunit's own guidance for slow/shared
+        // hardware: raise the wait timeout, not the assertions.
+        cut.WaitForAssertion(() => ExpandPushWorkout(cut), TimeSpan.FromSeconds(60));
         cut.WaitForAssertion(() =>
             cut.FindAll(".hs-workout-action")
                 .Single(button => button.TextContent.Trim() == "Duplicate")
-                .Click(), TimeSpan.FromSeconds(20));
+                .Click(), TimeSpan.FromSeconds(60));
 
         cut.WaitForAssertion(
             () => cut.Find(".hs-workout-sheet-actions .is-primary").Click(),
-            TimeSpan.FromSeconds(20));
+            TimeSpan.FromSeconds(60));
 
         cut.WaitForAssertion(() =>
         {
@@ -410,7 +414,7 @@ public class WorkoutsPageTests : BlazorTestBase
             Services.GetRequiredService<ISnackbar>()
                 .ShownSnackbars
                 .Should().Contain(snackbar => snackbar.Message == "Workout copied to today.");
-        }, TimeSpan.FromSeconds(20));
+        }, TimeSpan.FromSeconds(60));
     }
 
     [Fact]
