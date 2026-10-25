@@ -26,6 +26,7 @@ jobs:
       - name: Run regression tests
         run: dotnet test tests/healthspan-fe.tests/healthspan-fe.tests.csproj --configuration Release
       - name: Build And Deploy
+        if: github.event_name == 'push'
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
