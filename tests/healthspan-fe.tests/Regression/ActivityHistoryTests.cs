@@ -380,6 +380,35 @@ public class ActivityHistoryTests : BlazorTestBase
             .Uri.Should().Contain($"wellbeing/register?edit={FirstActivityId}");
     }
 
+    /// <summary>
+    /// t_f9bb8f19 (hallazgo C QA): the detail/confirm sheets declare role=dialog
+    /// aria-modal, so opening one must bind the open handler's focus call to an
+    /// element INSIDE the sheet (× for detail, primary button for confirm) —
+    /// otherwise Escape never reaches the sheet's @onkeydown. Focus itself can't
+    /// be observed in bUnit; the @ref bindings are the contract.
+    /// </summary>
+    [Fact]
+    public void Sheets_ExposeFocusTargets_InsideEachSheet()
+    {
+        BuildSeedStore();
+        MockActivitiesList();
+
+        var cut = Render();
+        WaitForLoaded(cut);
+
+        cut.Find(".hs-hist-row").Click();
+        cut.WaitForState(() => cut.FindAll(".hs-hist-sheet").Count > 0, TimeSpan.FromSeconds(5));
+
+        var closeBtn = cut.Find(".hs-hist-sheet-close");
+        var sheet = cut.Find(".hs-hist-sheet");
+        sheet.Contains(closeBtn).Should().BeTrue();
+        closeBtn.GetAttribute("aria-label").Should().Be("Cerrar detalle");
+
+        cut.Find("#hist-detail-delete").Click();
+        cut.WaitForState(() => cut.FindAll("#hist-confirm-yes").Count > 0, TimeSpan.FromSeconds(5));
+        cut.Find("#hist-confirm-yes").GetAttribute("disabled").Should().BeNull();
+    }
+
     [Fact]
     public void Delete_ConfirmSheetToastAndSingleUseUndo()
     {
