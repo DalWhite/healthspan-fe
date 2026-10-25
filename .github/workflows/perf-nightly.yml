@@ -1,0 +1,26 @@
+name: Perf nightly (FE bench)
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  fe_bench:
+    runs-on: ubuntu-latest
+    name: FE perf bench (navegador)
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install playwright + chromium
+        run: pip install playwright && playwright install --with-deps chromium
+      - name: FE perf bench
+        run: python scripts/perf/fe_bench.py --cold 3 --out /tmp/fe_perf.json
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fe_perf_json
+          path: /tmp/fe_perf.json
