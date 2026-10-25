@@ -144,6 +144,9 @@ public class RegisterActivityTests : BlazorTestBase
             .GetAttribute("aria-pressed").Should().Be("true", "dimension pre-selected by type");
 
         _cut.Find("#reg-date").GetAttribute("value").Should().Be(TodayIso);
+        _cut.Find("#reg-date").GetAttribute("max").Should().Be(
+            WellbeingActivityDates.TodayForRegistration().ToString("yyyy-MM-dd"),
+            "the picker must not allow a day the API would reject");
         _cut.Find(".hs-cta-primary").TextContent.Should().Contain("Guardar actividad");
     }
 
