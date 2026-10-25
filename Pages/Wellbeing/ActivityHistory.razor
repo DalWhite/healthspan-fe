@@ -137,7 +137,7 @@
 {
     <div class="hs-hist-scrim" @onclick="CloseSheets"></div>
     <section class="hs-hist-sheet" role="dialog" aria-modal="true" aria-labelledby="hist-detail-title" @onkeydown="OnSheetKeyDown">
-        <button type="button" class="hs-hist-sheet-close" @onclick="CloseSheets" aria-label="Cerrar detalle">×</button>
+        <button type="button" class="hs-hist-sheet-close" @ref="_detailCloseRef" @onclick="CloseSheets" aria-label="Cerrar detalle">×</button>
         <h2 id="hist-detail-title" class="hs-hist-sheet-title">@WellbeingActivityDisplay.RowTitle(_detail)</h2>
         <dl class="hs-hist-kv">
             @foreach (var (key, value) in DetailRows(_detail))
@@ -151,7 +151,7 @@
             <p class="hs-hist-notes">@_detail.Notes</p>
         }
         <div class="hs-hist-actions">
-            <button type="button" id="hist-detail-edit" class="hs-cta hs-cta-primary" @ref="_detailFirstRef" @onclick="EditActivity">Editar</button>
+            <button type="button" id="hist-detail-edit" class="hs-cta hs-cta-primary" @onclick="EditActivity">Editar</button>
             <button type="button" id="hist-detail-delete" class="hs-cta hs-cta-danger" @onclick="OpenConfirm">Eliminar</button>
         </div>
     </section>
@@ -219,8 +219,9 @@
 
     private ElementReference _returnRef;
     private bool _hasReturnRef;
-    private ElementReference _detailFirstRef;
+    private ElementReference _detailCloseRef;
     private ElementReference _confirmFirstRef;
+    private bool _pendingSheetFocus;
 
     private string? _toastMessage;
     private bool _toastUndoAvailable;
@@ -399,14 +400,22 @@
         _returnRef = sourceRef;
         _hasReturnRef = true;
         StateHasChanged();
-        await FocusFirstAsync(_detailFirstRef);
+        // Focus must land inside the sheet or Escape never reaches OnSheetKeyDown (t_f9bb8f19).
+        // Focus the × (safe action), not Editar (navigates away).
+        if (!await FocusFirstAsync(_detailCloseRef))
+        {
+            _pendingSheetFocus = true;
+        }
     }
 
     private async Task OpenConfirm()
     {
         _confirm = _detail;
         StateHasChanged();
-        await FocusFirstAsync(_confirmFirstRef);
+        if (!await FocusFirstAsync(_confirmFirstRef))
+        {
+            _pendingSheetFocus = true;
+        }
     }
 
     private void CancelConfirm() => _confirm = null;
@@ -415,6 +424,7 @@
     {
         _detail = null;
         _confirm = null;
+        _pendingSheetFocus = false;
         if (_hasReturnRef)
         {
             _hasReturnRef = false;
@@ -437,16 +447,40 @@
         }
     }
 
-    private async Task FocusFirstAsync(ElementReference target)
+    private async Task<bool> FocusFirstAsync(ElementReference target)
     {
         try
         {
             await target.FocusAsync();
+            return true;
         }
         catch (InvalidOperationException)
         {
-            // Best-effort focus (spec §5).
+            // Element not in the DOM yet (render batch pending) — caller falls back
+            // to OnAfterRenderAsync (t_f9bb8f19).
+            return false;
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_pendingSheetFocus || firstRender)
+        {
+            return;
+        }
+
+        // Fallback: the sheet is on screen now, so its refs are valid and Escape
+        // (bound on the <section>) works without extra keyboard steps.
+        if (_confirm is not null)
+        {
+            await FocusFirstAsync(_confirmFirstRef);
+        }
+        else if (_detail is not null)
+        {
+            await FocusFirstAsync(_detailCloseRef);
+        }
+
+        _pendingSheetFocus = false;
     }
 
     private void EditActivity()
