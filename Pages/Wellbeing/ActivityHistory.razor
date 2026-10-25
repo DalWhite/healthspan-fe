@@ -246,11 +246,11 @@
     {
         get
         {
-            var today = DateTime.Now;
-            var buckets = new List<(DateTime Day, List<WellbeingActivityResource> Items)>();
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var buckets = new List<(DateOnly Day, List<WellbeingActivityResource> Items)>();
             foreach (var item in _items)
             {
-                var day = item.OccurredOnUtc.Date;
+                var day = WellbeingActivityDates.ToLocalDay(item.OccurredOnUtc);
                 if (buckets.Count > 0 && buckets[^1].Day == day)
                 {
                     buckets[^1].Items.Add(item);
