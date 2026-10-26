@@ -6963,6 +6963,17 @@ button.hs-health-overview-card {
   padding: var(--hs-space-2) 0 var(--hs-space-5);
 }
 
+.hs-hist-pager {
+  display: flex;
+  justify-content: center;
+  gap: var(--hs-space-3);
+}
+
+.hs-hist-pager .hs-cta {
+  max-width: 200px;
+  flex: 1 1 auto;
+}
+
 .hs-hist-hint {
   margin: 0;
   color: var(--hs-t3);

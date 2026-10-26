@@ -120,12 +120,16 @@
             @if (_items.Count > 0)
             {
                 <div class="hs-hist-loadmore">
-                    @if (_hasMore)
-                    {
-                        <button type="button" id="hist-loadmore" class="hs-cta hs-cta-secondary" @onclick="LoadMoreAsync" disabled="@_loadingMore">
-                            @(_loadingMore ? "Cargando…" : "Cargar más")
-                        </button>
-                    }
+                    <div class="hs-hist-pager">
+                        @if (_page > 1)
+                        {
+                            <button type="button" id="hist-prev" class="hs-cta hs-cta-secondary" @onclick="PrevPageAsync" disabled="@_loading">Anterior</button>
+                        }
+                        @if (_hasMore)
+                        {
+                            <button type="button" id="hist-next" class="hs-cta hs-cta-secondary" @onclick="NextPageAsync" disabled="@_loading">Siguiente</button>
+                        }
+                    </div>
                     <p class="hs-hist-hint" aria-live="polite">@LoadHint</p>
                 </div>
             }
@@ -203,11 +207,10 @@
 
     private List<WellbeingActivityResource> _items = new();
     private int? _total;
-    private int _page;
+    private int _page = 1;
     private bool _hasMore;
 
     private bool _loading;
-    private bool _loadingMore;
     private bool _loadFailed;
 
     private string? _banner;
@@ -237,9 +240,19 @@
             ? $"{_total} actividades con los filtros aplicados"
             : _total == 1 ? "1 actividad" : $"{_total} actividades";
 
-    private string LoadHint => _total is null
-        ? string.Empty
-        : $"Mostrando {_items.Count} de {_total}";
+    private string LoadHint
+    {
+        get
+        {
+            if (_total is null || _items.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var start = (_page - 1) * ActivityQuery.DefaultPageSize + 1;
+            return $"Mostrando {start}–{start + _items.Count - 1} de {_total}";
+        }
+    }
 
     private sealed record ActivityDayGroup(string Label, string CountLabel, List<WellbeingActivityResource> Items);
 
@@ -273,41 +286,57 @@
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
-    private async Task ReloadAsync()
-    {
-        _items = new List<WellbeingActivityResource>();
-        _total = null;
-        _hasMore = false;
-        await FetchPageAsync(page: 1, replace: true);
-    }
+    private async Task ReloadAsync() => await FetchPageAsync(_page);
 
-    private async Task FetchPageAsync(int page, bool replace)
+    private int _fetchGeneration;
+
+    private async Task FetchPageAsync(int page)
     {
-        if (_loading || _loadingMore)
+        if (_loading)
         {
             return;
         }
 
-        if (replace)
-        {
-            _loading = true;
-        }
-        else
-        {
-            _loadingMore = true;
-        }
+        // A page is claimed by the newest request only: if two fetches ever
+        // overlap (double click before the disabled state repaints), a late
+        // response for an older window must not overwrite the current one
+        // with an out-of-range empty page.
+        var generation = ++_fetchGeneration;
+
+        _loading = true;
 
         try
         {
-            var envelope = await ActivityClient.GetActivitiesAsync(BuildQuery(page));
-            if (replace)
+            // The clamp is response-driven: a window may fall past the last
+            // page after a delete (or after a page click raced a delete), and
+            // it is corrected from the server's own `total` AFTER the fetch.
+            // Never from cached client state — that produced phantom empty
+            // pages (t_66002472 bench run 1: rows=0 with 122 remaining).
+            var attempts = 0;
+            PagedActivitiesResource envelope;
+            do
             {
-                _items = envelope.Items;
+                envelope = await ActivityClient.GetActivitiesAsync(BuildQuery(page));
+                if (generation != _fetchGeneration)
+                {
+                    return;
+                }
+
+                if (envelope.Items.Count == 0
+                    && envelope.Total is int total
+                    && total > 0
+                    && page > 1
+                    && ++attempts == 1)
+                {
+                    page = Math.Max(1, (total + ActivityQuery.DefaultPageSize - 1) / ActivityQuery.DefaultPageSize);
+                    continue;
+                }
+
+                break;
             }
-            else
-            {
-                _items.AddRange(envelope.Items);
-            }
+            while (true);
+
+            _items = envelope.Items;
 
             _total = envelope.Total;
             _page = envelope.Page;
@@ -323,7 +352,6 @@
         finally
         {
             _loading = false;
-            _loadingMore = false;
         }
     }
 
@@ -334,6 +362,7 @@
         From = ParseDate(_from),
         To = ParseDate(_to),
         Page = page,
+        PageSize = ActivityQuery.DefaultPageSize,
     };
 
     private static DateOnly? ParseDate(string? value)
@@ -341,28 +370,36 @@
             ? parsed
             : null;
 
+    // Filter changes always restart at page 1; window navigation keeps the
+    // current page, and delete/undo reloads keep it too (with clamping).
+    private async Task ReloadFromFirstPageAsync()
+    {
+        _page = 1;
+        await ReloadAsync();
+    }
+
     private async Task SetTypeAsync(string? value)
     {
         _type = value;
-        await ReloadAsync();
+        await ReloadFromFirstPageAsync();
     }
 
     private async Task SetDimensionAsync(string? value)
     {
         _dimension = value;
-        await ReloadAsync();
+        await ReloadFromFirstPageAsync();
     }
 
     private async Task OnFromChanged(ChangeEventArgs e)
     {
         _from = e.Value?.ToString();
-        await ReloadAsync();
+        await ReloadFromFirstPageAsync();
     }
 
     private async Task OnToChanged(ChangeEventArgs e)
     {
         _to = e.Value?.ToString();
-        await ReloadAsync();
+        await ReloadFromFirstPageAsync();
     }
 
     private async Task ClearFiltersAsync()
@@ -371,24 +408,30 @@
         _dimension = null;
         _from = null;
         _to = null;
-        await ReloadAsync();
+        await ReloadFromFirstPageAsync();
     }
 
-    private async Task LoadMoreAsync()
+    private async Task PrevPageAsync()
     {
-        if (!_hasMore || _loadingMore)
+        if (_page > 1 && !_loading)
         {
-            return;
+            await FetchPageAsync(_page - 1);
         }
+    }
 
-        await FetchPageAsync(page: _page + 1, replace: false);
+    private async Task NextPageAsync()
+    {
+        if (_hasMore && !_loading)
+        {
+            await FetchPageAsync(_page + 1);
+        }
     }
 
     private async Task RetryAsync()
     {
         _banner = null;
         _bannerRetry = false;
-        await ReloadAsync();
+        await ReloadFromFirstPageAsync();
     }
 
     // ── Sheets ────────────────────────────────────────────────────────────

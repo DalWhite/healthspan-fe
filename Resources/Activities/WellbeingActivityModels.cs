@@ -252,7 +252,13 @@ public sealed class PagedActivitiesResource
 /// </summary>
 public sealed class ActivityQuery
 {
-    public const int DefaultPageSize = 10;
+    /// <summary>
+    /// Window size for the history (t_66002472): one page is one view — the
+    /// page renders at most 30 rows and fetches at most 30 items (~9KB), so
+    /// DOM rows and per-view payload stay bounded no matter how deep the user
+    /// pages. The API accepts pageSize 1..100.
+    /// </summary>
+    public const int DefaultPageSize = 30;
 
     public string? Type { get; init; }
     public string? DimensionUiKey { get; init; }
