@@ -261,6 +261,10 @@ public sealed class ActivityQuery
     public int Page { get; init; } = 1;
     public int PageSize { get; init; } = DefaultPageSize;
 
+    /// <summary>Server-side projection ("minimal" = list rows only, no
+    /// notes/metadata/audit fields). Null keeps the full resource (t_101e2b0a).</summary>
+    public string? Fields { get; init; }
+
     public string ToQueryString()
     {
         var pairs = new List<string>();
@@ -282,6 +286,10 @@ public sealed class ActivityQuery
         }
         pairs.Add($"page={Page}");
         pairs.Add($"pageSize={PageSize}");
+        if (!string.IsNullOrWhiteSpace(Fields))
+        {
+            pairs.Add($"fields={Uri.EscapeDataString(Fields)}");
+        }
         return string.Join("&", pairs);
     }
 }

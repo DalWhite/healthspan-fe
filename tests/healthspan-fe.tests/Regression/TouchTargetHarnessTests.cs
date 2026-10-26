@@ -26,6 +26,10 @@ namespace healthspan_fe.tests.Regression;
 /// </summary>
 public class TouchTargetHarnessTests : BlazorTestBase
 {
+    private void TodayPageRespond(params string[] bodies)
+        => MockHttp.When(HttpMethod.Get, "/Workouts/today/page*")
+            .Respond("application/json", TodayPageMocks.Page(bodies));
+
     private static readonly Guid WorkoutId =
         Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid ExerciseId =
@@ -270,10 +274,7 @@ public class TouchTargetHarnessTests : BlazorTestBase
 
     private void MockToday()
     {
-        MockHttp.When(
-                HttpMethod.Get,
-                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond("application/json", $$"""
+        TodayPageRespond($$"""
                 [{
                   "id": "{{WorkoutId}}",
                   "date": "{{DateTime.Today:yyyy-MM-dd}}",

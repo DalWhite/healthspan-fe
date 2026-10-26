@@ -334,6 +334,9 @@
         From = ParseDate(_from),
         To = ParseDate(_to),
         Page = page,
+        // List rows render badges only; notes/metadata are refetched in full
+        // when a row is opened (t_101e2b0a payload budget).
+        Fields = "minimal",
     };
 
     private static DateOnly? ParseDate(string? value)
@@ -395,7 +398,18 @@
 
     private async Task OpenDetailAsync(WellbeingActivityResource item, ElementReference sourceRef)
     {
-        _detail = item;
+        // The list ships a minimal projection; the sheet needs the full
+        // resource, so refetch it (offline falls back to what we have).
+        WellbeingActivityResource? full = null;
+        try
+        {
+            full = await ActivityClient.GetActivityAsync(item.Id);
+        }
+        catch
+        {
+        }
+
+        _detail = full is not null && full.Id == item.Id ? full : item;
         _confirm = null;
         _returnRef = sourceRef;
         _hasReturnRef = true;
