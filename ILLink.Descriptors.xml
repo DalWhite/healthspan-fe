@@ -1,0 +1,38 @@
+<linker>
+  <!-- t_f9943bc0: TrimMode=full experiment. App assembly rooted (razor EventCallback
+       fields); MudBlazor rooted only on interactive component types + their razor
+       descriptors. Everything else (System.*, BCL) trims fully. -->
+  <assembly fullname="healthspan-fe-wasm-pwa">
+    <type fullname="*" preserve="all" />
+  </assembly>
+  <assembly fullname="MudBlazor">
+    <type fullname="__Blazor.MudBlazor.MudButton.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudIconButton.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudTextFieldBase.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudAutocomplete.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudSelect.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudMenu.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudMenuItem.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudNavLink.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudTabs.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudChip.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudSwitch.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudDatePicker.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudTimePicker.TypeInference" preserve="all" />
+    <type fullname="__Blazor.MudBlazor.MudNumericField.TypeInference" preserve="all" />
+    <type fullname="MudBlazor.MudButton*" preserve="fields" />
+    <type fullname="MudBlazor.MudIconButton*" preserve="fields" />
+    <type fullname="MudBlazor.MudBaseInput*" preserve="fields" />
+    <type fullname="MudBlazor.MudTextField*" preserve="fields" />
+    <type fullname="MudBlazor.MudAutocomplete*" preserve="fields" />
+    <type fullname="MudBlazor.MudSelect*" preserve="fields" />
+    <type fullname="MudBlazor.MudMenu*" preserve="fields" />
+    <type fullname="MudBlazor.MudTabs*" preserve="fields" />
+    <type fullname="MudBlazor.MudChip*" preserve="fields" />
+    <type fullname="MudBlazor.MudSwitch*" preserve="fields" />
+    <type fullname="MudBlazor.MudDatePicker*" preserve="fields" />
+    <type fullname="MudBlazor.MudTimePicker*" preserve="fields" />
+    <type fullname="MudBlazor.MudNumericField*" preserve="fields" />
+    <type fullname="MudBlazor.Services.*" preserve="fields" />
+  </assembly>
+</linker>
