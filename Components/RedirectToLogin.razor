@@ -1,8 +1,33 @@
 @inject NavigationManager NavigationManager
+@using healthspan_fe_wasm_pwa.Shared
+@using MudBlazor
 
-<div>Redirecting to login...</div>
+@* D1 (docs/design/unauth-redirect-state.md): bridge state on the protected
+   destination — never an empty screen while the auth-check resolves.
+   Renders on the first frame, then performs the same redirect as before. *@
+<MudPaper Class="hs-unauth-bridge" Elevation="0">
+    <MudStack Align="Align.Center" Spacing="3">
+        <MudIcon Icon="@Icons.Material.Filled.Lock"
+                 Color="Color.Primary"
+                 Size="Size.Large" />
+        <MudText Typo="Typo.subtitle1" Align="Align.Center">
+            Abriendo acceso a @ProtectedViews.DestinationName($"/{RelativePath}")…
+        </MudText>
+        <MudProgressCircular Indeterminate="true"
+                             Color="Color.Primary"
+                             Size="Size.Small" />
+    </MudStack>
+</MudPaper>
 
 @code {
+    // D5 provenance: MainLayout cascades whether it ever opened with a live
+    // session. Without it we cannot tell "session expired" from "cold deep
+    // link", and the cold case must not be told its session expired.
+    [CascadingParameter] public bool SessionWasLive { get; set; }
+
+    private string RelativePath =>
+        NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+
     protected override void OnAfterRender(bool firstRender)
     {
         if (!firstRender)
@@ -10,13 +35,18 @@
             return;
         }
 
-        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var relativePath = RelativePath;
         if (relativePath.StartsWith("login", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
         var returnUrl = $"/{relativePath.TrimStart('/')}";
-        NavigationManager.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+        // D5: flag the arrival as an expired session only when this layout
+        // instance was opened with a live one. A cold deep link (no session
+        // ever) gets the contextual login without the "caducó" claim.
+        var expiredFlag = SessionWasLive ? "&expired=1" : "";
+        NavigationManager.NavigateTo(
+            ProtectedViews.LoginUrlFor(returnUrl) + expiredFlag);
     }
 }
