@@ -120,11 +120,11 @@ async function init() {
         capi = sqlite3.capi;
         const oo = sqlite3.oo1;
         if (oo && oo.OpfsDb) {
-            db = new oo.OpfsDb(DB_FILENAME, 'ct');
+            db = new oo.OpfsDb(DB_FILENAME, 'c');
             backend = 'opfs';
         } else {
             console.warn('healthspan offline-db worker: OPFS VFS unavailable, using transient in-memory DB.');
-            db = new oo.DB(':memory:', 'ct');
+            db = new oo.DB(':memory:', 'c');
             backend = 'memory';
         }
         db.exec(SCHEMA);

@@ -15,44 +15,57 @@
 
 (function () {
     const workerUrl = new URL('js/sqlite/offline-db-worker.js', document.baseURI).href;
-    const worker = new Worker(workerUrl, { type: 'module' });
-
+    let worker = null;
     let seq = 0;
     let backend = 'none';
     let workerFailed = false;
     const pending = new Map();
     const readyWaiters = [];
 
-    worker.onmessage = (e) => {
-        const msg = e.data || {};
-        if (msg.type === 'ready') {
-            backend = msg.backend;
-            readyWaiters.splice(0).forEach((res) => res(true));
-            return;
-        }
-        if (msg.type === 'failed') {
-            workerFailed = true;
-            readyWaiters.splice(0).forEach((res) => res(false));
-            return;
-        }
-        const p = pending.get(msg.id);
-        if (!p) return;
-        pending.delete(msg.id);
-        if (msg.error) p.reject(new Error(msg.error));
-        else p.resolve(msg.result);
-    };
+    // Deferred worker spawn: sqlite3.wasm compile must not compete with the
+    // .NET/Blazor boot window. It starts once the page is idle, or earlier on
+    // first hsdb.* use.
+    function ensureWorker() {
+        if (worker) return worker;
+        worker = new Worker(workerUrl, { type: 'module' });
 
-    worker.onerror = (e) => {
-        console.error('healthspan offline-db worker error:', e.message);
-        workerFailed = true;
-        for (const p of pending.values()) p.reject(new Error(e.message || 'offline-db worker error'));
-        pending.clear();
-        readyWaiters.splice(0).forEach((res) => res(false));
-    };
+        worker.onmessage = (e) => {
+            const msg = e.data || {};
+            if (msg.type === 'ready') {
+                backend = msg.backend;
+                readyWaiters.splice(0).forEach((res) => res(true));
+                return;
+            }
+            if (msg.type === 'failed') {
+                workerFailed = true;
+                readyWaiters.splice(0).forEach((res) => res(false));
+                return;
+            }
+            const p = pending.get(msg.id);
+            if (!p) return;
+            pending.delete(msg.id);
+            if (msg.error) p.reject(new Error(msg.error));
+            else p.resolve(msg.result);
+        };
+
+        worker.onerror = (e) => {
+            console.error('healthspan offline-db worker error:', e.message);
+            workerFailed = true;
+            for (const p of pending.values()) p.reject(new Error(e.message || 'offline-db worker error'));
+            pending.clear();
+            readyWaiters.splice(0).forEach((res) => res(false));
+        };
+
+        return worker;
+    }
+
+    const idleStart = window.requestIdleCallback ?? ((fn, opts) => setTimeout(fn, opts?.timeout ?? 4000));
+    idleStart(() => ensureWorker(), { timeout: 4000 });
 
     function whenReady() {
         if (workerFailed) return Promise.reject(new Error('offline-db worker failed'));
         if (backend !== 'none') return Promise.resolve(true);
+        ensureWorker();
         return new Promise((resolve, reject) => {
             readyWaiters.push((ok) => ok ? resolve(true) : reject(new Error('offline-db worker failed')));
         });
