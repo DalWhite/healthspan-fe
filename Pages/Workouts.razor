@@ -107,7 +107,7 @@
 
     @if (_isLoading)
     {
-        <LoadingState Message="Loading workouts..." />
+        <ScreenSkeleton Variant="list" Message="Loading workouts…" />
     }
     else if (!string.IsNullOrWhiteSpace(_errorMessage))
     {

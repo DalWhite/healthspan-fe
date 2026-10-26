@@ -18,12 +18,76 @@
 
 <body>
   <div id="app">
-    <div style="position:absolute; top:30vh; left:0; right:0; text-align:center">
-      <div id="loadingAnimation" style="width:100px; height:100px; margin:auto;">
-        <img src="icon-512.png" alt="Loading" style="width:100%; height:100%;">
+    <!-- Carga percibida Tier-1 (t_fea01cd1, docs/design/skeleton-loading-spec.md):
+         durante el arranque WASM (cold 11-16s) se muestra un esqueleto que imita el
+         shell real (topbar 52px, sidebar 264px / bottom-nav 68px, bloques de altura
+         fija según la ruta pedida). Sin requests ni assets nuevos: HTML estático +
+         css/app.css, ya en la cadena render-blocking. Blazor monta sobre #app y lo
+         reemplaza en un único commit de render: la sustitución no desplaza ningún
+         elemento visible (aporta 0 a CLS). -->
+    <div id="hs-boot-skeleton" data-hs-loading="boot" role="status" aria-busy="true">
+      <div class="hs-boot-shell" aria-hidden="true">
+        <div class="hs-boot-topbar hs-skeleton"></div>
+        <aside class="hs-boot-sidebar hs-skeleton"></aside>
+        <main class="hs-boot-page">
+          <p class="hs-boot-status">Cargando Healthspan…</p>
+          <div class="hs-boot-heading hs-skeleton"></div>
+          <div class="hs-boot-blocks"></div>
+        </main>
+        <nav class="hs-boot-bottomnav hs-skeleton"></nav>
       </div>
+      <noscript>
+        <div class="noscript-warning">
+          <h2>JavaScript is required</h2>
+          <p>Esta aplicación requiere JavaScript para funcionar. Por favor, habilítalo en tu navegador.</p>
+        </div>
+      </noscript>
     </div>
   </div>
+  <script>
+    // Variante del esqueleto según la ruta pedida (sin requests extra). Las alturas
+    // se fijan inline para que los bloques sean visibles incluso antes de que
+    // app.css termine de aplicarse: la señal llega en <1s desde la navegación.
+    (function () {
+      var p = (location.pathname || '').replace(/\/+$/, '');
+      var v = 'generic';
+      if (/^\/training\/today/.test(p)) v = 'today';
+      else if (/^\/wellbeing\/activities/.test(p) || /^\/training\/history/.test(p)) v = 'list';
+      else if (/^\/training\/routines/.test(p)) v = 'cards';
+      else if (/^\/profile/.test(p)) v = 'insights';
+      else if (/^\/settings/.test(p)) v = 'settings';
+      var el = document.getElementById('hs-boot-skeleton');
+      if (!el) return;
+      el.setAttribute('data-variant', v);
+      var shapes = {
+        today: [[3, 88], [120], [170]],
+        list: [[56], [56], [56], [56], [56]],
+        cards: [[140], [140], [140]],
+        insights: [[3, 88], [260]],
+        settings: [[100], [100], [100], [100]],
+        generic: [[120], [120], [120]]
+      };
+      var host = el.querySelector('.hs-boot-blocks');
+      (shapes[v] || shapes.generic).forEach(function (s) {
+        if (s.length === 2) {
+          var row = document.createElement('div');
+          row.className = 'hs-boot-row';
+          for (var i = 0; i < s[0]; i++) {
+            var t = document.createElement('div');
+            t.className = 'hs-skeleton hs-boot-tile';
+            t.style.height = s[1] + 'px';
+            row.appendChild(t);
+          }
+          host.appendChild(row);
+        } else {
+          var b = document.createElement('div');
+          b.className = 'hs-skeleton hs-boot-block';
+          b.style.height = s[0] + 'px';
+          host.appendChild(b);
+        }
+      });
+    })();
+  </script>
 
     <div id="blazor-error-ui">
         An unhandled error has occurred.

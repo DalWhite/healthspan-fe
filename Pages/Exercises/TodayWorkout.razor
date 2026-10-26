@@ -28,7 +28,7 @@
 
     @if (_isLoading)
     {
-        <LoadingState Message="Cargando tus entrenos..." />
+        <ScreenSkeleton Variant="today" Message="Cargando tus entrenos…" />
     }
     else if (!string.IsNullOrWhiteSpace(_error))
     {

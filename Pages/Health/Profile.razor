@@ -43,7 +43,7 @@
 
     @if (_isLoading)
     {
-        <LoadingState Message="Loading insights..." />
+        <ScreenSkeleton Variant="insights" Message="Loading insights…" />
     }
     else if (SelectedWeek is null)
     {

@@ -1,0 +1,55 @@
+@* Esqueleto de carga por pantalla (Tier-2). Spec: docs/design/skeleton-loading-spec.md
+   Se renderiza antes del fetch; variantes con alturas fijas -> swap sin CLS.
+   Solo carga inicial; recargas usan aria-busy in-place, nunca skeleton.
+   Contrato QA: contenedor data-hs-loading="skeleton" con role=status. *@
+<div class="hs-screen-skeleton hs-screen-skeleton--@Variant"
+     data-hs-loading="skeleton"
+     role="status"
+     aria-busy="true">
+    <span class="visually-hidden">@Message</span>
+    @switch (Variant)
+    {
+        case "today":
+            <div class="hs-screen-skeleton-row">
+                <div class="hs-skeleton" style="min-height:88px"></div>
+                <div class="hs-skeleton" style="min-height:88px"></div>
+                <div class="hs-skeleton" style="min-height:88px"></div>
+            </div>
+            <div class="hs-skeleton hs-skeleton-card" style="min-height:120px"></div>
+            <div class="hs-skeleton hs-skeleton-card" style="min-height:170px"></div>
+            break;
+        case "list":
+            @for (var i = 0; i < 5; i++)
+            {
+                <div class="hs-skeleton" style="min-height:56px"></div>
+            }
+            break;
+        case "cards":
+            @for (var i = 0; i < 3; i++)
+            {
+                <div class="hs-skeleton hs-skeleton-card" style="min-height:140px"></div>
+            }
+            break;
+        case "insights":
+            <div class="hs-screen-skeleton-row">
+                <div class="hs-skeleton" style="min-height:88px"></div>
+                <div class="hs-skeleton" style="min-height:88px"></div>
+                <div class="hs-skeleton" style="min-height:88px"></div>
+            </div>
+            <div class="hs-skeleton hs-skeleton-card" style="min-height:260px"></div>
+            break;
+        case "settings":
+            @for (var i = 0; i < 4; i++)
+            {
+                <div class="hs-skeleton hs-skeleton-card" style="min-height:100px"></div>
+            }
+            break;
+    }
+</div>
+
+@code {
+    /// today | list | cards | insights | settings — geometría de cada pantalla.
+    [Parameter, EditorRequired] public string Variant { get; set; } = "generic";
+
+    [Parameter] public string Message { get; set; } = "Cargando…";
+}

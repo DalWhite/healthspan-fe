@@ -77,7 +77,7 @@
     <div class="hs-hist-list" aria-busy="@(_loading ? "true" : "false")">
         @if (_loading)
         {
-            <div class="hs-hist-skeleton" aria-hidden="true">
+            <div class="hs-hist-skeleton" data-hs-loading="skeleton" role="status" aria-busy="true" aria-hidden="true">
                 @for (var i = 0; i < 4; i++)
                 {
                     <div class="hs-hist-skel"></div>
