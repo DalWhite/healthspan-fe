@@ -143,7 +143,14 @@ def cold_runs(pw, n):
         # interactividad real: click login -> POST /login observado en la red
         login_sent = None
         click_t = time.monotonic()
-        do_login(page, net)
+        if not do_login(page, net):
+            # fail-fast (t_4c61763c): sin login no hay nada que medir; abortar el
+            # job en ~5 min en vez de quemar el timeout en reintentos (40393299266).
+            print("fe_bench ABORTADO (fail-fast): login no completo en cold run "
+                  f"{i+1} — regresión de arranque/post-login en la app desplegada.",
+                  file=sys.stderr)
+            browser.close()
+            sys.exit(1)
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline and login_sent is None:
             for _, (t, url) in net.sent.items():
@@ -171,7 +178,14 @@ def screen_runs(pw):
         ctx = pw.chromium.launch_persistent_context(prof, viewport={"width": 1280, "height": 800})
         page = ctx.new_page(); cdp = ctx.new_cdp_session(page); net = Net(cdp)
         page.goto(APP, wait_until="domcontentloaded")
-        do_login(page, net)
+        if not do_login(page, net):
+            # fail-fast (t_4c61763c): sin login no hay nada que medir; abortar
+            # el job en ~5 min en vez de quemar el timeout en reintentos.
+            print(f"fe_bench ABORTADO (fail-fast): login no completo en pantalla "
+                  f"'{name}' — regresión de arranque/post-login en la app desplegada.",
+                  file=sys.stderr)
+            ctx.close()
+            sys.exit(1)
         wait_idle(net)  # asentar requests post-login ANTES de medir la pantalla
         t0 = time.monotonic()
         page.evaluate("(u)=>{const a=document.createElement('a');a.href=u;document.body.appendChild(a);a.click();a.remove();}", APP + path)

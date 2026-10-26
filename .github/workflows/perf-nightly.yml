@@ -1,4 +1,5 @@
 name: Perf nightly (FE bench)
+
 on:
   schedule:
     - cron: '0 3 * * *'
@@ -8,9 +9,19 @@ jobs:
   fe_bench:
     runs-on: ubuntu-latest
     name: FE perf bench (navegador)
+    # Serializado con el job perf_api_bench del workflow SWA (mismo group).
+    # Evidencia t_4c61763c: nightly + bench de push concurrentes = API medida
+    # bajo la carga del otro bench (15/16 PASS aislado vs 9/16 concurrente).
+    # cancel-in-progress: false — el nightly no debe cancelar el gate de main.
+    concurrency:
+      group: perf-bench
+      cancel-in-progress: false
+    # 20 min: ~3 min install + 3 cold runs + 6 screens. El script es fail-fast
+    # desde t_4c61763c: si el login no completa (regresion desplegada) aborta
+    # en ~5 min en vez de quemar el presupuesto en reintentos (run 40393299266).
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
