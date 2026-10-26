@@ -55,6 +55,12 @@ jobs:
   perf_api_bench:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build_and_deploy_job
+    # Serializado con el nightly FE bench (mismo group perf-bench): los dos
+    # benches miden la misma API y no deben solaparse (evidencia t_4c61763c,
+    # runs 40393548925 concurrente 9/16 vs 15/16 aislado).
+    concurrency:
+      group: perf-bench
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     name: Perf API Bench Job
     timeout-minutes: 3
@@ -64,4 +70,4 @@ jobs:
         with:
           python-version: '3.11'
       - name: API perf bench (curl-only, umbrales hardcodeados)
-        run: python3 scripts/perf/api_bench.py --iters 8 --out /tmp/api_perf.json
+        run: python3 scripts/perf/api_bench.py --out /tmp/api_perf.json  # warmup 5 + 15 muestras warm (~20-40s)
