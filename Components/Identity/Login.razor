@@ -61,7 +61,9 @@
                        whose password is simply wrong, and the server already
                        knows. *@
                     <MudTextField @bind-Value="email"
+                                  id="login-email"
                                   Label="Correo electrónico"
+                                  InputType="InputType.Email"
                                   Variant="Variant.Outlined"
                                   Margin="Margin.Dense"
                                   Required="true"
@@ -71,6 +73,7 @@
                                   Class="input-field text-field outlined" />
 
                     <MudTextField @bind-Value="password"
+                                  id="login-password"
                                   Label="Contraseña"
                                   Variant="Variant.Outlined"
                                   Margin="Margin.Dense"

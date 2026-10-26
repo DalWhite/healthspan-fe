@@ -31,15 +31,15 @@
                 }
                 <MudForm>
                     <MudTextField Label="Correo electrónico" Required="true" Placeholder="Introduce tu correo electrónico"
-                        Variant="Variant.Outlined" @bind-Value="email" InputType="InputType.Email" />
+                        Variant="Variant.Outlined" @bind-Value="email" InputType="InputType.Email" id="register-email" />
                     <MudTextField Label="Contraseña" Required="true" Placeholder="Introduce tu contraseña"
                         Variant="Variant.Outlined" InputType="@PasswordInput" Adornment="Adornment.End"
                         AdornmentIcon="@PasswordInputIcon" @bind-Value="password" Class="mt-2"
-                        OnAdornmentClick="@ButtonTestclick" />
+                        OnAdornmentClick="@ButtonTestclick" id="register-password" />
                     <MudTextField Label="Repetir contraseña" Required="true" Placeholder="Vuelve a introducir tu contraseña"
                         Variant="Variant.Outlined" InputType="@PasswordInput" Adornment="Adornment.End"
                         AdornmentIcon="@PasswordInputIcon" @bind-Value="confirmPassword" Class="mt-2"
-                        OnAdornmentClick="@ButtonTestclick" />
+                        OnAdornmentClick="@ButtonTestclick" id="register-confirm-password" />
                     <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" OnClick="DoRegisterAsync" Class="mt-4">
                         Crear cuenta</MudButton>
                 </MudForm>
