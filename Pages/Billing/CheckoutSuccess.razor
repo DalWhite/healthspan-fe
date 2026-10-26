@@ -25,7 +25,7 @@
                     <li>Análisis avanzado de entrenamiento (Insights) desbloqueado</li>
                     @if (_subscription?.CurrentPeriodEnd is { } periodEnd)
                     {
-                        <li>@RenewalLabel @periodEnd.ToString("d MMM yyyy", Es)</li>
+                        <li>@RenewalLabel @EsFormat.DayMonthYear(periodEnd)</li>
                     }
                 </ul>
                 <a class="hs-cta hs-cta-primary mt-3" href="billing">Gestionar suscripción</a>
@@ -52,8 +52,6 @@
     // A10: polling 5 s / máx 60 s. Ajustable por parámetro para pruebas bUnit.
     [Parameter] public int PollIntervalSeconds { get; set; } = 5;
     [Parameter] public int MaxWaitSeconds { get; set; } = 60;
-
-    private static readonly CultureInfo Es = CultureInfo.GetCultureInfo("es-ES");
 
     private PollPhase _phase = PollPhase.Pending;
     private SubscriptionResource? _subscription;

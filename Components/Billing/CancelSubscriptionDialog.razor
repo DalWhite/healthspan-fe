@@ -45,8 +45,7 @@
     private string? _error;
 
     private string EndsLabel =>
-        CurrentPeriodEnd?.ToString("d MMM yyyy", CultureInfo.GetCultureInfo("es-ES"))
-        ?? "el fin del periodo";
+        CurrentPeriodEnd is { } end ? EsFormat.DayMonthYear(end) : "el fin del periodo";
 
     private void KeepPremium() => MudDialog.Cancel();
 

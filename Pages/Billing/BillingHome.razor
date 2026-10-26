@@ -52,7 +52,7 @@
                 {
                     <div class="hs-billing-row">
                         <span class="hs-billing-label">@(CancelScheduled ? "Acceso hasta" : "Renovación")</span>
-                        <span>@periodEnd.ToString("d MMM yyyy", Es)</span>
+                        <span>@EsFormat.DayMonthYear(periodEnd)</span>
                     </div>
                 }
                 <div class="hs-billing-row hs-billing-row-switch">
@@ -76,7 +76,7 @@
             {
                 <div class="hs-billing-cancelled-note" role="status">
                     No se hará ningún cobro después del
-                    @(_subscription.CurrentPeriodEnd?.ToString("d MMM yyyy", Es) ?? "fin del periodo").
+                    @(_subscription.CurrentPeriodEnd is { } ended ? EsFormat.DayMonthYear(ended) : "fin del periodo").
                     <a class="hs-billing-reactivate" href="premium">Reactivar</a>
                 </div>
             }
@@ -113,8 +113,6 @@
 
 @code {
     [Inject] private NavigationManager Navigation { get; set; } = default!;
-
-    private static readonly CultureInfo Es = CultureInfo.GetCultureInfo("es-ES");
 
     private bool _loading = true;
     private SubscriptionResource? _subscription;

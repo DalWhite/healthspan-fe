@@ -10,8 +10,6 @@
 @code {
     [Parameter, EditorRequired] public SubscriptionResource Subscription { get; set; } = default!;
 
-    private static readonly CultureInfo Es = CultureInfo.GetCultureInfo("es-ES");
-
     private bool CancelScheduled =>
         Subscription.CancelAtPeriodEnd
         && Subscription.Status is SubscriptionStates.Trialing or SubscriptionStates.Active;
@@ -43,7 +41,7 @@
             if (CancelScheduled)
             {
                 return Subscription.CurrentPeriodEnd is { } end
-                    ? $"Cancelado · acceso hasta {end.ToString("d MMM yyyy", Es)}"
+                    ? $"Cancelado · acceso hasta {EsFormat.DayMonthYear(end)}"
                     : "Cancelado · acceso hasta el fin del periodo";
             }
 
@@ -51,16 +49,16 @@
             {
                 SubscriptionStates.None => "Cuenta gratuita",
                 SubscriptionStates.Trialing => Subscription.TrialEnd is { } trialEnd
-                    ? $"Prueba activa · hasta {trialEnd.ToString("d MMM yyyy", Es)}"
+                    ? $"Prueba activa · hasta {EsFormat.DayMonthYear(trialEnd)}"
                     : "Prueba activa",
                 SubscriptionStates.Active => Subscription.CurrentPeriodEnd is { } activeEnd
-                    ? $"Premium activo · renueva el {activeEnd.ToString("d MMM yyyy", Es)}"
+                    ? $"Premium activo · renueva el {EsFormat.DayMonthYear(activeEnd)}"
                     : "Premium activo",
                 SubscriptionStates.PastDue => "Pago pendiente · revisa tu método de pago",
                 SubscriptionStates.Canceled => Subscription.Refunded
                     ? "Acceso cancelado (pago reembolsado)"
                     : Subscription.CurrentPeriodEnd is { } canceledEnd
-                        ? $"Cancelado · acceso hasta {canceledEnd.ToString("d MMM yyyy", Es)}"
+                        ? $"Cancelado · acceso hasta {EsFormat.DayMonthYear(canceledEnd)}"
                         : "Cancelado",
                 SubscriptionStates.Incomplete => "Pago incompleto",
                 _ => Subscription.Status,
