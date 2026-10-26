@@ -11,6 +11,9 @@ public sealed class SyncEngine
 {
     private const int BatchSize = 50;
     private static readonly TimeSpan IdlePollInterval = TimeSpan.FromSeconds(15);
+    // t_c2936fe2: stay off the local store during the .NET boot window so the
+    // first sqlite touch never competes with Blazor/MudBlazor startup CPU.
+    private static readonly TimeSpan StartupQuietDelay = TimeSpan.FromSeconds(4);
 
     private readonly Func<HttpClient> _httpClientFactory;
     private readonly ILocalStore _store;
@@ -39,6 +42,15 @@ public sealed class SyncEngine
 
     private async Task RunLoopAsync(CancellationToken cancellation)
     {
+        try
+        {
+            await Task.Delay(StartupQuietDelay, cancellation);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
         while (!cancellation.IsCancellationRequested)
         {
             try
