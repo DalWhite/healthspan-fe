@@ -5,7 +5,7 @@
     ElementReference back to the page so closing the sheet can return focus
     to the row (spec §5).
 *@
-<button type="button" class="hs-hist-row" @ref="_button" @onclick="OpenAsync" aria-label="@AriaLabel">
+<button type="button" class="hs-hist-row" data-testid="activity-row" @ref="_button" @onclick="OpenAsync" aria-label="@AriaLabel">
     <span class="hs-hist-row-main">
         <span class="hs-hist-row-title">@Title</span>
         <span class="hs-hist-row-meta">
