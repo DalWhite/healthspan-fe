@@ -117,7 +117,7 @@ public class ActivityHistoryTests : BlazorTestBase
                 var from = query.GetValueOrDefault("from");
                 var to = query.GetValueOrDefault("to");
                 var page = int.Parse(query.GetValueOrDefault("page", "1"));
-                var pageSize = int.Parse(query.GetValueOrDefault("pageSize", "10"));
+                var pageSize = int.Parse(query.GetValueOrDefault("pageSize", "30"));
 
                 var filtered = _store
                     .Where(i => (type is null || i.Type == type)
@@ -145,6 +145,15 @@ public class ActivityHistoryTests : BlazorTestBase
             .Respond(req =>
             {
                 _deletePath = req.RequestUri?.AbsolutePath;
+
+                // Keep the fake store consistent with the deletion so paged
+                // window fetches afterwards reflect the removed row (used by
+                // the past-last-page clamp test).
+                if (Guid.TryParse(_deletePath?.Split('/')[^1], out var deleted))
+                {
+                    _store.RemoveAll(i => i.Json.Contains(deleted.ToString()));
+                }
+
                 var response = new HttpResponseMessage(_deleteStatus);
                 if (_deleteStatus == HttpStatusCode.NotFound)
                 {
@@ -202,11 +211,13 @@ public class ActivityHistoryTests : BlazorTestBase
         var cut = Render();
         WaitForLoaded(cut);
 
-        cut.FindAll(".hs-hist-row").Count.Should().Be(10);
+        // Window = 30 (t_66002472): 22 seed items fit in one view; no pager.
+        cut.FindAll(".hs-hist-row").Count.Should().Be(22);
         cut.FindAll(".hs-hist-day-title").Select(h => h.TextContent.Trim()).Take(2)
             .Should().ContainInOrder("Hoy", "Ayer");
-        cut.Find(".hs-hist-hint").TextContent.Should().Contain("Mostrando 10 de 22");
-        cut.FindAll("#hist-loadmore").Count.Should().Be(1);
+        cut.Find(".hs-hist-hint").TextContent.Should().Contain("Mostrando 1–22 de 22");
+        cut.FindAll("#hist-next").Should().BeEmpty();
+        cut.FindAll("#hist-prev").Should().BeEmpty();
 
         // Row anatomy: title + dimension badge + param badges + duration (spec §4).
         var firstRow = cut.Find(".hs-hist-row");
@@ -216,27 +227,98 @@ public class ActivityHistoryTests : BlazorTestBase
         firstRow.GetAttribute("aria-label").Should().Contain("Sauna").And.Contain("Hoy").And.Contain("20 minutos");
     }
 
-    [Fact]
-    public void LoadMore_AppendsPage2AndHidesButtonWhenExhausted()
+    /// <summary>75 items = 3 windows of 30 (t_66002472 windowing seed).</summary>
+    private void BuildWindowSeedStore()
     {
-        BuildSeedStore();
+        _store = Enumerable.Range(0, 75)
+            .Select(i => new StoreItem(
+                DateIso(i % 40),
+                "sauna",
+                "health",
+                ItemJson(Guid.NewGuid(), "sauna", "health", i % 40, 20, 85, 3, 3)))
+            .ToList();
+    }
+
+    [Fact]
+    public void WindowNavigation_ReplacesViewAndNeverExceedsPageSize()
+    {
+        BuildWindowSeedStore();
         MockActivitiesList();
 
         var cut = Render();
         WaitForLoaded(cut);
 
-        // 22 items at pageSize 10 → three pages: 10 + 10 + 2.
-        cut.Find("#hist-loadmore").Click();
-        cut.WaitForElements(".hs-hist-row", 20, timeout: TimeSpan.FromSeconds(5));
-        _queries.Should().Contain(q => q.Contains("page=2"));
+        // First window: exactly 30 rows, windowed hint, no "Anterior".
+        cut.FindAll(".hs-hist-row").Count.Should().Be(30);
+        cut.Find(".hs-hist-hint").TextContent.Should().Contain("Mostrando 1–30 de 75");
+        cut.FindAll("#hist-prev").Should().BeEmpty();
+        _queries[0].Should().Contain("page=1").And.Contain("pageSize=30");
 
-        cut.Find("#hist-loadmore").Click();
-        cut.WaitForElements(".hs-hist-row", 22, timeout: TimeSpan.FromSeconds(5));
+        // Next REPLACES the view (no accumulation): still 30 rows.
+        cut.Find("#hist-next").Click();
+        cut.WaitForState(() => cut.FindAll(".hs-hist-row").Count == 30
+            && cut.Find(".hs-hist-hint").TextContent.Contains("31–60"), TimeSpan.FromSeconds(5));
+        _queries[^1].Should().Contain("page=2").And.Contain("pageSize=30");
+        cut.FindAll(".hs-hist-row").Count.Should().Be(30);
 
-        cut.FindAll(".hs-hist-row").Count.Should().Be(22);
-        cut.Find(".hs-hist-hint").TextContent.Should().Contain("Mostrando 22 de 22");
-        cut.FindAll("#hist-loadmore").Should().BeEmpty();
-        _queries.Should().Contain(q => q.Contains("page=3"));
+        // Last window: 15 rows, "Siguiente" disappears, "Anterior" works.
+        cut.Find("#hist-next").Click();
+        cut.WaitForState(() => cut.FindAll(".hs-hist-row").Count == 15
+            && cut.FindAll("#hist-next").Count == 0, TimeSpan.FromSeconds(5));
+        cut.Find(".hs-hist-hint").TextContent.Should().Contain("Mostrando 61–75 de 75");
+
+        cut.Find("#hist-prev").Click();
+        cut.WaitForState(() => cut.FindAll(".hs-hist-row").Count == 30
+            && cut.Find(".hs-hist-hint").TextContent.Contains("31–60"), TimeSpan.FromSeconds(5));
+
+        // Every request asked for at most 30 items (payload bound per view).
+        _queries.Should().OnlyContain(q => q.Contains("pageSize=30"));
+    }
+
+    [Fact]
+    public void WindowFallingPastLastPage_ClampsBackFromServerTotal()
+    {
+        // t_66002472 bench found a phantom empty page: after emptying the
+        // last window by deletes, re-paging to it must clamp back to the new
+        // last page using the server's `total`, never show rows=0 with items
+        // remaining.
+        BuildWindowSeedStore();
+        MockActivitiesList();
+        MockActivitiesDelete();
+
+        var cut = Render();
+        WaitForLoaded(cut);
+
+        cut.Find("#hist-next").Click();
+        cut.WaitForState(() => cut.FindAll(".hs-hist-row").Count == 30, TimeSpan.FromSeconds(5));
+        cut.Find("#hist-next").Click();
+        cut.WaitForState(() => cut.FindAll(".hs-hist-row").Count == 15, TimeSpan.FromSeconds(5));
+
+        // Delete the whole last window (15 items). Each delete reloads the
+        // same page; the view shrinks 15→…→0.
+        for (var remaining = 15; remaining > 1; remaining--)
+        {
+            cut.Find(".hs-hist-row").Click();
+            cut.WaitForState(() => cut.FindAll("#hist-detail-delete").Count > 0, TimeSpan.FromSeconds(5));
+            cut.Find("#hist-detail-delete").Click();
+            cut.WaitForState(() => cut.FindAll("#hist-confirm-yes").Count > 0, TimeSpan.FromSeconds(5));
+            cut.Find("#hist-confirm-yes").Click();
+            cut.WaitForState(() => cut.FindAll(".hs-hist-row").Count == remaining - 1, TimeSpan.FromSeconds(5));
+        }
+
+        // Deleting the LAST item of the window must never leave a phantom
+        // empty page: the clamp corrects to the new last page inside the
+        // same fetch chain, so the view shows window 2 (30 rows), not 0.
+        cut.Find(".hs-hist-row").Click();
+        cut.WaitForState(() => cut.FindAll("#hist-detail-delete").Count > 0, TimeSpan.FromSeconds(5));
+        cut.Find("#hist-detail-delete").Click();
+        cut.WaitForState(() => cut.FindAll("#hist-confirm-yes").Count > 0, TimeSpan.FromSeconds(5));
+        cut.Find("#hist-confirm-yes").Click();
+        cut.WaitForState(() => cut.FindAll(".hs-hist-row").Count == 30, TimeSpan.FromSeconds(5));
+        cut.Find(".hs-hist-hint").TextContent.Should().Contain("31–60");
+        cut.FindAll(".hs-hist-empty").Should().BeEmpty();
+
+        cut.FindAll("#hist-next").Should().BeEmpty("no next window exists after the clamp");
     }
 
     [Fact]
