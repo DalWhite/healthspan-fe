@@ -5,7 +5,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
     <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
+    <!-- t_f9943bc0: cold-start payload budget (baseline t_56b5840a) -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <_BlazorBrotliCompressionLevel>SmallestSize</_BlazorBrotliCompressionLevel>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- t_f9943bc0: root Razor/MudBlazor types that trimming would break
+         (component descriptors, EventCallback fields, interactive components). -->
+    <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Blazor-ApexCharts" Version="3.5.0" />
     <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />

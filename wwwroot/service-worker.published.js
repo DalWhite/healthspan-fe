@@ -9,7 +9,16 @@ self.addEventListener('fetch', event => event.respondWith(onFetch(event)));
 const cacheNamePrefix = 'offline-cache-';
 const cacheName = `${cacheNamePrefix}${self.assetsManifest.version}`;
 const offlineAssetsInclude = [ /\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff$/, /\.png$/, /\.jpe?g$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/ ];
-const offlineAssetsExclude = [ /^service-worker\.js$/, /^staticwebapp\.config\.json$/ ];
+// t_f9943bc0: heavy optional assets are NOT precached at install (cold-start
+// budget). They are fetched on first use and cached then (onFetch is cache-first
+// for GET); offline availability for them starts after that first online visit.
+const offlineAssetsExclude = [
+    /^service-worker\.js$/,
+    /^staticwebapp\.config\.json$/,
+    /^js\/sqlite\//,
+    /apexcharts/,
+    /^ExerciseImages\//,
+];
 
 async function onInstall(event) {
     console.info('Service worker: Install');
