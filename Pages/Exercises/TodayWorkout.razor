@@ -325,8 +325,8 @@
     private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
     private readonly List<WorkoutSessionResource> _sessions = [];
     private WorkoutSessionResource? _session;
-    private readonly List<GetWorkoutResource> _recentWorkouts = [];
-    private GetWorkoutResource? _lastWorkout;
+    private readonly List<TodayRecentWorkoutResource> _recentWorkouts = [];
+    private TodayRecentWorkoutResource? _lastWorkout;
     private decimal? _currentUserBodyWeight;
     private string? _error;
     private bool _isLoading = true;
@@ -362,15 +362,15 @@
         get
         {
             if (_lastWorkout is not { } workout) return "tu entreno anterior";
-            if (workout.Blocks.FirstOrDefault(block => !string.IsNullOrWhiteSpace(block.Label)) is { } named)
-                return named.Label!;
+            if (!string.IsNullOrWhiteSpace(workout.BlockLabel))
+                return workout.BlockLabel!;
             if (TrainingIntent.ParseModality(workout.Modality) is { } modality)
                 return SpanishModalityLabel(modality);
             return "tu entreno anterior";
         }
     }
 
-    private string LastWorkoutWhen => DaysAgoLabel(_lastWorkout?.Date?.Date);
+    private string LastWorkoutWhen => DaysAgoLabel(_lastWorkout?.Date.Date);
 
     private static string DaysAgoLabel(DateTime? date)
     {
@@ -395,10 +395,10 @@
             : workoutDate.ToString("d MMM", Spanish);
     }
 
-    private static string WorkoutName(GetWorkoutResource workout)
+    private static string WorkoutName(TodayRecentWorkoutResource workout)
     {
-        if (workout.Blocks.FirstOrDefault(block => !string.IsNullOrWhiteSpace(block.Label)) is { } named)
-            return named.Label!;
+        if (!string.IsNullOrWhiteSpace(workout.BlockLabel))
+            return workout.BlockLabel!;
         if (TrainingIntent.ParseModality(workout.Modality) is { } modality)
             return SpanishModalityLabel(modality);
         return "Entreno";
@@ -413,19 +413,17 @@
             var rows = new List<RecentSessionRow>();
             foreach (var workout in _recentWorkouts.Take(2))
             {
-                var exercises = workout.Exercises;
-                var heaviest = exercises
-                    .OrderByDescending(exercise => exercise.AddedWeight.GetValueOrDefault() + (exercise.Weight ?? 0))
-                    .FirstOrDefault();
-                var attemptRows = exercises.Where(exercise => (exercise.Attempts ?? 0) > 0).ToList();
-                var (metric, metricLabel) = attemptRows.Count > 0
-                    ? ($"{attemptRows.Sum(exercise => exercise.CompletedAttempts ?? 0)}/{attemptRows.Sum(exercise => exercise.Attempts ?? 0)}", "completados")
+                // The aggregate ships the heaviest exercise plus the attempt
+                // totals — enough to render the row without the old full-detail fetch.
+                var heaviest = workout.TopExercise;
+                var (metric, metricLabel) = workout.Attempts > 0
+                    ? ($"{workout.CompletedAttempts}/{workout.Attempts}", "completados")
                     : heaviest is null
                         ? ("—", string.Empty)
                         : (FormatHistoryLoad(heaviest), "última serie");
                 rows.Add(new RecentSessionRow(
                     WorkoutName(workout),
-                    $"{DaysAgoLabel(workout.Date?.Date)} · {workout.ExerciseCount} ejercicios",
+                    $"{DaysAgoLabel(workout.Date.Date)} · {workout.ExerciseCount} ejercicios",
                     metric,
                     metricLabel));
             }
@@ -483,31 +481,19 @@
 
         try
         {
+            // The whole Today screen is one aggregate round-trip (t_101e2b0a);
+            // exercise types stay separate — they belong to the catalog and are
+            // only needed by the autocomplete.
             var typesTask = Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
-            var sessionsTask = LoadSessionsAsync();
-            var profileWeightTask = LoadProfileWeightAsync();
-            await Task.WhenAll(
-                typesTask,
-                sessionsTask,
-                profileWeightTask);
+            var pageTask = LoadTodayPageAsync();
+            await Task.WhenAll(typesTask, pageTask);
 
             _exerciseTypes = typesTask.Result ?? Array.Empty<GetExerciseTypeResource>();
-            _sessions.Clear();
-            _sessions.AddRange(sessionsTask.Result);
-            _session = _sessions.LastOrDefault();
-            _currentUserBodyWeight = profileWeightTask.Result;
-
-            // Recent sessions feed the streak chip, the "Últimos entrenos" rows
-            // and the "Anterior" column of the set table.
-            _recentWorkouts.Clear();
-            _recentWorkouts.AddRange(await LoadRecentWorkoutsAsync());
-            _lastWorkout = _recentWorkouts.FirstOrDefault();
-            _streakDays = ComputeStreakDays();
+            ApplyPage(pageTask.Result);
 
             if (_session is not null)
             {
                 ActiveSession.SetSession(_session.Id);
-                await LoadPreviousLoadsAsync();
             }
         }
         catch (HttpRequestException)
@@ -532,44 +518,56 @@
         => NavigationManager.ToAbsoluteUri(NavigationManager.Uri)
                .Query?.Contains("start=1", StringComparison.Ordinal) == true;
 
-    private async Task<List<WorkoutSessionResource>> LoadSessionsAsync()
+    private async Task RefreshTodayPageAsync()
     {
-        using var response = await Http.GetAsync(
-            $"/Workouts/today/sessions?date={_today:yyyy-MM-dd}");
-        response.EnsureSuccessStatusCode();
-        return await response.Content
-                   .ReadFromJsonAsync<List<WorkoutSessionResource>>()
-               ?? [];
+        ApplyPage(await LoadTodayPageAsync());
     }
 
-    private async Task<List<GetWorkoutResource>> LoadRecentWorkoutsAsync()
+    private void ApplyPage(TodayWorkoutPageResource page)
+    {
+        _sessions.Clear();
+        _sessions.AddRange(page.Sessions);
+        _session = _sessions.LastOrDefault();
+        _currentUserBodyWeight = page.ProfileWeightKg;
+
+        // Recent sessions feed the streak chip, the "Últimos entrenos" rows
+        // and the "Anterior" column of the set table.
+        _recentWorkouts.Clear();
+        _recentWorkouts.AddRange(page.RecentWorkouts);
+        _lastWorkout = _recentWorkouts.FirstOrDefault();
+        _streakDays = ComputeStreakDays();
+
+        _previousLoads.Clear();
+        foreach (var (typeId, baseline) in page.PreviousLoads)
+        {
+            _previousLoads[typeId] = baseline;
+        }
+    }
+
+    private async Task<TodayWorkoutPageResource> LoadTodayPageAsync()
     {
         try
         {
-            // Most recent workouts that actually have logged exercises; empty
-            // placeholder days are not worth repeating or showing.
-            using var response = await Http.GetAsync("/workouts?page=1&pageSize=14");
-            if (!response.IsSuccessStatusCode)
-            {
-                return [];
-            }
-
-            var page = await response.Content
-                .ReadFromJsonAsync<List<GetWorkoutResource>>();
-            return page?.Where(workout => workout.ExerciseCount > 0).ToList() ?? [];
+            using var response = await Http.GetAsync(
+                $"/Workouts/today/page?date={_today:yyyy-MM-dd}");
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<TodayWorkoutPageResource>()
+                   ?? new TodayWorkoutPageResource();
         }
-        catch (Exception)
+        catch (HttpRequestException)
         {
-            // Recent rows are context, not core: never block Today for them.
-            return [];
+            throw;
+        }
+        catch (TaskCanceledException)
+        {
+            throw;
         }
     }
 
     private int ComputeStreakDays()
     {
         var days = _recentWorkouts
-            .Where(workout => workout.Date is not null)
-            .Select(workout => workout.Date!.Value.Date)
+            .Select(workout => workout.Date.Date)
             .ToHashSet();
         if (days.Count == 0)
         {
@@ -595,44 +593,6 @@
             cursor = cursor.AddDays(-1);
         }
         return streak;
-    }
-
-    // "Anterior" column + PR badge: the load the user lifted last time for each
-    // exercise type, read from the two most recent sessions.
-    private async Task LoadPreviousLoadsAsync()
-    {
-        _previousLoads.Clear();
-        foreach (var workout in _recentWorkouts
-                     .Where(workout => _session is null || workout.Id != _session.Id)
-                     .Take(2))
-        {
-            try
-            {
-                var detail = await Http.GetFromJsonAsync<GetWorkoutResource>($"/Workouts/{workout.Id}");
-                if (detail is null)
-                {
-                    continue;
-                }
-
-                foreach (var exercise in detail.Exercises)
-                {
-                    if (exercise.TypeId == 0 || _previousLoads.ContainsKey(exercise.TypeId))
-                    {
-                        continue;
-                    }
-
-                    if (exercise.Series > 0 || exercise.Repetitions > 0 || exercise.Weight > 0)
-                    {
-                        _previousLoads[exercise.TypeId] = exercise;
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // Baselines are a nicety; a failed detail read just leaves the
-                // column empty rather than breaking the log.
-            }
-        }
     }
 
     private async Task RepeatLastWorkout()
@@ -672,19 +632,6 @@
         finally
         {
             _isRepeating = false;
-        }
-    }
-
-    private async Task<decimal?> LoadProfileWeightAsync()
-    {
-        try
-        {
-            var profile = await ApiClient.GetHealthProfileAsync();
-            return profile.WeightKg;
-        }
-        catch
-        {
-            return null;
         }
     }
 
@@ -733,7 +680,6 @@
             }
 
             ActiveSession.SetSession(_session.Id);
-            await LoadPreviousLoadsAsync();
         }
         catch (HttpRequestException)
         {
@@ -1318,8 +1264,7 @@
                 return;
             }
 
-            _sessions.Clear();
-            _sessions.AddRange(await LoadSessionsAsync());
+            await RefreshTodayPageAsync();
             _session = _sessions.FirstOrDefault(session => session.Id == sessionId)
                        ?? _sessions.LastOrDefault();
             ActiveSession.SetSession(_session?.Id);

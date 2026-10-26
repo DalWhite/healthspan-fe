@@ -17,6 +17,18 @@ namespace healthspan_fe.tests.Regression;
 /// </summary>
 public class TodayTrackerUiTests : BlazorTestBase
 {
+    private void TodayPageRespond(params string[] bodies)
+        => MockHttp.When(HttpMethod.Get, "/Workouts/today/page*")
+            .Respond("application/json", TodayPageMocks.Page(bodies));
+
+    private void TodayPageRespondDynamic(Func<string[]> nextBodies)
+        => MockHttp.When(HttpMethod.Get, "/Workouts/today/page*")
+            .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    TodayPageMocks.Page(nextBodies()), Encoding.UTF8, "application/json")
+            });
+
 
     /// <summary>
     /// Today re-renders while its cached data refresh lands, which replaces nodes
@@ -58,8 +70,7 @@ public class TodayTrackerUiTests : BlazorTestBase
             .Respond("application/json", "[]");
         MockHttp.When(HttpMethod.Get, "/workouts*")
             .Respond("application/json", "[]");
-        MockHttp.When(HttpMethod.Get, $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond("application/json", $$"""
+        TodayPageRespond($$"""
                 [
                     {
                         "id": "{{workoutId}}",
@@ -137,12 +148,7 @@ public class TodayTrackerUiTests : BlazorTestBase
             ]
             """;
 
-        MockHttp.When(HttpMethod.Get, $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(
-                    blockOnServer ? TodayPayload(true) : TodayPayloadEmpty(), Encoding.UTF8, "application/json")
-            });
+        TodayPageRespondDynamic(() => new[] { blockOnServer ? TodayPayload(true) : TodayPayloadEmpty() });
         var blockCall = MockHttp.When(HttpMethod.Post, $"/Workouts/{workoutId}/blocks")
             .Respond(request =>
             {
@@ -208,8 +214,7 @@ public class TodayTrackerUiTests : BlazorTestBase
             .Respond("application/json", "[]");
         MockHttp.When(HttpMethod.Get, "/workouts*")
             .Respond("application/json", "[]");
-        MockHttp.When(HttpMethod.Get, $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond("application/json", $$"""
+        TodayPageRespond($$"""
                 [
                     {
                         "id": "{{workoutId}}",
@@ -277,8 +282,7 @@ public class TodayTrackerUiTests : BlazorTestBase
             .Respond("application/json", "[]");
         MockHttp.When(HttpMethod.Get, "/workouts*")
             .Respond("application/json", "[]");
-        MockHttp.When(HttpMethod.Get, $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
-            .Respond("application/json", $$"""
+        TodayPageRespond($$"""
                 [
                     {
                         "id": "{{workoutId}}",
