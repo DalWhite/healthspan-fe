@@ -11,7 +11,7 @@
 
     @if (_loading)
     {
-        <LoadingState Message="Loading routines..." />
+        <ScreenSkeleton Variant="cards" Message="Loading routines…" />
     }
     else if (_error is not null)
     {

@@ -7244,3 +7244,136 @@ button.hs-health-overview-card {
     bottom: 24px;
   }
 }
+
+/* ── Carga percibida (t_fea01cd1) · docs/design/skeleton-loading-spec.md ──── */
+/* Tier-1: esqueleto de arranque en index.html durante el boot WASM. Imita el
+   shell real (topbar 52px, sidebar 264px ≥1000px, bottom-nav 68px) para que la
+   sustitución al montar Blazor no desplace nada. Reusa .hs-skeleton (shimmer y
+   prefers-reduced-motion ya definidos arriba). */
+#hs-boot-skeleton {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--hs-canvas);
+}
+
+.hs-boot-shell {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: var(--hs-topbar-height) minmax(0, 1fr) var(--hs-bottom-nav-height);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hs-boot-topbar {
+  grid-row: 1;
+  grid-column: 1;
+  border-bottom: 1px solid var(--hs-border);
+}
+
+.hs-boot-sidebar {
+  display: none;
+}
+
+.hs-boot-page {
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+  padding: var(--hs-space-4);
+  overflow: hidden;
+}
+
+.hs-boot-status {
+  margin: 0;
+  color: var(--hs-muted-text, #8b95a7);
+  font-size: 13px;
+}
+
+.hs-boot-heading {
+  height: 34px;
+  width: 40%;
+  min-width: 160px;
+  max-width: 320px;
+}
+
+.hs-boot-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--hs-space-3);
+}
+
+.hs-boot-block,
+.hs-boot-tile {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.hs-boot-row {
+  margin-bottom: var(--hs-space-3);
+}
+
+.hs-boot-bottomnav {
+  grid-row: 3;
+  border-top: 1px solid var(--hs-border);
+}
+
+@media (min-width: 1000px) {
+  .hs-boot-shell {
+    grid-template-columns: var(--hs-sidebar-width) minmax(0, 1fr);
+    grid-template-rows: var(--hs-topbar-height) minmax(0, 1fr);
+  }
+
+  .hs-boot-topbar {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .hs-boot-sidebar {
+    display: block;
+    grid-row: 1 / 3;
+    grid-column: 1;
+    border-right: 1px solid var(--hs-border);
+  }
+
+  .hs-boot-page {
+    grid-row: 2;
+    grid-column: 2;
+    padding: var(--hs-space-5) var(--hs-space-5) var(--hs-space-4);
+  }
+
+  .hs-boot-bottomnav {
+    display: none;
+  }
+}
+
+/* Tier-2: esqueleto por pantalla (ScreenSkeleton.razor) mientras el fetch.
+   Alturas fijas por variante ≈ geometría cargada; el bloque skeleton es el
+   último elemento visible de la página, así que el swap skeleton→contenido
+   no desplaza nada (aporta 0 a CLS). */
+.hs-screen-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+}
+
+.hs-screen-skeleton .hs-skeleton {
+  margin-bottom: 0;
+}
+
+.hs-screen-skeleton .hs-skeleton-card {
+  margin-bottom: 0;
+}
+
+.hs-screen-skeleton-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--hs-space-3);
+}
+
+/* Historial: marca el bloque skeleton existente para el contrato de medición. */
+.hs-hist-skeleton[data-hs-loading] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-2);
+}
