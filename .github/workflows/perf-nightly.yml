@@ -7,6 +7,7 @@ on:
 
 jobs:
   fe_bench:
+    if: github.event_name == 'schedule'  # PROBE-ONLY (t_4c61763c): off en dispatch de calibración
     runs-on: ubuntu-latest
     name: FE perf bench (navegador)
     # Serializado con el job perf_api_bench del workflow SWA (mismo group).
@@ -35,3 +36,23 @@ jobs:
         with:
           name: fe_perf_json
           path: /tmp/fe_perf.json
+
+  runner_warm_probe:
+    # PROBE-ONLY (t_4c61763c): distribución TTFB warm del runner CI sobre la API
+    # para fijar el umbral con evidencia. Este job NO debe existir en main.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    name: Runner warm calibration probe
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: api_bench warm x2
+        run: |
+          python3 scripts/perf/api_bench.py --warmup 5 --iters 15 --out /tmp/api_perf_1.json || true
+          python3 scripts/perf/api_bench.py --warmup 5 --iters 15 --out /tmp/api_perf_2.json || true
+          cat /tmp/api_perf_1.json
+          echo ====
+          cat /tmp/api_perf_2.json
