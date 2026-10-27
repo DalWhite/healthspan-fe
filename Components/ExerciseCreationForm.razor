@@ -61,6 +61,7 @@
         }
 
         <MudAutocomplete T="GetExerciseTypeResource"
+                         id="exercise-type"
                          Label="Ejercicio"
                          Variant="Variant.Outlined"
                          Margin="Margin.Dense"
@@ -75,6 +76,7 @@
             <MudNumericField T="int?"
                              Value="_exercise.Series"
                              ValueChanged="@(value => { _exercise.Series = value; _prescriptionTouched = true; })"
+                             id="exercise-series"
                              Label="Series"
                              Variant="Variant.Outlined"
                              Margin="Margin.Dense"
@@ -84,6 +86,7 @@
             <MudNumericField T="int?"
                              Value="_exercise.Repetitions"
                              ValueChanged="@(value => { _exercise.Repetitions = value; _prescriptionTouched = true; })"
+                             id="exercise-reps"
                              Label="Reps"
                              Variant="Variant.Outlined"
                              Margin="Margin.Dense"
@@ -93,6 +96,7 @@
             @if (_exercise.WeightType == ExerciseWeightType.BodyWeight)
             {
                 <MudNumericField @bind-Value="_exercise.BodyWeight"
+                                 id="exercise-body-weight"
                                  Label="Peso corporal (kg)"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
@@ -101,6 +105,7 @@
                                  HideSpinButtons="true" />
 
                 <MudNumericField @bind-Value="_exercise.AddedWeight"
+                                 id="exercise-added-weight"
                                  Label="Peso añadido (kg)"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
@@ -111,6 +116,7 @@
             else if (_exercise.WeightType != ExerciseWeightType.None)
             {
                 <MudNumericField @bind-Value="_exercise.Weight"
+                                 id="exercise-weight"
                                  Label="Peso (kg)"
                                  Variant="Variant.Outlined"
                                  Margin="Margin.Dense"
