@@ -27,7 +27,7 @@ else
 
                 <div class="hs-et-toolbar-row">
                     <MudText Typo="Typo.body2" Class="hs-muted-copy hs-et-result-count">
-                        @FormatResultCount(EffectiveResultCount())
+                        @FormatResultCount(_visibleMainExercises.Count)
                     </MudText>
 
                     <MudButton Variant="Variant.Text"
@@ -470,25 +470,10 @@ else
     private static string FormatVariationCount(int variationCount)
         => variationCount == 1 ? "1 variation" : $"{variationCount} variations";
 
-    // While the catalog hydrates, an unfiltered view reports the server total so
-    // the counter never flashes the first page's size (t_81a400b3).
-    private int EffectiveResultCount()
-    {
-        if (AppState.ExerciseTypesHydrated || AppState.ExerciseTypesTotal <= _all.Length)
-        {
-            return _visibleMainExercises.Count;
-        }
-
-        var filtering = !string.IsNullOrWhiteSpace(_search)
-                        || !string.IsNullOrWhiteSpace(_selectedEquipment)
-                        || !string.IsNullOrWhiteSpace(_selectedMovement)
-                        || !string.IsNullOrWhiteSpace(_selectedMuscleGroup)
-                        || _favouritesOnlyFilter
-                        || FavouritesOnly;
-
-        return filtering ? _visibleMainExercises.Count : AppState.ExerciseTypesTotal;
-    }
-
+    // The grid pages main exercises only, so the counter reports what this view
+    // can actually show: rows already loaded minus variations. The server total
+    // (all 979 rows, variations included) is a different number — using it printed
+    // "of 979" and then fell to 755 as the catalog finished hydrating (t_81a400b3).
     private string FormatResultCount(int count)
     {
         if (count == 0)

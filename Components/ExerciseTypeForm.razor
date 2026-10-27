@@ -238,7 +238,9 @@
             .OrderBy(muscle => muscle.SortOrder <= 0 ? int.MaxValue : muscle.SortOrder)
             .ThenBy(muscle => muscle.Name)
             .ToList();
-        _exerciseTypes = await AppState.GetExerciseTypesAsync();
+        // The parent picker and the "does not exist" validation must see every type,
+        // not just the first page the library paints with (t_81a400b3).
+        _exerciseTypes = (await AppState.GetFullExerciseTypesAsync()).ToList();
         Model.WeightType ??= ExerciseWeightType.Standard;
         SyncTagEditorsFromModel();
         SyncMuscleSelectionsFromModel();

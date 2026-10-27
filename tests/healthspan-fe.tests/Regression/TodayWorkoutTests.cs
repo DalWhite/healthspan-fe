@@ -109,12 +109,16 @@ public class TodayWorkoutTests : BlazorTestBase
             cut.FindAll("button")
                 .Should().Contain(button => button.TextContent.Contains("Bench Press")));
 
-        cut.FindAll("button")
+        // Find+click atomically: the catalog keeps hydrating in the background and
+        // re-renders this page, which invalidates a handler id captured just before
+        // the render (t_81a400b3). A real browser updates the DOM node in place, so
+        // this is a bUnit artefact, not a lost tap.
+        cut.InvokeAsync(() => cut.FindAll("button")
             .Single(button => button.TextContent.Contains("Bench Press"))
-            .Click();
-        cut.FindAll("button")
+            .Click());
+        cut.InvokeAsync(() => cut.FindAll("button")
             .Single(button => button.TextContent.Trim() == "Añadir ejercicio")
-            .Click();
+            .Click());
 
         cut.WaitForAssertion(() =>
         {
