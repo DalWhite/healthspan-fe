@@ -611,7 +611,12 @@ public class PaymentFlowTests : BlazorTestBase
         MockSubscription(NoneJson);
 
         var cut = RenderComponent<Profile>();
-        cut.WaitForState(() => cut.Markup.Contains("Análisis avanzado con Premium"));
+        // Two chained fetches (insights + subscription) before the card lands: the 1s
+        // default races on slower CI runners.
+        cut.WaitForState(
+            () => cut.Markup.Contains("Análisis avanzado con Premium")
+                  && cut.Markup.Contains("No training data yet"),
+            TimeSpan.FromSeconds(10));
 
         // La card es un aviso con CTA; el contenido de la página sigue visible (D1).
         cut.Markup.Should().Contain("gratis para siempre");
