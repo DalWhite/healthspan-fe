@@ -357,6 +357,7 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         string body;
         try
         {
+            // Buffered read: cheap, and it keeps the body readable for the caller.
             body = await response.Content.ReadAsStringAsync();
         }
         catch
@@ -366,24 +367,47 @@ public sealed class OfflineHttpHandler : DelegatingHandler
 
         var contentType = response.Content.Headers.ContentType?.MediaType
                           ?? "application/json";
-        await _store.CacheResponseAsync(
-            key, (int)response.StatusCode, contentType, body);
 
-        // Mirror the read-only catalog so the library works with no cache entry.
-        if (key.StartsWith("exercisetypes", StringComparison.OrdinalIgnoreCase))
+        // The write itself (a 1.4MB catalog parse plus a 979-row transaction on
+        // the first load) is detached: the cache is for the *next* read, so the
+        // page that triggered this one must not wait for it.
+        _ = WriteCacheAsync(key, (int)response.StatusCode, contentType, body);
+    }
+
+    private async Task WriteCacheAsync(
+        string key,
+        int statusCode,
+        string contentType,
+        string body)
+    {
+        try
         {
-            await MirrorCatalogAsync("exercise_types", body, "id");
+            // Let the awaiting page render its content before the write runs.
+            await Task.Yield();
+
+            await _store.CacheResponseAsync(key, statusCode, contentType, body);
+
+            // Mirror the read-only catalog so the library works with no cache entry.
+            if (key.StartsWith("exercisetypes", StringComparison.OrdinalIgnoreCase))
+            {
+                await MirrorCatalogAsync("exercise_types", body, "id");
+            }
+            else if (key.StartsWith("api/muscles", StringComparison.OrdinalIgnoreCase))
+            {
+                await MirrorCatalogAsync("muscles", body, "id");
+            }
+            else if (key.StartsWith("workouts", StringComparison.OrdinalIgnoreCase))
+            {
+                // Hydrate the entity mirrors from server reads: a workout the
+                // server created must exist locally (client_id = server id) or
+                // local mutations against it 404 with "Workout not found".
+                await IngestWorkoutsAsync(body);
+            }
         }
-        else if (key.StartsWith("api/muscles", StringComparison.OrdinalIgnoreCase))
+        catch (Exception ex)
         {
-            await MirrorCatalogAsync("muscles", body, "id");
-        }
-        else if (key.StartsWith("workouts", StringComparison.OrdinalIgnoreCase))
-        {
-            // Hydrate the entity mirrors from server reads: a workout the
-            // server created must exist locally (client_id = server id) or
-            // local mutations against it 404 with "Workout not found".
-            await IngestWorkoutsAsync(body);
+            // A cache write can never break the read that returned the data.
+            _logger?.LogDebug(ex, "Offline cache write failed for {Key}", key);
         }
     }
 

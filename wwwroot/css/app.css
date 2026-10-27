@@ -7255,3 +7255,26 @@ button.hs-health-overview-card {
     bottom: 24px;
   }
 }
+
+/* Blazor's unhandled-error banner ships hidden and is only shown when the
+   framework puts it in display; without this rule the bare div rendered as
+   visible text on every page. */
+#blazor-error-ui {
+  display: none;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1000;
+  padding: 0.6rem 1.25rem 0.7rem;
+  background: #fff3c4;
+  color: #1c1b1f;
+  box-shadow: 0 0 1.2rem rgba(0, 0, 0, 0.35);
+}
+
+#blazor-error-ui .dismiss {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  cursor: pointer;
+}
