@@ -432,6 +432,32 @@ public class UniversalTrackerOfflineTests
         (await store.CountPendingAsync()).Should().Be(0);
     }
 
+    // ── route matching semantics (Regex → segment matcher) ───────────────────
+
+    [Fact]
+    public async Task Route_Matching_Is_Case_Insensitive_And_Segment_Exact()
+    {
+        var (mutator, _, _) = CreateMutator();
+        var workoutId = await CreateWorkoutAsync(mutator);
+
+        // "/Workouts/{id}/Blocks" must still hit the blocks route (the old
+        // pattern matched against a lower-cased path).
+        var upper = await mutator.TryHandleAsync(
+            Post($"/Workouts/{workoutId}/Blocks", new { type = "Marathon" }));
+        upper!.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await BodyAsync(upper)).GetProperty("title").GetString()
+            .Should().Contain("block type");
+
+        // An extra segment must NOT match any route (null from the handler).
+        (await mutator.TryHandleAsync(
+            Post($"/workouts/{workoutId}/blocks/extra", new { type = "Normal" })))
+            .Should().BeNull();
+
+        // An empty id segment must not match either.
+        (await mutator.TryHandleAsync(Post("/workouts//blocks", new { type = "Normal" })))
+            .Should().BeNull();
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private static async Task<Guid> CreateWorkoutAsync(LocalMutator mutator)
