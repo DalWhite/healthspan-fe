@@ -188,7 +188,7 @@ public sealed class OfflineHttpHandler : DelegatingHandler
                 }
                 else
                 {
-                    _ = RefreshCacheInBackgroundAsync(networkTask);
+                    BackgroundRefresh = RefreshCacheInBackgroundAsync(networkTask);
                 }
 
                 return cached;
@@ -317,7 +317,7 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         }
     }
 
-    private static async Task RefreshCacheInBackgroundAsync(Task<HttpResponseMessage?> networkTask)
+    private async Task RefreshCacheInBackgroundAsync(Task<HttpResponseMessage?> networkTask)
     {
         try
         {
@@ -329,6 +329,13 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         {
         }
     }
+
+    /// <summary>
+    /// The stale-while-revalidate refresh started by the last cache hit served
+    /// past the network budget. Exposed so callers that need the refresh (and
+    /// therefore its cache write) settled can await it.
+    /// </summary>
+    public Task BackgroundRefresh { get; private set; } = Task.CompletedTask;
 
     private async Task<HttpResponseMessage?> ServeCachedAsync(HttpRequestMessage request)
     {
