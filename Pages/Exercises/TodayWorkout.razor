@@ -514,6 +514,13 @@
             {
                 await EnsureExerciseTypesAsync();
             }
+            else
+            {
+                // Empty day: the form is on screen too, so the picker needs
+                // options — but it must not gate the empty state. First page
+                // (40 rows) loads detached; the picker fills as it lands.
+                _ = EnsureExerciseTypesAsync();
+            }
 
             // Recent sessions feed the streak chip, the "Últimos entrenos" rows
             // and the "Anterior" column of the set table.
@@ -646,6 +653,7 @@
             _listensToCatalog = true;
             _exerciseTypesLoaded = true;
             Console.WriteLine($"HSPERF today-ready={sw.ElapsedMilliseconds}ms rows={_exerciseTypes.Length}");
+            await InvokeAsync(StateHasChanged);
         }
         catch
         {
