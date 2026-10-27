@@ -258,8 +258,12 @@ public class RegisterActivityTests : BlazorTestBase
         _cut.WaitForState(() => _postedBody is not null, TimeSpan.FromSeconds(5));
 
         var expected = EsFormat.WeekdayDayMonthFull(pastDay);
-        _cut.Find(".hs-reg-success-title").TextContent.Trim()
-            .Should().Be($"Guardado · Sauna · {expected}");
+        // The success panel renders after the POST round-trip: wait for it instead of
+        // finding it the instant the mock saw the body (raced on slower CI runners).
+        _cut.WaitForAssertion(
+            () => _cut.Find(".hs-reg-success-title").TextContent.Trim()
+                .Should().Be($"Guardado · Sauna · {expected}"),
+            TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -272,8 +276,10 @@ public class RegisterActivityTests : BlazorTestBase
         ClickSave();
         _cut.WaitForState(() => _postedBody is not null, TimeSpan.FromSeconds(5));
 
-        _cut.Find(".hs-reg-success-title").TextContent.Trim()
-            .Should().Be("Guardado · Sauna · Hoy");
+        _cut.WaitForAssertion(
+            () => _cut.Find(".hs-reg-success-title").TextContent.Trim()
+                .Should().Be("Guardado · Sauna · Hoy"),
+            TimeSpan.FromSeconds(5));
     }
 
     [Fact]
