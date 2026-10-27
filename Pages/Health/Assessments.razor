@@ -55,13 +55,15 @@
                 </div>
 
                 <div class="hs-assessment-meta">
-                    <MudDatePicker Label="Assessed on"
+                    <MudDatePicker id="assessment-date"
+                                   Label="Assessed on"
                                    @bind-Date="_draftAssessedOn"
                                    MaxDate="DateTime.Today"
                                    Variant="Variant.Outlined"
                                    Margin="Margin.Dense"
                                    Class="hs-assessment-field" />
-                    <MudTextField @bind-Value="_draft.Notes"
+                    <MudTextField id="assessment-notes"
+                                  @bind-Value="_draft.Notes"
                                   Label="Notes (optional)"
                                   Variant="Variant.Outlined"
                                   Margin="Margin.Dense"
@@ -76,11 +78,14 @@
                             adaptation.Adaptation);
                         var previous = GetLatestScore(
                             adaptation.Adaptation);
+                        var adaptationName = adaptation.DisplayName
+                            ?? HealthDisplayHelpers.ResolveAdaptationLabel(adaptation.Adaptation);
+                        var fieldSuffix =
+                            adaptation.Adaptation.ToString().ToLowerInvariant();
                         <details>
                             <summary>
                                 <span>
-                                    @(adaptation.DisplayName
-                                        ?? HealthDisplayHelpers.ResolveAdaptationLabel(adaptation.Adaptation))
+                                    @adaptationName
                                 </span>
                                 <span>
                                     @(score.Score?.ToString("0.#")
@@ -99,6 +104,8 @@
                             <div class="hs-assessment-entry">
                                 <MudNumericField T="double?"
                                                  @bind-Value="score.Score"
+                                                 id="@($"assessment-score-{fieldSuffix}")"
+                                                 aria-label="@($"Score — {adaptationName}")"
                                                  Label="Score"
                                                  Min="0"
                                                  Max="10"
@@ -113,6 +120,8 @@
                                         score.EvidenceNotes))
                                 {
                                     <MudTextField @bind-Value="score.EvidenceNotes"
+                                                  id="@($"assessment-evidence-{fieldSuffix}")"
+                                                  aria-label="@($"Evidence note — {adaptationName}")"
                                                   Label="Evidence (optional)"
                                                   Variant="Variant.Outlined"
                                                   Margin="Margin.Dense"
