@@ -286,7 +286,10 @@ public class OfflineSyncTests
         var list = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         list.RootElement[0].GetProperty("type").GetString().Should().Be("From server");
 
-        // The successful GET was cached for offline reads.
+        // The successful GET was cached for offline reads. The write is detached
+        // from the request path (#49), so the test waits for it to settle instead
+        // of assuming it already happened when ProcessAsync returned.
+        await handler.LastCacheWrite;
         var cached = await store.GetCachedResponseAsync("workouts");
         cached.Should().NotBeNull();
     }
@@ -309,6 +312,9 @@ public class OfflineSyncTests
             new(HttpMethod.Get, "https://localhost:7278/workouts"),
             mockHttp,
             CancellationToken.None);
+        // Cache write detached from the request path (#49): settle it before the
+        // "network drops" read, otherwise the fallback is a coin flip.
+        await onlineHandler.LastCacheWrite;
 
         var offlineHttp = new MockHttpMessageHandler();
         offlineHttp.When(HttpMethod.Get, "/workouts")
