@@ -53,6 +53,12 @@
     else if (_session is null)
     {
         <section class="hs-today-activation" aria-label="Empezar">
+            @if (ShowFirstRunEmpty)
+            {
+                <EmptyState Icon="@Icons.Material.Filled.FitnessCenter"
+                            Title="Aún no hay entrenos"
+                            Subtitle="Toca + para registrar tu primer ejercicio. Aquí verás la sesión de hoy, tu racha y tus marcas." />
+            }
             @if (_lastWorkout is not null)
             {
                 <button type="button"
@@ -322,6 +328,9 @@
 @code {
     private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
     private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
+    private Task<GetExerciseTypeResource[]?>? _exerciseTypesTask;
+    private bool _exerciseTypesLoaded;
+
     private readonly List<WorkoutSessionResource> _sessions = [];
     private WorkoutSessionResource? _session;
     private readonly List<GetWorkoutResource> _recentWorkouts = [];
@@ -482,19 +491,26 @@
 
         try
         {
-            var typesTask = Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
             var sessionsTask = LoadSessionsAsync();
             var profileWeightTask = LoadProfileWeightAsync();
             await Task.WhenAll(
-                typesTask,
                 sessionsTask,
                 profileWeightTask);
 
-            _exerciseTypes = typesTask.Result ?? Array.Empty<GetExerciseTypeResource>();
             _sessions.Clear();
             _sessions.AddRange(sessionsTask.Result);
             _session = _sessions.LastOrDefault();
             _currentUserBodyWeight = profileWeightTask.Result;
+
+            // The exercise catalog is ~1.4MB and is only needed to name and pick
+            // exercises for a session being logged. Fetching it before knowing
+            // whether there is a session put it on the critical path of the empty
+            // day and kept "Cargando tus entrenos" on screen for tens of seconds,
+            // so it now loads with the session, not before it.
+            if (_session is not null)
+            {
+                await EnsureExerciseTypesAsync();
+            }
 
             // Recent sessions feed the streak chip, the "Últimos entrenos" rows
             // and the "Anterior" column of the set table.
@@ -594,6 +610,33 @@
             cursor = cursor.AddDays(-1);
         }
         return streak;
+    }
+
+    // Exercise catalog (1.4MB, 979 rows): loaded on demand, once, only when a
+    // session is on screen. See LoadPageAsync for why it is not prefetched.
+    private bool ShowFirstRunEmpty =>
+        _lastWorkout is null && RecentSessionRows.Count == 0 && _streakDays < 1;
+
+    private async Task EnsureExerciseTypesAsync()
+    {
+        if (_exerciseTypesLoaded)
+        {
+            return;
+        }
+
+        _exerciseTypesTask ??= Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+        try
+        {
+            _exerciseTypes = await _exerciseTypesTask
+                ?? Array.Empty<GetExerciseTypeResource>();
+            _exerciseTypesLoaded = true;
+        }
+        catch
+        {
+            // A retry after the failure starts from a clean task.
+            _exerciseTypesTask = null;
+            throw;
+        }
     }
 
     // "Anterior" column + PR badge: the load the user lifted last time for each
@@ -713,12 +756,18 @@
                 return;
             }
 
-            _session = await response.Content.ReadFromJsonAsync<WorkoutSessionResource>();
-            if (_session is null)
+            var started = await response.Content
+                .ReadFromJsonAsync<WorkoutSessionResource>();
+            if (started is null)
             {
                 _error = "La respuesta del entreno estaba incompleta.";
                 return;
             }
+
+            // The form renders with the session, so the catalog has to be in
+            // memory before the session is assigned.
+            await EnsureExerciseTypesAsync();
+            _session = started;
 
             var existingIndex = _sessions.FindIndex(
                 session => session.Id == _session.Id);
@@ -778,6 +827,7 @@
             return Guid.Empty;
         }
 
+        await EnsureExerciseTypesAsync();
         _session = session;
         _sessions.Add(session);
         ActiveSession.SetSession(session.Id);
