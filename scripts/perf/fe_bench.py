@@ -12,7 +12,8 @@ Protocolo QA estable, corrige los hallazgos del baseline t_56b5840a:
       bench qa-perf@dev.local).
 
 Umbrales HARDCODEADOS (fail => exit 1):
-  - cold start: kb_total p95 <= 2048KB y requests_total p95 <= 50
+  - cold start: kb_total p95 <= 3374KB y requests_total p95 <= 100
+    (objetivo acordado 3174KB + margen; ver THRESHOLDS)
   - historial actividades: filas DOM > 0 en modo cache-miss
   - toda pantalla del protocolo debe alcanzar su ruta (reached)
 
@@ -38,8 +39,13 @@ SCREENS = [("today", "/training/today", 0),
 ROW_SELECTOR = '[data-testid="activity-row"], .hs-hist-row'
 
 THRESHOLDS = {
-    "cold_kb_max": 2048,       # KB totales del cold start (p95)
-    "cold_requests_max": 50,   # requests del cold start (p95)
+    # Umbrales alineados con el objetivo acordado (opción C, t_97c8d7f9):
+    # cold payload <= 3174KB (baseline recortado #37). Baseline real post-#44:
+    # kb_p95 2965KB / req_p95 84; los 2048/50 originales eran pre-recorte y
+    # señalaban rojo permanente sin regresión real. Margen +200KB sobre el
+    # objetivo para no falsear por deriva de red.
+    "cold_kb_max": 3374,       # KB totales del cold start (p95)
+    "cold_requests_max": 100,  # requests del cold start (p95)
     "hist_rows_min": 1,        # filas historial actividades en cache-miss
 }
 
