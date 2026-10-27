@@ -139,6 +139,36 @@ public class TodayWorkoutTests : BlazorTestBase
     }
 
     [Fact]
+    public void Today_Paints_The_Empty_Day_When_The_Catalog_Fails()
+    {
+        // The catalog is ~1.4MB and loads off the critical path of the empty day
+        // (#49). Its failure must degrade the picker only: the day that is
+        // already on screen is not replaced by an error — that is what left the
+        // page stuck before, and what coupling the two would bring back.
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond(HttpStatusCode.InternalServerError);
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=14")
+            .Respond("application/json", "[]");
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll(".hs-today-activation").Should().NotBeEmpty();
+            cut.Markup.Should().Contain("Añadir ejercicio");
+            cut.Markup.Should().NotContain("Cargando tus entrenos");
+            // The failure is reported inside the add card, with a retry.
+            cut.Markup.Should().Contain("No se pudieron cargar los ejercicios");
+            cut.FindAll("button")
+                .Should().Contain(button => button.TextContent.Trim() == "Reintentar");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
     public void Resumes_Existing_Workout_With_Compact_Summary()
     {
         var workoutId = Guid.NewGuid();

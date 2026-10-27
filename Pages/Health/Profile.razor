@@ -265,6 +265,13 @@
             // Sin confirmación de suscripción no se interrumpe el análisis.
             _showPaywall = false;
         }
+        finally
+        {
+            // La carga arranca desacoplada de LoadInsightsAsync: sin este render
+            // el aviso de Premium solo aparecía si otra carga terminaba después,
+            // y bajo carga el orden se invertía (flake en CI).
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task LoadInsightsAsync()

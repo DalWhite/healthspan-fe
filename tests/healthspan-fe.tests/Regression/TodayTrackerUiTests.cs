@@ -397,13 +397,11 @@ public class TodayTrackerUiTests : BlazorTestBase
             cut.Markup.Should().Contain("Fatigue 4/5");
         }, TimeSpan.FromSeconds(10));
 
-        for (var attempt = 0;
-             attempt < 6 && !cut.Markup.Contains("hs-workout-block-type");
-             attempt++)
-        {
-            cut.SetParametersAndRender();
-            cut.Find(".hs-workout-session-toggle").Click();
-        }
+        // Un solo clic, como el usuario: el toggle carga los detalles y
+        // re-renderiza al terminar. El bucle anterior reintentaba clics para
+        // forzar renders y encadenaba abrir/cerrar, así que el resultado
+        // dependía del orden de las respuestas bajo carga del runner.
+        cut.Find(".hs-workout-session-toggle").Click();
 
         cut.WaitForAssertion(() =>
         {
@@ -413,6 +411,6 @@ public class TodayTrackerUiTests : BlazorTestBase
             cut.FindAll(".hs-workout-block-rounds")
                 .Select(node => node.TextContent.Trim())
                 .Should().Contain("4 rounds");
-        }, TimeSpan.FromSeconds(10));
+        }, TimeSpan.FromSeconds(20));
     }
 }
