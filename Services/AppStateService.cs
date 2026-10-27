@@ -57,7 +57,19 @@ public class AppStateService
     public async Task<List<GetExerciseTypeResource>> GetExerciseTypesAsync()
     {
         _exerciseTypesFirstPage ??= LoadFirstCatalogPageAsync();
-        await _exerciseTypesFirstPage;
+        try
+        {
+            await _exerciseTypesFirstPage;
+        }
+        catch
+        {
+            // A failed first page must reach the page that owns the picker (it
+            // reports the failure and offers a retry) and that retry must be able
+            // to start over, so the cached task is dropped before rethrowing.
+            _exerciseTypesFirstPage = null;
+            throw;
+        }
+
         return _exerciseTypes;
     }
 
@@ -94,24 +106,17 @@ public class AppStateService
     private async Task LoadFirstCatalogPageAsync()
     {
         var generation = _catalogGeneration;
-        try
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var page = await ExerciseCatalogJson.GetPageAsync(_http, 0, CatalogFirstPageSize);
+        if (generation != _catalogGeneration)
         {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            var page = await ExerciseCatalogJson.GetPageAsync(_http, 0, CatalogFirstPageSize);
-            if (generation != _catalogGeneration)
-            {
-                return;
-            }
+            return;
+        }
 
-            MergeCatalog(page.Items);
-            ExerciseTypesTotal = page.Total;
-            Console.WriteLine($"HSPERF catalog first page={sw.ElapsedMilliseconds}ms rows={page.Items.Count}/{page.Total}");
-            _catalogHydration ??= HydrateCatalogAsync(generation, page.Total);
-        }
-        catch
-        {
-            ExerciseTypesHydrated = true;
-        }
+        MergeCatalog(page.Items);
+        ExerciseTypesTotal = page.Total;
+        Console.WriteLine($"HSPERF catalog first page={sw.ElapsedMilliseconds}ms rows={page.Items.Count}/{page.Total}");
+        _catalogHydration ??= HydrateCatalogAsync(generation, page.Total);
     }
 
     private async Task HydrateCatalogAsync(int generation, int total)

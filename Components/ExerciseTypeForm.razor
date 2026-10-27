@@ -1,5 +1,6 @@
 @inject AppStateService AppState
 @inject HttpClient Http
+@implements IDisposable
 
 <MudForm @ref="form" @bind-IsValid="@success">
     <MudGrid>
@@ -238,13 +239,37 @@
             .OrderBy(muscle => muscle.SortOrder <= 0 ? int.MaxValue : muscle.SortOrder)
             .ThenBy(muscle => muscle.Name)
             .ToList();
-        // The parent picker and the "does not exist" validation must see every type,
-        // not just the first page the library paints with (t_81a400b3).
-        _exerciseTypes = (await AppState.GetFullExerciseTypesAsync()).ToList();
+        // The parent picker and the "does not exist" validation must see every
+        // type, not only the first page the library paints with (t_81a400b3). The
+        // form still opens on what is already loaded instead of waiting for the
+        // whole catalog: the rest lands through ExerciseTypesUpdated.
+        _exerciseTypes = AppState.GetExerciseTypesSnapshot().ToList();
+        AppState.ExerciseTypesUpdated += OnCatalogUpdated;
+        _ = EnsureCatalogAsync();
         Model.WeightType ??= ExerciseWeightType.Standard;
         SyncTagEditorsFromModel();
         SyncMuscleSelectionsFromModel();
     }
+
+    private async Task EnsureCatalogAsync()
+    {
+        try
+        {
+            await AppState.GetFullExerciseTypesAsync();
+        }
+        catch
+        {
+            // The page that opened the dialog reports the load failure.
+        }
+    }
+
+    private void OnCatalogUpdated()
+    {
+        _exerciseTypes = AppState.GetExerciseTypesSnapshot().ToList();
+        StateHasChanged();
+    }
+
+    public void Dispose() => AppState.ExerciseTypesUpdated -= OnCatalogUpdated;
 
     protected override void OnParametersSet()
     {
@@ -443,10 +468,26 @@
         _parentError = null;
     }
 
-    private void OnParentBlur()
+    private async Task OnParentBlur()
     {
         if (Model.ParentExerciseTypeId is int parentId)
         {
+            if (!_exerciseTypes.Any(exerciseType => exerciseType.Id == parentId))
+            {
+                // A parent that is not in the loaded page is valid data until the
+                // catalog settles: asking for the full catalog here is what stops
+                // the false "does not exist" on a real variation (t_81a400b3).
+                try
+                {
+                    _exerciseTypes = (await AppState.GetFullExerciseTypesAsync()).ToList();
+                }
+                catch
+                {
+                    // The catalog really could not be read; the rule below still
+                    // guards the write and the backend repeats it.
+                }
+            }
+
             var parent = _exerciseTypes.FirstOrDefault(et => et.Id == parentId);
             if (parent is null)
             {
@@ -485,7 +526,7 @@
 
         // Surface per-field inline errors for the same rules the backend enforces.
         var nameOk = ValidateNameInline();
-        OnParentBlur();
+        await OnParentBlur();
         ValidatePrimaryMusclesInline();
 
         if (!success || !nameOk || _parentError is not null || _primaryMusclesError is not null || !OnSubmit.HasDelegate)
