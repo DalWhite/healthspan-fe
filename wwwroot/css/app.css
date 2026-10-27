@@ -89,6 +89,8 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Keyboard focus ring (WCAG 2.4.7): one token for every interactive control.
+   Zero specificity on purpose — component rules further down refine it. */
 :where(a, button, input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: 2px solid var(--mud-palette-primary);
   outline-offset: 3px;
@@ -96,10 +98,30 @@ body {
   box-shadow: var(--hs-shadow-focus);
 }
 
-/* MudBlazor draws the accessible focus state on the outlined container. */
-.mud-input-slot:focus-visible {
-  outline: none;
-  box-shadow: none;
+/* MudBlazor defeats that ring: it ships `button:focus{outline:none}` (0,1,1) and
+   `.mud-button-filled:focus-visible{box-shadow:<elevation>}` (0,2,0), both of which
+   outrank a zero-specificity `:where(...)`. Result: every button in the app kept
+   its resting elevation and showed no keyboard feedback at all. Restating the ring
+   at class specificity wins back the outline and the halo; app.css loads after
+   MudBlazor.min.css, so it also takes the (0,2,0) tie. */
+button:focus-visible,
+.mud-button-root:focus-visible,
+.mud-icon-button:focus-visible,
+.mud-chip:focus-visible {
+  outline: 2px solid var(--mud-palette-primary);
+  outline-offset: 3px;
+  box-shadow: var(--hs-shadow-focus);
+}
+
+/* Text fields keep the ring on the outlined container, not on the inner input:
+   MudBlazor zeroes the input outline (`.mud-input>input.mud-input-root:focus
+   {outline:0}`, 0,3,1) and repaints the container border from 1px --hs-border to
+   2px primary on :focus-within. The halo rides on that container so a field reads
+   like every other control. */
+.mud-input:has(input.mud-input-slot:focus-visible) .mud-input-outlined-border {
+  border-width: 2px;
+  border-color: var(--mud-palette-primary);
+  box-shadow: var(--hs-shadow-focus);
 }
 
 @media (prefers-reduced-motion: reduce) {
