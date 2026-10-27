@@ -371,8 +371,16 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         // The write itself (a 1.4MB catalog parse plus a 979-row transaction on
         // the first load) is detached: the cache is for the *next* read, so the
         // page that triggered this one must not wait for it.
-        _ = WriteCacheAsync(key, (int)response.StatusCode, contentType, body);
+        LastCacheWrite = WriteCacheAsync(
+            key, (int)response.StatusCode, contentType, body);
     }
+
+    /// <summary>
+    /// The detached cache write started by the last cached response. Exposed so
+    /// callers that need the cache settled (tests, diagnostics) can await it
+    /// instead of guessing when the background write finished.
+    /// </summary>
+    public Task LastCacheWrite { get; private set; } = Task.CompletedTask;
 
     private async Task WriteCacheAsync(
         string key,

@@ -255,7 +255,10 @@ public class RegisterActivityTests : BlazorTestBase
         _cut.Find("#reg-date").Change(pastDay.ToString("yyyy-MM-dd"));
 
         ClickSave();
-        _cut.WaitForState(() => _postedBody is not null, TimeSpan.FromSeconds(5));
+        // _postedBody se fija dentro del handler del mock, ANTES de que el
+        // componente reciba la respuesta: esperarlo no garantiza el render del
+        // resumen. Se espera la confirmación en el DOM.
+        _cut.WaitForElement(".hs-reg-success-title", TimeSpan.FromSeconds(10));
 
         var expected = EsFormat.WeekdayDayMonthFull(pastDay);
         _cut.Find(".hs-reg-success-title").TextContent.Trim()
@@ -270,7 +273,10 @@ public class RegisterActivityTests : BlazorTestBase
 
         FillSaunaForm();
         ClickSave();
-        _cut.WaitForState(() => _postedBody is not null, TimeSpan.FromSeconds(5));
+        // Mismo motivo que en SavedSummary_Uses_The_Actual_Saved_Day_Label: el
+        // body del POST no es señal de render. Bajo carga el resumen llegaba
+        // después del Find y el test caía con ElementNotFoundException.
+        _cut.WaitForElement(".hs-reg-success-title", TimeSpan.FromSeconds(10));
 
         _cut.Find(".hs-reg-success-title").TextContent.Trim()
             .Should().Be("Guardado · Sauna · Hoy");

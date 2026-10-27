@@ -308,6 +308,20 @@
 
     <MudPaper Class="hs-surface hs-today-add" Elevation="0">
         <MudText Typo="Typo.h6" Class="hs-today-add-title">Añadir ejercicio</MudText>
+        @* El catálogo llega después de pintar el día: si falla, el error se
+           queda aquí y no sustituye la sesión que el usuario ya está viendo. *@
+        @if (_exerciseTypesError is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true">
+                @_exerciseTypesError
+                <MudButton Variant="Variant.Text"
+                           Color="MudBlazor.Color.Primary"
+                           Size="Size.Small"
+                           OnClick="RetryExerciseTypesAsync">
+                    Reintentar
+                </MudButton>
+            </MudAlert>
+        }
         <ExerciseCreationForm ExerciseTypes="@_exerciseTypes"
                               CurrentUserBodyWeight="@_currentUserBodyWeight"
                               WorkoutId="@(_session?.Id ?? Guid.Empty)"
@@ -337,6 +351,7 @@
     private GetWorkoutResource? _lastWorkout;
     private decimal? _currentUserBodyWeight;
     private string? _error;
+    private string? _exerciseTypesError;
     private bool _isLoading = true;
     private bool _isStarting;
     private bool _isRepeating;
@@ -488,6 +503,7 @@
     {
         _isLoading = true;
         _error = null;
+        _exerciseTypesError = null;
 
         try
         {
@@ -502,14 +518,19 @@
             _session = _sessions.LastOrDefault();
             _currentUserBodyWeight = profileWeightTask.Result;
 
-            // The exercise catalog is ~1.4MB and is only needed to name and pick
-            // exercises for a session being logged. Fetching it before knowing
-            // whether there is a session put it on the critical path of the empty
-            // day and kept "Cargando tus entrenos" on screen for tens of seconds,
-            // so it now loads with the session, not before it.
+            // The exercise catalog is ~1.4MB and must not sit on the critical path
+            // of the empty day: that kept "Cargando tus entrenos" on screen for
+            // tens of seconds (t_710a4f65). It is still needed before the first
+            // session exists, because the "Añadir ejercicio" form is on screen
+            // from the start — so it loads off the critical path and the picker
+            // fills in as soon as it arrives.
             if (_session is not null)
             {
                 await EnsureExerciseTypesAsync();
+            }
+            else
+            {
+                _ = LoadExerciseTypesInBackgroundAsync();
             }
 
             // Recent sessions feed the streak chip, the "Últimos entrenos" rows
@@ -637,6 +658,38 @@
             _exerciseTypesTask = null;
             throw;
         }
+    }
+
+    private async Task LoadExerciseTypesInBackgroundAsync()
+    {
+        try
+        {
+            await EnsureExerciseTypesAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _exerciseTypesError = "No se pudieron cargar los ejercicios. Comprueba tu conexión.";
+        }
+        catch (TaskCanceledException)
+        {
+            _exerciseTypesError = "El catálogo tardó demasiado. Vuelve a intentarlo.";
+        }
+        catch (JsonException)
+        {
+            _exerciseTypesError = "La respuesta de los ejercicios estaba incompleta. Vuelve a intentarlo.";
+        }
+        finally
+        {
+            // Detached from the render that started it: without this the picker
+            // stays empty even though the catalog is already in memory.
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RetryExerciseTypesAsync()
+    {
+        _exerciseTypesError = null;
+        await LoadExerciseTypesInBackgroundAsync();
     }
 
     // "Anterior" column + PR badge: the load the user lifted last time for each
