@@ -286,7 +286,16 @@ public class OfflineSyncTests
         var list = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         list.RootElement[0].GetProperty("type").GetString().Should().Be("From server");
 
-        // The successful GET was cached for offline reads.
+        // The successful GET was cached for offline reads. The write is detached
+        // on purpose (t_710a4f65: the page that triggered the read must not wait
+        // for the cache), so it has to be given a bounded moment to land.
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (DateTime.UtcNow < deadline
+               && await store.GetCachedResponseAsync("workouts") is null)
+        {
+            await Task.Delay(20);
+        }
+
         var cached = await store.GetCachedResponseAsync("workouts");
         cached.Should().NotBeNull();
     }
