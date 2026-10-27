@@ -1084,11 +1084,31 @@ public sealed class LocalMutator
     {
         if (await _store.HasCatalogAsync(kind))
         {
-            var payloads = await _store.GetCatalogPayloadsAsync(kind);
-            var items = payloads
-                .Select(payload => JsonDocument.Parse(payload).RootElement.Clone())
-                .ToList();
-            return JsonResponse(items);
+            // Offline reads mirror the paged server contract: same skip/take, same
+            // default page. Rows are already JSON, so the body is assembled by
+            // concatenation — re-parsing and re-serialising each payload cost
+            // ~10ms per row in interpreted WASM (t_81a400b3).
+            var query = HttpUtility.ParseQueryString(
+                request.RequestUri?.Query ?? string.Empty);
+            var paged = string.Equals(
+                query["fields"], "minimal", StringComparison.OrdinalIgnoreCase);
+            var skip = int.TryParse(query["skip"], out var parsedSkip)
+                ? Math.Max(0, parsedSkip)
+                : 0;
+            var take = int.TryParse(query["take"], out var parsedTake)
+                ? Math.Clamp(parsedTake, 1, 500)
+                : paged ? 40 : -1;
+
+            var (payloads, total) = await _store.GetCatalogPayloadsPageAsync(kind, skip, take);
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "[" + string.Join(',', payloads) + "]",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+            response.Headers.TryAddWithoutValidation("X-Total-Count", total.ToString());
+            return response;
         }
 
         // No mirror yet: let the handler hit the network (and cache it).

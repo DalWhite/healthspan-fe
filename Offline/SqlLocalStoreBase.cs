@@ -158,6 +158,26 @@ public abstract class SqlLocalStoreBase : ILocalStore
         return rows.Select(row => row["payload"] ?? "{}").ToList();
     }
 
+    public async Task<(List<string> Payloads, int Total)> GetCatalogPayloadsPageAsync(
+        string kind, int skip, int take)
+    {
+        var total = await CountCatalogAsync(kind);
+        var rows = await QueryAsync(
+            "SELECT payload FROM mirror_catalog WHERE kind = ? ORDER BY item_id LIMIT ? OFFSET ?",
+            kind,
+            take <= 0 ? -1 : take,
+            Math.Max(0, skip));
+        return (rows.Select(row => row["payload"] ?? "{}").ToList(), total);
+    }
+
+    public async Task<int> CountCatalogAsync(string kind)
+    {
+        var rows = await QueryAsync(
+            "SELECT COUNT(*) AS n FROM mirror_catalog WHERE kind = ?",
+            kind);
+        return rows.Count > 0 && int.TryParse(rows[0]["n"], out var n) ? n : 0;
+    }
+
     public async Task<bool> HasCatalogAsync(string kind)
     {
         var rows = await QueryAsync(

@@ -1,4 +1,4 @@
-[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ExerciseWeightType>))]
 public enum ExerciseWeightType
 {
     Standard = 0, // uses only Weight

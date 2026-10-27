@@ -32,6 +32,7 @@ public sealed class OfflineHttpHandler : DelegatingHandler
     /// </summary>
     private static readonly TimeSpan SlowNetworkBudget = TimeSpan.FromSeconds(4);
 
+    private readonly SemaphoreSlim _catalogMirrorLock = new(1, 1);
     private readonly ILocalStore _store;
     private readonly LocalMutator _mutator;
     private readonly SyncStatusService _status;
@@ -368,33 +369,47 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         var contentType = response.Content.Headers.ContentType?.MediaType
                           ?? "application/json";
 
-        // The write itself (a 1.4MB catalog parse plus a 979-row transaction on
-        // the first load) is detached: the cache is for the *next* read, so the
-        // page that triggered this one must not wait for it.
-        _ = WriteCacheAsync(key, (int)response.StatusCode, contentType, body);
+        // The write itself (a catalog parse plus a multi-row transaction on the
+        // first load) is detached: the cache is for the *next* read, so the page
+        // that triggered this one must not wait for it.
+        var total = response.Headers.TryGetValues("X-Total-Count", out var totals)
+                    && int.TryParse(totals.FirstOrDefault(), out var parsedTotal)
+            ? parsedTotal
+            : -1;
+        _ = WriteCacheAsync(key, (int)response.StatusCode, contentType, body, total);
     }
 
     private async Task WriteCacheAsync(
         string key,
         int statusCode,
         string contentType,
-        string body)
+        string body,
+        int total)
     {
         try
         {
             // Let the awaiting page render its content before the write runs.
             await Task.Yield();
 
-            await _store.CacheResponseAsync(key, statusCode, contentType, body);
-
-            // Mirror the read-only catalog so the library works with no cache entry.
+            // The catalog is paged now, so the mirror is the offline source of truth:
+            // the page request itself is never replayed from the response cache. Only
+            // rows the mirror is still missing get written (the mirror is upserted per
+            // row), which keeps the 876-row hydration off the main thread's critical
+            // path and makes a warm session write nothing at all.
             if (key.StartsWith("exercisetypes", StringComparison.OrdinalIgnoreCase))
             {
-                await MirrorCatalogAsync("exercise_types", body, "id");
+                await MirrorCatalogIfIncompleteAsync("exercise_types", body, "id", total);
+                return;
             }
-            else if (key.StartsWith("api/muscles", StringComparison.OrdinalIgnoreCase))
+
+            var hsp = System.Diagnostics.Stopwatch.StartNew();
+            await _store.CacheResponseAsync(key, statusCode, contentType, body);
+            Console.WriteLine($"HSPERF cachewrite={hsp.ElapsedMilliseconds}ms key={key}");
+
+            // Mirror the read-only catalog so the library works with no cache entry.
+            if (key.StartsWith("api/muscles", StringComparison.OrdinalIgnoreCase))
             {
-                await MirrorCatalogAsync("muscles", body, "id");
+                await MirrorCatalogIfIncompleteAsync("muscles", body, "id", total: -1);
             }
             else if (key.StartsWith("workouts", StringComparison.OrdinalIgnoreCase))
             {
@@ -503,8 +518,34 @@ public sealed class OfflineHttpHandler : DelegatingHandler
             ? v.GetDouble()
             : null;
 
+    /// <summary>
+    /// Mirrors a catalog page only while the mirror is still missing rows. Static
+    /// catalogs (muscles) are write-once; the paged exercise catalog is complete
+    /// once the mirror holds as many rows as the server reported (X-Total-Count).
+    /// Writes are serialised: the pages of a hydration arrive back to back.
+    /// </summary>
+    private async Task MirrorCatalogIfIncompleteAsync(string kind, string body, string idProperty, int total)
+    {
+        await _catalogMirrorLock.WaitAsync();
+        try
+        {
+            var mirrored = await _store.CountCatalogAsync(kind);
+            if (total > 0 ? mirrored >= total : mirrored > 0)
+            {
+                return;
+            }
+
+            await MirrorCatalogAsync(kind, body, idProperty);
+        }
+        finally
+        {
+            _catalogMirrorLock.Release();
+        }
+    }
+
     private async Task MirrorCatalogAsync(string kind, string body, string idProperty)
     {
+        var hsp2 = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             using var doc = System.Text.Json.JsonDocument.Parse(body);
@@ -522,7 +563,9 @@ public sealed class OfflineHttpHandler : DelegatingHandler
                 items.Add((id, element.GetRawText()));
             }
 
+            Console.WriteLine($"HSPERF mirror-parse={hsp2.ElapsedMilliseconds}ms rows={items.Count}");
             await _store.SaveCatalogAsync(kind, items);
+            Console.WriteLine($"HSPERF mirror-save={hsp2.ElapsedMilliseconds}ms kind={kind}");
         }
         catch (System.Text.Json.JsonException)
         {

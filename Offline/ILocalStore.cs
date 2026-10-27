@@ -25,7 +25,12 @@ public interface ILocalStore
     // ── Read-only catalog mirror (exercise library, muscles) ──────────────────
     Task SaveCatalogAsync(string kind, IEnumerable<(string Id, string Payload)> items);
     Task<List<string>> GetCatalogPayloadsAsync(string kind);
+
+    /// <summary>One page of the catalog mirror, ordered by id, plus the row count.</summary>
+    Task<(List<string> Payloads, int Total)> GetCatalogPayloadsPageAsync(string kind, int skip, int take);
     Task<bool> HasCatalogAsync(string kind);
+
+    Task<int> CountCatalogAsync(string kind);
     Task InvalidateCatalogAsync(string kind);
 
     // ── Entity mirrors (workouts / exercises) ─────────────────────────────────
