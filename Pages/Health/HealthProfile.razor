@@ -27,12 +27,14 @@
 
             <div class="hs-personal-profile-grid">
                 <MudTextField @bind-Value="_name"
+                              id="health-profile-name"
                               Label="Name"
                               Variant="Variant.Outlined"
                               Margin="Margin.Dense"
                               MaxLength="100" />
 
                 <MudDatePicker Label="Date of birth"
+                               id="health-profile-date-of-birth"
                                Date="_dateOfBirth"
                                DateChanged="OnDateOfBirthChanged"
                                TextChanged="OnDateOfBirthTextChanged"
@@ -46,6 +48,7 @@
                                Margin="Margin.Dense" />
 
                 <MudSelect T="HealthBiologicalSex"
+                           id="health-profile-biological-sex"
                            Label="Biological sex"
                            @bind-Value="_biologicalSex"
                            Variant="Variant.Outlined"
@@ -57,6 +60,7 @@
 
                 <MudNumericField T="int?"
                                  @bind-Value="_heightCm"
+                                 id="health-profile-height-cm"
                                  Label="Height (cm)"
                                  Min="80"
                                  Max="250"
@@ -65,6 +69,7 @@
 
                 <MudNumericField T="int?"
                                  @bind-Value="_weightKg"
+                                 id="health-profile-weight-kg"
                                  Label="Current weight (kg)"
                                  Min="20"
                                  Max="500"
