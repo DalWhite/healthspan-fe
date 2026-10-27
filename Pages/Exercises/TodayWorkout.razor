@@ -321,7 +321,6 @@
 
 @code {
     private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
-    private static readonly CultureInfo Spanish = new("es-ES");
     private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
     private readonly List<WorkoutSessionResource> _sessions = [];
     private WorkoutSessionResource? _session;
@@ -353,7 +352,7 @@
     private readonly Dictionary<int, WorkoutHistoryExerciseResource> _previousLoads = [];
 
     private string DateLabel
-        => _today.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMM", Spanish);
+        => EsFormat.WeekdayDayMonth(_today);
 
     // The repeat CTA names the workout it repeats: a bare "Repetir" is a
     // mystery button, a named one is a decision the user can already make.
@@ -392,7 +391,7 @@
         var days = (DateTime.Today - workoutDate).Days;
         return days <= 7
             ? $"{days} días"
-            : workoutDate.ToString("d MMM", Spanish);
+            : EsFormat.DayMonth(workoutDate);
     }
 
     private static string WorkoutName(GetWorkoutResource workout)
@@ -1421,7 +1420,7 @@
 
     private static string FormatNumber(decimal value)
         => value == Math.Truncate(value)
-            ? value.ToString("0", Spanish)
-            : value.ToString("0.0", Spanish);
+            ? EsFormat.Decimal(value, "0")
+            : EsFormat.Decimal(value, "0.0");
 
 }

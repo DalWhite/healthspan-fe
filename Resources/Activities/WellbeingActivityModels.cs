@@ -398,7 +398,7 @@ public static class WellbeingActivityDisplay
             return "Ayer";
         }
 
-        return day.ToString("dddd, d 'de' MMMM", new CultureInfo("es-ES"));
+        return EsFormat.WeekdayDayMonthFull(day);
     }
 
     public static string DayCountLabel(int count) => count == 1 ? "1 actividad" : $"{count} actividades";

@@ -81,8 +81,7 @@
     private bool _saving;
     private bool _loading = true;
 
-    private string UpdatedAtLabel =>
-        _published!.UpdatedAt.ToString("d MMM yyyy", CultureInfo.GetCultureInfo("es-ES"));
+    private string UpdatedAtLabel => EsFormat.DayMonthYear(_published!.UpdatedAt);
 
     protected override async Task OnInitializedAsync()
     {

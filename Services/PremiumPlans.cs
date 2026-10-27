@@ -20,8 +20,7 @@ public sealed record PremiumPlan(
     public static string FormatPrice(int cents, string currency)
     {
         var value = cents / 100m;
-        var culture = CultureInfo.GetCultureInfo("es-ES");
-        var formatted = value.ToString("0.00", culture);
+        var formatted = EsFormat.Decimal(value, "0.00");
         return currency.ToUpperInvariant() switch
         {
             "EUR" => $"{formatted} €",

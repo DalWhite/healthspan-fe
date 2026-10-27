@@ -257,7 +257,7 @@ public class RegisterActivityTests : BlazorTestBase
         ClickSave();
         _cut.WaitForState(() => _postedBody is not null, TimeSpan.FromSeconds(5));
 
-        var expected = pastDay.ToString("dddd, d 'de' MMMM", new System.Globalization.CultureInfo("es-ES"));
+        var expected = EsFormat.WeekdayDayMonthFull(pastDay);
         _cut.Find(".hs-reg-success-title").TextContent.Trim()
             .Should().Be($"Guardado · Sauna · {expected}");
     }

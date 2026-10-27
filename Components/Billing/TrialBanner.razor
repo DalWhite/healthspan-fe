@@ -14,5 +14,5 @@
     [Parameter, EditorRequired] public DateTime EndsAt { get; set; }
     [Parameter] public int? DayOf { get; set; }
 
-    private string EndsLabel => EndsAt.ToString("d MMM yyyy", CultureInfo.GetCultureInfo("es-ES"));
+    private string EndsLabel => EsFormat.DayMonthYear(EndsAt);
 }
