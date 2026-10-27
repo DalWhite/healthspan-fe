@@ -61,7 +61,9 @@ public class ExerciseLibraryPaginationTests : BlazorTestBase
         photos.Should().HaveCount(PageSize);
         photos.All(photo => photo.GetAttribute("loading") == "lazy").Should().BeTrue();
         photos.All(photo => photo.GetAttribute("decoding") == "async").Should().BeTrue();
-        photos.All(photo => !string.IsNullOrEmpty(photo.GetAttribute("alt"))).Should().BeTrue();
+        // The photo is decorative: the accessible name lives in the card's aria-label
+        // and title, so alt="" and a name-less placeholder card renders no <img> at all.
+        photos.All(photo => photo.GetAttribute("alt") == "").Should().BeTrue();
 
         // The old eager CSS background-image per card is gone (that is what fired 873
         // remote image requests at once).
