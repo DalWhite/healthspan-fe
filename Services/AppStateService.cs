@@ -32,8 +32,10 @@ public class AppStateService
     ];
 
     private readonly List<GetExerciseTypeResource> _exerciseTypes = new();
+    private readonly Dictionary<int, int> _exerciseTypesById = new();
     private Task? _exerciseTypesFirstPage;
     private Task? _catalogHydration;
+    private int _catalogGeneration;
     private List<Muscle>? _muscles;
     private string[]? _userRoles;
     public ExerciseLibraryViewState ExerciseLibraryView { get; } = new();
@@ -62,6 +64,22 @@ public class AppStateService
     /// <summary>Copy of the rows that arrived so far (safe to hold across chunks).</summary>
     public GetExerciseTypeResource[] GetExerciseTypesSnapshot() => _exerciseTypes.ToArray();
 
+    /// <summary>
+    /// The whole catalog, waiting for the background hydration to settle. Only for
+    /// screens that cannot work on one page: the parent-type picker and the
+    /// validation behind it (t_81a400b3).
+    /// </summary>
+    public async Task<GetExerciseTypeResource[]> GetFullExerciseTypesAsync()
+    {
+        await GetExerciseTypesAsync();
+        if (_catalogHydration is { } hydration)
+        {
+            await hydration;
+        }
+
+        return GetExerciseTypesSnapshot();
+    }
+
     /// <summary>Total rows the server has, known from the first page.</summary>
     public int ExerciseTypesTotal { get; private set; }
 
@@ -75,14 +93,20 @@ public class AppStateService
 
     private async Task LoadFirstCatalogPageAsync()
     {
+        var generation = _catalogGeneration;
         try
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var page = await ExerciseCatalogJson.GetPageAsync(_http, 0, CatalogFirstPageSize);
-            _exerciseTypes.AddRange(page.Items);
+            if (generation != _catalogGeneration)
+            {
+                return;
+            }
+
+            MergeCatalog(page.Items);
             ExerciseTypesTotal = page.Total;
             Console.WriteLine($"HSPERF catalog first page={sw.ElapsedMilliseconds}ms rows={page.Items.Count}/{page.Total}");
-            _catalogHydration ??= HydrateCatalogAsync(page.Items.Count, page.Total);
+            _catalogHydration ??= HydrateCatalogAsync(generation, page.Total);
         }
         catch
         {
@@ -90,23 +114,28 @@ public class AppStateService
         }
     }
 
-    private async Task HydrateCatalogAsync(int loaded, int total)
+    private async Task HydrateCatalogAsync(int generation, int total)
     {
+        var loaded = 0;
         try
         {
             while (loaded < total)
             {
                 // Yield first: the page that opened the library must finish its
-                // render before this chunk claims the main thread.
+                // render before this chunk claims the main thread, and every chunk
+                // is fetched with the full projection so the description that
+                // search reads is not lost on the way (t_81a400b3).
                 await Task.Yield();
-                var page = await ExerciseCatalogJson.GetPageAsync(_http, loaded, CatalogChunkSize);
-                if (page.Items.Count == 0)
+                var chunkWatch = System.Diagnostics.Stopwatch.StartNew();
+                var page = await ExerciseCatalogJson.GetPageAsync(_http, loaded, CatalogChunkSize, full: true);
+                if (generation != _catalogGeneration || page.Items.Count == 0)
                 {
                     break;
                 }
 
-                _exerciseTypes.AddRange(page.Items);
+                MergeCatalog(page.Items);
                 loaded += page.Items.Count;
+                Console.WriteLine($"HSPERF catalog chunk at={loaded - page.Items.Count} rows={page.Items.Count} ms={chunkWatch.ElapsedMilliseconds} total={total}");
                 ExerciseTypesUpdated?.Invoke();
             }
         }
@@ -116,14 +145,41 @@ public class AppStateService
         }
         finally
         {
-            ExerciseTypesHydrated = true;
-            ExerciseTypesUpdated?.Invoke();
+            if (generation == _catalogGeneration)
+            {
+                ExerciseTypesHydrated = true;
+                ExerciseTypesUpdated?.Invoke();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Rows arrive twice: the paint page is slim, the hydration chunks are full.
+    /// Keep one row per id, replacing the slim copy in place with the full one so
+    /// the first screen keeps its order (t_81a400b3).
+    /// </summary>
+    private void MergeCatalog(IReadOnlyList<GetExerciseTypeResource> items)
+    {
+        foreach (var item in items)
+        {
+            if (_exerciseTypesById.TryGetValue(item.Id, out var index))
+            {
+                _exerciseTypes[index] = item;
+                continue;
+            }
+
+            _exerciseTypesById[item.Id] = _exerciseTypes.Count;
+            _exerciseTypes.Add(item);
         }
     }
 
     public void InvalidateExerciseTypes()
     {
+        // Bumping the generation makes a hydration that is already in flight drop
+        // its chunks instead of patching a list this call just cleared.
+        _catalogGeneration++;
         _exerciseTypes.Clear();
+        _exerciseTypesById.Clear();
         _exerciseTypesFirstPage = null;
         _catalogHydration = null;
         ExerciseTypesTotal = 0;

@@ -25,15 +25,19 @@ internal partial class AppJsonContext : JsonSerializerContext
 public static class ExerciseCatalogJson
 {
     /// <summary>
-    /// Same origin, same auth handler, same offline cache — the payload is the
-    /// slim, paged one (no exercise instructions, no nested variations).
+    /// Same origin, same auth handler, same offline cache. The first page is the
+    /// slim projection (no description, no nested variations) so it paints fast;
+    /// the background hydration asks for the full flat projection, whose rows keep
+    /// the description that search-by-description and the offline mirror read
+    /// (t_81a400b3).
     /// </summary>
-    public static string PageUrl(int skip, int take) => $"/ExerciseTypes?fields=minimal&skip={skip}&take={take}";
+    public static string PageUrl(int skip, int take, bool full = false)
+        => $"/ExerciseTypes?fields={(full ? "full" : "minimal")}&skip={skip}&take={take}";
 
     public static async Task<(List<GetExerciseTypeResource> Items, int Total)> GetPageAsync(
-        HttpClient http, int skip, int take)
+        HttpClient http, int skip, int take, bool full = false)
     {
-        using var response = await http.GetAsync(PageUrl(skip, take));
+        using var response = await http.GetAsync(PageUrl(skip, take, full));
         response.EnsureSuccessStatusCode();
 
         var total = response.Headers.TryGetValues("X-Total-Count", out var values)
