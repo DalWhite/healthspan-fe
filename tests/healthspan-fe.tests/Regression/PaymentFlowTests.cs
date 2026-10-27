@@ -611,12 +611,15 @@ public class PaymentFlowTests : BlazorTestBase
         MockSubscription(NoneJson);
 
         var cut = RenderComponent<Profile>();
-        // Two chained fetches (insights + subscription) before the card lands: the 1s
-        // default races on slower CI runners.
-        cut.WaitForState(
-            () => cut.Markup.Contains("Análisis avanzado con Premium")
-                  && cut.Markup.Contains("No training data yet"),
-            TimeSpan.FromSeconds(10));
+        // La suscripción se carga en paralelo al análisis: el aviso de Premium
+        // llega en un render propio (Profile.razor hace StateHasChanged al
+        // terminar). Timeout explícito, no el default compartido.
+        cut.WaitForState(() => cut.Markup.Contains("Análisis avanzado con Premium"),
+            TimeSpan.FromSeconds(20));
+        // D1 mide justamente que el contenido sigue ahí junto al aviso: hay que
+        // esperar su render antes de aseverarlo, no asumir que llegó con la card.
+        cut.WaitForState(() => cut.Markup.Contains("No training data yet"),
+            TimeSpan.FromSeconds(20));
 
         // La card es un aviso con CTA; el contenido de la página sigue visible (D1).
         cut.Markup.Should().Contain("gratis para siempre");

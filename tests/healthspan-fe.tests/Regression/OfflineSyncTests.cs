@@ -287,15 +287,9 @@ public class OfflineSyncTests
         list.RootElement[0].GetProperty("type").GetString().Should().Be("From server");
 
         // The successful GET was cached for offline reads. The write is detached
-        // on purpose (t_710a4f65: the page that triggered the read must not wait
-        // for the cache), so it has to be given a bounded moment to land.
-        var deadline = DateTime.UtcNow.AddSeconds(2);
-        while (DateTime.UtcNow < deadline
-               && await store.GetCachedResponseAsync("workouts") is null)
-        {
-            await Task.Delay(20);
-        }
-
+        // from the request path (#49), so the test waits for it to settle instead
+        // of assuming it already happened when ProcessAsync returned.
+        await handler.LastCacheWrite;
         var cached = await store.GetCachedResponseAsync("workouts");
         cached.Should().NotBeNull();
     }
@@ -318,6 +312,9 @@ public class OfflineSyncTests
             new(HttpMethod.Get, "https://localhost:7278/workouts"),
             mockHttp,
             CancellationToken.None);
+        // Cache write detached from the request path (#49): settle it before the
+        // "network drops" read, otherwise the fallback is a coin flip.
+        await onlineHandler.LastCacheWrite;
 
         var offlineHttp = new MockHttpMessageHandler();
         offlineHttp.When(HttpMethod.Get, "/workouts")
@@ -353,15 +350,10 @@ public class OfflineSyncTests
             new(HttpMethod.Get, "https://localhost:7278/workouts"),
             seedHttp,
             CancellationToken.None);
-
-        // The seed's cache write is detached (t_710a4f65), so wait for it to land —
-        // otherwise the next request sees no cache and blocks on the slow network.
-        var seedDeadline = DateTime.UtcNow.AddSeconds(5);
-        while (DateTime.UtcNow < seedDeadline
-               && await store.GetCachedResponseAsync("workouts") is null)
-        {
-            await Task.Delay(20);
-        }
+        // The seed write is detached from the request (#49): without settling it
+        // the next read may miss the cache and wait for the slow network, which
+        // is exactly what this test asserts must not happen.
+        await seedHandler.LastCacheWrite;
 
         // Now the network is alive but slow (8s > the 4s stale-while-revalidate budget).
         var slowHandler = new OfflineHttpHandler(store, mutator, status, coordinator);
@@ -377,14 +369,11 @@ public class OfflineSyncTests
         var list = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         list.RootElement[0].GetProperty("type").GetString().Should().Be("Cached type");
 
-        // The slow network still refreshed the cache in the background.
-        var refreshDeadline = DateTime.UtcNow.AddSeconds(20);
-        while (DateTime.UtcNow < refreshDeadline
-               && (await store.GetCachedResponseAsync("workouts"))?.Body?.Contains("Fresh type") != true)
-        {
-            await Task.Delay(50);
-        }
-
+        // The slow network still refreshed the cache in the background. Await the
+        // refresh and its detached write instead of sleeping 9s: a fixed sleep is
+        // exactly what makes this assertion fail on a loaded runner.
+        await slowHandler.BackgroundRefresh;
+        await slowHandler.LastCacheWrite;
         var cached = await store.GetCachedResponseAsync("workouts");
         cached.Should().NotBeNull();
         cached!.Body.Should().Contain("Fresh type");

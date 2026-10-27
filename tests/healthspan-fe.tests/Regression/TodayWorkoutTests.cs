@@ -109,16 +109,12 @@ public class TodayWorkoutTests : BlazorTestBase
             cut.FindAll("button")
                 .Should().Contain(button => button.TextContent.Contains("Bench Press")));
 
-        // Find+click atomically: the catalog keeps hydrating in the background and
-        // re-renders this page, which invalidates a handler id captured just before
-        // the render (t_81a400b3). A real browser updates the DOM node in place, so
-        // this is a bUnit artefact, not a lost tap.
-        cut.InvokeAsync(() => cut.FindAll("button")
+        cut.FindAll("button")
             .Single(button => button.TextContent.Contains("Bench Press"))
-            .Click());
-        cut.InvokeAsync(() => cut.FindAll("button")
+            .Click();
+        cut.FindAll("button")
             .Single(button => button.TextContent.Trim() == "Añadir ejercicio")
-            .Click());
+            .Click();
 
         cut.WaitForAssertion(() =>
         {
@@ -139,6 +135,36 @@ public class TodayWorkoutTests : BlazorTestBase
             Services.GetRequiredService<ISnackbar>()
                 .ShownSnackbars
                 .Should().Contain(snackbar => snackbar.Message == "Ejercicio añadido.");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void Today_Paints_The_Empty_Day_When_The_Catalog_Fails()
+    {
+        // The catalog is ~1.4MB and loads off the critical path of the empty day
+        // (#49). Its failure must degrade the picker only: the day that is
+        // already on screen is not replaced by an error — that is what left the
+        // page stuck before, and what coupling the two would bring back.
+        MockHttp.When(HttpMethod.Get, "/ExerciseTypes")
+            .Respond(HttpStatusCode.InternalServerError);
+        MockHttp.When(
+                HttpMethod.Get,
+                $"/Workouts/today/sessions?date={DateTime.Today:yyyy-MM-dd}")
+            .Respond("application/json", "[]");
+        MockHttp.When(HttpMethod.Get, "/workouts?page=1&pageSize=14")
+            .Respond("application/json", "[]");
+
+        var cut = RenderComponent<TodayWorkout>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll(".hs-today-activation").Should().NotBeEmpty();
+            cut.Markup.Should().Contain("Añadir ejercicio");
+            cut.Markup.Should().NotContain("Cargando tus entrenos");
+            // The failure is reported inside the add card, with a retry.
+            cut.Markup.Should().Contain("No se pudieron cargar los ejercicios");
+            cut.FindAll("button")
+                .Should().Contain(button => button.TextContent.Trim() == "Reintentar");
         }, TimeSpan.FromSeconds(10));
     }
 

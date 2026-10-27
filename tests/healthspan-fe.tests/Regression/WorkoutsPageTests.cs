@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using AngleSharp.Dom;
 using Bunit;
 using Bunit.TestDoubles;
 using FluentAssertions;
@@ -362,12 +363,19 @@ public class WorkoutsPageTests : BlazorTestBase
 
     private static void ExpandPushWorkout(IRenderedComponent<Workouts> cut)
     {
-        cut.WaitForAssertion(
-            () => cut.Find("button[aria-label='Show Push workout details']")
-                .Should().NotBeNull(),
-            TimeSpan.FromSeconds(10));
-        cut.Find("button[aria-label='Show Push workout details']").Click();
+        // Waits never dispatch events (see the note in the duplication tests):
+        // the wait is followed by the click outside the predicate.
+        cut.WaitForElement(
+                "button[aria-label='Show Push workout details']",
+                TimeSpan.FromSeconds(20))
+            .Click();
     }
+
+    private static IElement? FindWorkoutAction(
+        IRenderedComponent<Workouts> cut,
+        string label)
+        => cut.FindAll(".hs-workout-action")
+            .FirstOrDefault(button => button.TextContent.Trim() == label);
 
     private static readonly Guid DuplicatedWorkoutId =
         Guid.Parse("00000000-0000-0000-0000-000000000099");
@@ -391,19 +399,23 @@ public class WorkoutsPageTests : BlazorTestBase
 
         var cut = RenderComponent<Workouts>();
 
-        // CI runners intermittently need more than 20s to render the sheet
-        // round-trip (2026-10-25 run 40160444654 timed out at exactly 20s;
-        // passes in 3-5s locally). bunit's own guidance for slow/shared
-        // hardware: raise the wait timeout, not the assertions.
-        cut.WaitForAssertion(() => ExpandPushWorkout(cut), TimeSpan.FromSeconds(60));
-        cut.WaitForAssertion(() =>
-            cut.FindAll(".hs-workout-action")
-                .Single(button => button.TextContent.Trim() == "Duplicate")
-                .Click(), TimeSpan.FromSeconds(60));
+        // A WaitFor* predicate MUST be side-effect free: bUnit runs the checker
+        // from the renderer's OnAfterRender callback, so a Click/Change inside
+        // it re-enters the same wait helper through ProcessRenderQueue and can
+        // recurse until the test host dies with a stack overflow — exactly the
+        // crash CI hit on main@056eb27 (run 40418968687, attempt 1) despite
+        // 118/118 passed. Wait for the DOM, then act outside the wait.
+        ExpandPushWorkout(cut);
 
-        cut.WaitForAssertion(
-            () => cut.Find(".hs-workout-sheet-actions .is-primary").Click(),
+        cut.WaitForState(
+            () => FindWorkoutAction(cut, "Duplicate") is not null,
             TimeSpan.FromSeconds(60));
+        FindWorkoutAction(cut, "Duplicate")!.Click();
+
+        cut.WaitForElement(
+                ".hs-workout-sheet-actions .is-primary",
+                TimeSpan.FromSeconds(60))
+            .Click();
 
         cut.WaitForAssertion(() =>
         {
@@ -436,17 +448,16 @@ public class WorkoutsPageTests : BlazorTestBase
 
         var cut = RenderComponent<Workouts>();
 
-        cut.WaitForAssertion(() => ExpandPushWorkout(cut), TimeSpan.FromSeconds(20));
-        cut.WaitForAssertion(() =>
-            cut.FindAll(".hs-workout-action")
-                .Single(button => button.TextContent.Trim() == "Duplicate")
-                .Click(), TimeSpan.FromSeconds(20));
+        ExpandPushWorkout(cut);
 
-        cut.WaitForAssertion(() =>
-        {
-            cut.Find("#duplicate-workout-date").Change("2025-06-10");
-            cut.Find(".hs-workout-sheet-actions .is-primary").Click();
-        }, TimeSpan.FromSeconds(20));
+        cut.WaitForState(
+            () => FindWorkoutAction(cut, "Duplicate") is not null,
+            TimeSpan.FromSeconds(20));
+        FindWorkoutAction(cut, "Duplicate")!.Click();
+
+        cut.WaitForElement("#duplicate-workout-date", TimeSpan.FromSeconds(20))
+            .Change("2025-06-10");
+        cut.Find(".hs-workout-sheet-actions .is-primary").Click();
 
         cut.WaitForAssertion(() =>
         {

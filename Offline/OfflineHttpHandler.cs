@@ -189,7 +189,7 @@ public sealed class OfflineHttpHandler : DelegatingHandler
                 }
                 else
                 {
-                    _ = RefreshCacheInBackgroundAsync(networkTask);
+                    BackgroundRefresh = RefreshCacheInBackgroundAsync(networkTask);
                 }
 
                 return cached;
@@ -318,7 +318,7 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         }
     }
 
-    private static async Task RefreshCacheInBackgroundAsync(Task<HttpResponseMessage?> networkTask)
+    private async Task RefreshCacheInBackgroundAsync(Task<HttpResponseMessage?> networkTask)
     {
         try
         {
@@ -330,6 +330,13 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         {
         }
     }
+
+    /// <summary>
+    /// The stale-while-revalidate refresh started by the last cache hit served
+    /// past the network budget. Exposed so callers that need the refresh (and
+    /// therefore its cache write) settled can await it.
+    /// </summary>
+    public Task BackgroundRefresh { get; private set; } = Task.CompletedTask;
 
     private async Task<HttpResponseMessage?> ServeCachedAsync(HttpRequestMessage request)
     {
@@ -369,15 +376,23 @@ public sealed class OfflineHttpHandler : DelegatingHandler
         var contentType = response.Content.Headers.ContentType?.MediaType
                           ?? "application/json";
 
-        // The write itself (a catalog parse plus a multi-row transaction on the
-        // first load) is detached: the cache is for the *next* read, so the page
-        // that triggered this one must not wait for it.
+        // The write itself (a catalog mirror transaction on the first load) is
+        // detached: the cache is for the *next* read, so the page that triggered
+        // this one must not wait for it.
         var total = response.Headers.TryGetValues("X-Total-Count", out var totals)
                     && int.TryParse(totals.FirstOrDefault(), out var parsedTotal)
             ? parsedTotal
             : -1;
-        _ = WriteCacheAsync(key, (int)response.StatusCode, contentType, body, total);
+        LastCacheWrite = WriteCacheAsync(
+            key, (int)response.StatusCode, contentType, body, total);
     }
+
+    /// <summary>
+    /// The detached cache write started by the last cached response. Exposed so
+    /// callers that need the cache settled (tests, diagnostics) can await it
+    /// instead of guessing when the background write finished.
+    /// </summary>
+    public Task LastCacheWrite { get; private set; } = Task.CompletedTask;
 
     private async Task WriteCacheAsync(
         string key,

@@ -163,6 +163,48 @@ public class SharedVisualFoundationTests : BlazorTestBase
         index.ToLowerInvariant().Should().NotContain("family=roboto", "Roboto is not the v1 typeface");
     }
 
+    // QA t_097d7195 D2 / WCAG 2.4.7: MudBlazor ships `button:focus{outline:none}` (0,1,1) and
+    // `.mud-button-filled:focus-visible{box-shadow:<elevation>}` (0,2,0), which both outrank the
+    // zero-specificity `:where(...)` ring, so no button in the app showed keyboard focus.
+    [Fact]
+    public void Focus_Ring_Outranks_MudBlazor_Resets_On_Buttons_And_Fields()
+    {
+        var css = RepoFile(Path.Combine("wwwroot", "css", "app.css"));
+
+        var buttons = CssBlock(css, ".mud-button-root:focus-visible");
+        buttons.Should().Contain("outline: 2px solid var(--mud-palette-primary)",
+            "the ring must be restated at class specificity to beat MudBlazor's button:focus reset");
+        buttons.Should().Contain("box-shadow: var(--hs-shadow-focus)",
+            "filled buttons keep their resting elevation unless the halo is restated too");
+
+        var fields = CssBlock(css, ".mud-input:has(input.mud-input-slot:focus-visible) .mud-input-outlined-border");
+        fields.Should().Contain("border-width: 2px");
+        fields.Should().Contain("box-shadow: var(--hs-shadow-focus)",
+            "the outlined container carries the halo, not the inner input");
+
+        css.Should().NotContain(".mud-input-slot:focus-visible {",
+            "the old rule cancelled the inner halo while nothing replaced it outside (QA measured changed=false)");
+    }
+
+    private static string CssBlock(string css, string selector)
+    {
+        var at = css.IndexOf(selector, StringComparison.Ordinal);
+        if (at < 0)
+        {
+            throw new InvalidOperationException($"CSS rule '{selector}' not found in app.css.");
+        }
+
+        // el selector puede encabezar una lista: el bloque empieza en la primera '{' tras él
+        var open = css.IndexOf('{', at);
+        var close = open < 0 ? -1 : css.IndexOf('}', open);
+        if (open < 0 || close < 0)
+        {
+            throw new InvalidOperationException($"CSS rule '{selector}' has no body.");
+        }
+
+        return css[open..close];
+    }
+
     private static string RepoFile(string relative)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
