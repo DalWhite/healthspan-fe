@@ -354,6 +354,15 @@ public class OfflineSyncTests
             seedHttp,
             CancellationToken.None);
 
+        // The seed's cache write is detached (t_710a4f65), so wait for it to land —
+        // otherwise the next request sees no cache and blocks on the slow network.
+        var seedDeadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < seedDeadline
+               && await store.GetCachedResponseAsync("workouts") is null)
+        {
+            await Task.Delay(20);
+        }
+
         // Now the network is alive but slow (8s > the 4s stale-while-revalidate budget).
         var slowHandler = new OfflineHttpHandler(store, mutator, status, coordinator);
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -369,7 +378,13 @@ public class OfflineSyncTests
         list.RootElement[0].GetProperty("type").GetString().Should().Be("Cached type");
 
         // The slow network still refreshed the cache in the background.
-        await Task.Delay(TimeSpan.FromSeconds(9));
+        var refreshDeadline = DateTime.UtcNow.AddSeconds(20);
+        while (DateTime.UtcNow < refreshDeadline
+               && (await store.GetCachedResponseAsync("workouts"))?.Body?.Contains("Fresh type") != true)
+        {
+            await Task.Delay(50);
+        }
+
         var cached = await store.GetCachedResponseAsync("workouts");
         cached.Should().NotBeNull();
         cached!.Body.Should().Contain("Fresh type");
