@@ -85,6 +85,9 @@ public sealed class InMemoryLocalStore : ILocalStore
 
     // ── Catalog mirror ────────────────────────────────────────────────────────
 
+    public Task SaveCatalogBodyAsync(string kind, string body, string idProperty)
+        => SaveCatalogAsync(kind, CatalogMirrorBody.Split(body, idProperty));
+
     public Task SaveCatalogAsync(
         string kind, IEnumerable<(string Id, string Payload)> items)
     {

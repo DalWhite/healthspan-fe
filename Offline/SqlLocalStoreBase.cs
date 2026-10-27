@@ -150,6 +150,14 @@ public abstract class SqlLocalStoreBase : ILocalStore
                  new object?[] { kind, item.Id, item.Payload, cachedAt })));
     }
 
+    /// <summary>
+    /// Mirrors a whole catalog response body. The base implementation splits the
+    /// body on the main thread; the WASM store overrides this so the split runs
+    /// inside the SQLite worker instead (t_81a400b3).
+    /// </summary>
+    public virtual Task SaveCatalogBodyAsync(string kind, string body, string idProperty)
+        => SaveCatalogAsync(kind, CatalogMirrorBody.Split(body, idProperty));
+
     public async Task<List<string>> GetCatalogPayloadsAsync(string kind)
     {
         var rows = await QueryAsync(

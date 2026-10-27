@@ -199,6 +199,36 @@ self.onmessage = async (e) => {
                 result = { changes: total };
                 break;
             }
+            case 'mirrorCatalog': {
+                // Split a catalog response body and mirror it in one transaction.
+                // Runs here so the main thread never parses or re-serialises rows
+                // (in interpreted WASM that cost ~1s per 160-row page).
+                const { kind, body, idProperty, cachedAt } = e.data;
+                const rows = JSON.parse(body);
+                if (!Array.isArray(rows)) throw new Error('catalog body is not an array');
+                const sql = 'INSERT OR REPLACE INTO mirror_catalog (kind, item_id, payload, cached_at_utc) VALUES (?, ?, ?, ?)';
+                let changes = 0;
+                db.exec('BEGIN');
+                try {
+                    for (const row of rows) {
+                        const rawId = row && row[idProperty] != null ? row[idProperty] : crypto.randomUUID();
+                        const q = db.prepare(sql);
+                        try {
+                            q.bind([kind, String(rawId), JSON.stringify(row), cachedAt]);
+                            q.step();
+                        } finally {
+                            q.finalize();
+                        }
+                        changes += capi.sqlite3_changes(db.pointer);
+                    }
+                    db.exec('COMMIT');
+                } catch (inner) {
+                    try { db.exec('ROLLBACK'); } catch (_) { /* ignore */ }
+                    throw inner;
+                }
+                result = { changes, rows: rows.length };
+                break;
+            }
             default:
                 throw new Error('unknown method ' + method);
         }

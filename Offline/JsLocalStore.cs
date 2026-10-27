@@ -89,6 +89,19 @@ public sealed class JsLocalStore : SqlLocalStoreBase
         return new LocalStoreChanges(result.Changes, result.LastInsertRowId);
     }
 
+    /// <summary>
+    /// The catalog split (parse the response, pull each row out as raw JSON) runs
+    /// inside the SQLite worker: doing it on the main thread cost 1.0-1.6s per
+    /// 160-row page in interpreted WASM, on top of re-serialising every row into
+    /// the statements payload (t_81a400b3).
+    /// </summary>
+    public override async Task SaveCatalogBodyAsync(string kind, string body, string idProperty)
+    {
+        await EnsureOpenAsync();
+        await _js.InvokeVoidAsync(
+            "hsdb.mirrorCatalog", kind, body, idProperty, DateTime.UtcNow.ToString("O"));
+    }
+
     protected override async Task ExecuteBatchAsync(
         IEnumerable<(string Sql, object?[] Args)> statements)
     {

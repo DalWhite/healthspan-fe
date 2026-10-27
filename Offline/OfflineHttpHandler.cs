@@ -546,25 +546,16 @@ public sealed class OfflineHttpHandler : DelegatingHandler
     private async Task MirrorCatalogAsync(string kind, string body, string idProperty)
     {
         var hsp2 = System.Diagnostics.Stopwatch.StartNew();
+        // Cheap shape check so a non-catalog payload never reaches the store; the
+        // per-row work itself happens in the store's worker.
+        if (!body.TrimStart().StartsWith('['))
+        {
+            return;
+        }
+
         try
         {
-            using var doc = System.Text.Json.JsonDocument.Parse(body);
-            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array)
-            {
-                return;
-            }
-
-            var items = new List<(string Id, string Payload)>();
-            foreach (var element in doc.RootElement.EnumerateArray())
-            {
-                var id = element.TryGetProperty(idProperty, out var idElement)
-                    ? idElement.ToString()
-                    : Guid.NewGuid().ToString();
-                items.Add((id, element.GetRawText()));
-            }
-
-            Console.WriteLine($"HSPERF mirror-parse={hsp2.ElapsedMilliseconds}ms rows={items.Count}");
-            await _store.SaveCatalogAsync(kind, items);
+            await _store.SaveCatalogBodyAsync(kind, body, idProperty);
             Console.WriteLine($"HSPERF mirror-save={hsp2.ElapsedMilliseconds}ms kind={kind}");
         }
         catch (System.Text.Json.JsonException)

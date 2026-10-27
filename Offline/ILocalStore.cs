@@ -24,6 +24,12 @@ public interface ILocalStore
 
     // ── Read-only catalog mirror (exercise library, muscles) ──────────────────
     Task SaveCatalogAsync(string kind, IEnumerable<(string Id, string Payload)> items);
+
+    /// <summary>
+    /// Mirrors a whole catalog response body, splitting rows on the id property.
+    /// Stores backed by the SQLite worker do the split off the main thread.
+    /// </summary>
+    Task SaveCatalogBodyAsync(string kind, string body, string idProperty);
     Task<List<string>> GetCatalogPayloadsAsync(string kind);
 
     /// <summary>One page of the catalog mirror, ordered by id, plus the row count.</summary>
