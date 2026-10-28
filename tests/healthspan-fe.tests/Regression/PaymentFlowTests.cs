@@ -624,7 +624,7 @@ public class PaymentFlowTests : BlazorTestBase
         // La card es un aviso con CTA; el contenido de la página sigue visible (D1).
         cut.Markup.Should().Contain("gratis para siempre");
         cut.Find("a.hs-paywall-cta").GetAttribute("href").Should().Be("premium");
-        cut.Markup.Should().Contain("No training data yet");
+        cut.Markup.Should().Contain("Aún no hay datos de entrenamiento");
     }
 
     [Fact]
@@ -634,7 +634,7 @@ public class PaymentFlowTests : BlazorTestBase
         MockSubscription(SubscriptionJson);
 
         var cut = RenderComponent<Profile>();
-        cut.WaitForState(() => cut.Markup.Contains("No training data yet"));
+        cut.WaitForState(() => cut.Markup.Contains("Aún no hay datos de entrenamiento"));
 
         cut.Markup.Should().NotContain("Análisis avanzado con Premium");
     }
@@ -647,7 +647,7 @@ public class PaymentFlowTests : BlazorTestBase
             .Respond(HttpStatusCode.InternalServerError);
 
         var cut = RenderComponent<Profile>();
-        cut.WaitForState(() => cut.Markup.Contains("No training data yet"));
+        cut.WaitForState(() => cut.Markup.Contains("Aún no hay datos de entrenamiento"));
 
         // Sin confirmación no se interrumpe el análisis (matriz §4).
         cut.Markup.Should().NotContain("Análisis avanzado con Premium");

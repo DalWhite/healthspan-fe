@@ -7,7 +7,7 @@
 @inject TitleService TitleService
 @inject BillingClient Billing
 
-<PageTitle>Training insights</PageTitle>
+<PageTitle>Insights de entrenamiento</PageTitle>
 
 <PageShell Class="hs-insights-page">
     <PageHeader Title="Insights" Subtitle="@SelectedWeekRangeLabel">
@@ -17,7 +17,7 @@
                 <MudSelect T="DateTime"
                            Value="_selectedWeekStart"
                            ValueChanged="OnWeekChanged"
-                           Label="Week"
+                           Label="Semana"
                            Dense="true"
                            Variant="Variant.Outlined"
                            Class="hs-insights-week-select">
@@ -43,13 +43,13 @@
 
     @if (_isLoading)
     {
-        <LoadingState Message="Loading insights..." />
+        <LoadingState Message="Cargando insights…" />
     }
     else if (SelectedWeek is null)
     {
         <EmptyState Icon="@Icons.Material.Filled.Insights"
-                    Title="No training data yet"
-                    Subtitle="Log a workout to start seeing weekly load." />
+                    Title="Aún no hay datos de entrenamiento"
+                    Subtitle="Registra un entreno para empezar a ver la carga semanal." />
     }
     else
     {
@@ -63,19 +63,19 @@
 
         <div class="hs-insights-kpis">
             <div class="hs-insights-kpi">
-                <span>Load</span>
+                <span>Carga</span>
                 <strong>@FormatLoad(SelectedWeek.TotalLoad)</strong>
             </div>
             <div class="hs-insights-kpi">
-                <span>Sessions</span>
+                <span>Sesiones</span>
                 <strong>@SelectedWeek.WorkoutCount</strong>
             </div>
             <div class="hs-insights-kpi">
-                <span>Exercises</span>
+                <span>Ejercicios</span>
                 <strong>@SelectedWeek.ExerciseCount</strong>
             </div>
             <div class="hs-insights-kpi">
-                <span>Change</span>
+                <span>Cambio</span>
                 <strong>@GetWeekDeltaLabel()</strong>
             </div>
         </div>
@@ -89,20 +89,20 @@
                     <div>
                         <MudText Typo="Typo.h6"
                                  id="muscle-load-title">
-                            Muscle load
+                            Carga muscular
                         </MudText>
                         @if (_healthProfile.BiologicalSex == HealthBiologicalSex.Unknown)
                         {
                             <a href="/health/profile"
                                class="hs-insights-profile-link">
-                                Set body profile
+                                Define tu perfil corporal
                             </a>
                         }
                     </div>
 
                     <div class="hs-insights-view-switch"
                          role="group"
-                         aria-label="Body view">
+                         aria-label="Vista corporal">
                         @foreach (var view in BodyViews)
                         {
                             <button type="button"
@@ -122,10 +122,10 @@
 
             <aside class="hs-insights-side">
                 <section class="hs-insights-list-card hs-surface">
-                    <MudText Typo="Typo.h6">Top areas</MudText>
+                    <MudText Typo="Typo.h6">Zonas más cargadas</MudText>
                     @if (!TopSelectedRegions.Any())
                     {
-                        <span class="hs-muted-copy">No mapped load.</span>
+                        <span class="hs-muted-copy">Sin carga mapeada.</span>
                     }
                     else
                     {
@@ -144,16 +144,16 @@
 
                 <section class="hs-insights-list-card hs-surface">
                     <div class="hs-insights-section-head">
-                        <MudText Typo="Typo.h6">Top exercises</MudText>
+                        <MudText Typo="Typo.h6">Ejercicios destacados</MudText>
                         <a href="/training/history"
                            class="hs-insights-profile-link">
-                            History
+                            Historial
                         </a>
                     </div>
 
                     @if (!TopExercises.Any())
                     {
-                        <span class="hs-muted-copy">No exercises this week.</span>
+                        <span class="hs-muted-copy">Sin ejercicios esta semana.</span>
                     }
                     else
                     {
@@ -177,9 +177,9 @@
 @code {
     private static readonly (string Key, string Label)[] BodyViews =
     [
-        ("both", "Both"),
-        ("front", "Front"),
-        ("back", "Back")
+        ("both", "Ambos"),
+        ("front", "Frontal"),
+        ("back", "Posterior")
     ];
 
     private bool _isLoading = true;
@@ -238,12 +238,12 @@
 
     private string SelectedWeekRangeLabel
         => SelectedWeek is null
-            ? "Weekly muscle load"
+            ? "Carga muscular semanal"
             : FormatWeekRange(SelectedWeek.WeekStart);
 
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Training insights";
+        TitleService.Title = "Insights de entrenamiento";
         _ = LoadPaywallStateAsync();
         await LoadInsightsAsync();
     }
@@ -315,7 +315,7 @@
         }
         catch
         {
-            _errorMessages.Add("Training summary is unavailable.");
+            _errorMessages.Add("El resumen de entrenamiento no está disponible.");
             return new WeeklyTrainingSummaryResource();
         }
     }
@@ -328,7 +328,7 @@
         }
         catch
         {
-            _errorMessages.Add("Personal profile is unavailable.");
+            _errorMessages.Add("Tu perfil personal no está disponible.");
             return new HealthProfileResource();
         }
     }

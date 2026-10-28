@@ -24,14 +24,14 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         {
             cut.Markup.Should().Contain("Bench Press");
             cut.FindAll(".hs-exercise-detail-tab").Should().HaveCount(4);
-            cut.Markup.Should().Contain("Best estimated 1RM");
+            cut.Markup.Should().Contain("Mejor 1RM estimado");
             cut.Markup.Should().Contain("Chest");
         });
 
         cut.Find("button[aria-controls='exercise-section-history']").Click();
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("4 sets × 8 reps");
+            cut.Markup.Should().Contain("4 series × 8 reps");
             cut.Markup.Should().Contain("80.0 kg");
             cut.Find("a.hs-exercise-history-row")
                 .GetAttribute("href")
@@ -88,15 +88,15 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Repetitions only");
+            cut.Markup.Should().Contain("Solo repeticiones");
             cut.Markup.Should().NotContain("kg");
-            cut.Markup.Should().NotContain("estimated 1RM");
+            cut.Markup.Should().NotContain("1RM estimado");
         });
 
         cut.Find("button[aria-controls='exercise-section-history']").Click();
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("3 sets × 30 reps");
+            cut.Markup.Should().Contain("3 series × 30 reps");
             cut.Markup.Should().NotContain("kg");
             cut.Markup.Should().NotContain("1RM");
         });
@@ -104,7 +104,7 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         cut.Find("button[aria-controls='exercise-section-trends']").Click();
         cut.WaitForAssertion(() =>
             cut.Markup.Should().Contain(
-                "Load and 1RM trends aren't used for this exercise."));
+                "Las tendencias de carga y 1RM no se usan en este ejercicio."));
     }
 
     [Fact]
@@ -136,8 +136,8 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("New Exercise");
-            cut.Markup.Should().Contain("No history yet");
-            cut.Markup.Should().Contain("Open Train");
+            cut.Markup.Should().Contain("Sin historial todavía");
+            cut.Markup.Should().Contain("Registrar entreno");
         });
     }
 
@@ -156,9 +156,9 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("Bench Press");
-            cut.Find("button[aria-label='Back']").Should().NotBeNull();
+            cut.Find("button[aria-label='Volver']").Should().NotBeNull();
         });
-        cut.Find("button[aria-label='Back']").Click();
+        cut.Find("button[aria-label='Volver']").Click();
 
         cut.WaitForAssertion(() =>
             navigationManager.Uri.Should()
@@ -180,8 +180,8 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Couldn't load this exercise");
-            cut.Markup.Should().Contain("Retry");
+            cut.Markup.Should().Contain("No se pudo cargar este ejercicio");
+            cut.Markup.Should().Contain("Reintentar");
         });
     }
 
@@ -233,7 +233,7 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         cut.WaitForAssertion(() =>
         {
             cut.Find(".hs-exercise-trend-header")
-                .TextContent.Should().Contain("Estimated 1RM");
+                .TextContent.Should().Contain("1RM estimado");
             cut.FindAll(".hs-exercise-trend-metrics button.is-active")
                 .Should().ContainSingle()
                 .Which.TextContent.Trim().Should().Be("1RM");
@@ -242,19 +242,19 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         }, timeout: TimeSpan.FromSeconds(10));
 
         cut.FindAll(".hs-exercise-trend-metrics button")
-            .Single(button => button.TextContent.Trim() == "Volume")
+            .Single(button => button.TextContent.Trim() == "Volumen")
             .Click();
 
         cut.WaitForAssertion(() =>
         {
             cut.Find(".hs-exercise-trend-header")
-                .TextContent.Should().Contain("Session volume");
+                .TextContent.Should().Contain("Volumen por sesión");
             cut.Find(".hs-exercise-trend-header")
                 .TextContent.Should().Contain(
-                    "Total load completed in each workout.");
+                    "Carga total completada en cada entreno.");
             cut.FindAll(".hs-exercise-trend-metrics button.is-active")
                 .Should().ContainSingle()
-                .Which.TextContent.Trim().Should().Be("Volume");
+                .Which.TextContent.Trim().Should().Be("Volumen");
             cut.Find(".hs-exercise-trend-latest")
                 .TextContent.Should().Contain("560 kg");
         }, timeout: TimeSpan.FromSeconds(10));
@@ -273,9 +273,9 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         // the controls the library card deliberately dropped.
         cut.Find(".hs-exercise-hero-media img").GetAttribute("loading").Should().Be("lazy");
         cut.Find(".hs-exercise-hero-meta").TextContent.Should().Contain("barbell");
-        cut.Find(".hs-exercise-hero-meta").TextContent.Should().Contain("1 variation");
+        cut.Find(".hs-exercise-hero-meta").TextContent.Should().Contain("1 variante");
 
-        var button = cut.WaitForElement("button:contains('Add to favourites')");
+        var button = cut.WaitForElement("button:contains('Añadir a favoritos')");
 
         MockHttp.Expect(HttpMethod.Put, "/ExerciseTypes/21/favourite")
             .Respond(HttpStatusCode.NoContent);
@@ -284,7 +284,7 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            cut.Find("button:contains('Favourite')").Should().NotBeNull();
+            cut.Find("button:contains('Favorito')").Should().NotBeNull();
             MockHttp.VerifyNoOutstandingExpectation();
         });
     }

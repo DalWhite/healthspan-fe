@@ -13,15 +13,15 @@
 @inject CsvImportTracker Tracker
 @implements IDisposable
 
-<PageTitle>Settings</PageTitle>
+<PageTitle>Ajustes</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="hs-page-shell">
-    <PageHeader Title="Settings" />
+    <PageHeader Title="Ajustes" />
 
     <!-- Account Section -->
     <MudCard Class="mb-4 hs-surface">
         <MudCardContent>
-            <MudText Typo="Typo.h6" Class="mb-3">Account</MudText>
+            <MudText Typo="Typo.h6" Class="mb-3">Cuenta</MudText>
             <MudText Typo="Typo.subtitle1">@_displayName</MudText>
             @if (!string.IsNullOrWhiteSpace(_email))
             {
@@ -29,7 +29,7 @@
             }
             <MudButton OnClick="Logout" Color="MudBlazor.Color.Error" Variant="Variant.Outlined"
                        StartIcon="@Icons.Material.Filled.Logout">
-                Logout
+                Cerrar sesión
             </MudButton>
         </MudCardContent>
     </MudCard>
@@ -41,26 +41,26 @@
     <!-- Data Section -->
     <MudCard Class="mb-4 hs-surface">
         <MudCardContent>
-            <MudText Typo="Typo.h6" Class="mb-3">Your data</MudText>
+            <MudText Typo="Typo.h6" Class="mb-3">Tus datos</MudText>
 
             <div class="d-flex flex-wrap gap-3 align-center">
                 <MudButton OnClick="ExportData" Color="MudBlazor.Color.Primary" Variant="Variant.Filled"
                            StartIcon="@Icons.Material.Filled.FileDownload"
                            Disabled="_isExporting">
-                    @(_isExporting ? "Exporting..." : "Export my data")
+                    @(_isExporting ? "Exportando…" : "Exportar mis datos")
                 </MudButton>
 
                 <MudButton OnClick="DownloadTemplate" Color="MudBlazor.Color.Primary" Variant="Variant.Outlined"
                            StartIcon="@Icons.Material.Filled.Download">
-                    Download Template
-                </MudButton>
+                           Descargar plantilla
+                           </MudButton>
 
                 <MudFileUpload T="IBrowserFile" Accept=".csv" FilesChanged="OnFileSelected" MaximumFileCount="1">
                     <ButtonTemplate>
                         <MudButton HtmlTag="label" Variant="Variant.Outlined" Color="MudBlazor.Color.Primary"
                                    StartIcon="@Icons.Material.Filled.CloudUpload"
                                    for="@context.Id">
-                            Select CSV
+                            Seleccionar CSV
                         </MudButton>
                     </ButtonTemplate>
                 </MudFileUpload>
@@ -70,7 +70,7 @@
                     <MudButton OnClick="ImportFile" Color="MudBlazor.Color.Success" Variant="Variant.Filled"
                                StartIcon="@Icons.Material.Filled.Upload"
                                Disabled="_isImportStarting || Tracker.IsBusy">
-                        @(_isImportStarting ? "Starting…" : $"Import \"{_selectedFile.Name}\"")
+                        @(_isImportStarting ? "Iniciando…" : $"Importar \"{_selectedFile.Name}\"")
                     </MudButton>
                 }
             </div>
@@ -95,9 +95,9 @@
             @if (Tracker.HasJob && !_panelVisible)
             {
                 <div class="hs-import-compact mt-3" role="status">
-                    <span>@(Tracker.IsBusy ? $"Import in progress — {ProcessedText}" : ChipLabel)</span>
+                    <span>@(Tracker.IsBusy ? $"Importación en curso — {ProcessedText}" : ChipLabel)</span>
                     <MudSpacer />
-                    <MudButton OnClick="ShowPanel" Variant="Variant.Text" Color="MudBlazor.Color.Primary" Class="hs-import-action">View</MudButton>
+                    <MudButton OnClick="ShowPanel" Variant="Variant.Text" Color="MudBlazor.Color.Primary" Class="hs-import-action">Ver</MudButton>
                 </div>
             }
         </MudCardContent>
@@ -126,7 +126,7 @@
                     @if (Tracker.IsBusy)
                     {
                         <MudButton OnClick="HidePanel" Variant="Variant.Text" Color="MudBlazor.Color.Primary" Class="hs-import-action">
-                            Hide progress
+                            Ocultar progreso
                         </MudButton>
                     }
                 </div>
@@ -146,26 +146,26 @@
                 {
                     @* A poll failure is a visibility loss, never a job failure. *@
                     <MudText Typo="Typo.body2" Class="hs-import-reconnect mt-2">
-                        No connection — reconnecting… progress may be a few seconds behind.
+                        Sin conexión — reconectando… el progreso puede retrasarse unos segundos.
                     </MudText>
                 }
                 else if (Tracker.IsBusy)
                 {
                     <MudText Typo="Typo.caption" Class="hs-import-stats mt-1">
-                        You can keep using the app — the import continues in the background.
+                        Puedes seguir usando la app: la importación continúa en segundo plano.
                     </MudText>
                 }
 
                 @if (Tracker.Status == "not_found")
                 {
                     <MudText Typo="Typo.body2" Class="hs-import-failure mt-2">
-                        We couldn't find this import. It may have finished more than 24 hours ago.
+                        No encontramos esta importación. Puede que terminara hace más de 24 horas.
                     </MudText>
                 }
                 else if (Tracker.Status == "failed")
                 {
                     <MudText Typo="Typo.body2" Class="hs-import-failure mt-2">
-                        The import stopped unexpectedly. No rows were saved — nothing was added to your history. Upload the same CSV again; it is safe and won't duplicate anything.
+                        La importación se detuvo de forma inesperada. No se guardó ninguna fila: nada se añadió a tu historial. Vuelve a subir el mismo CSV; es seguro y no duplicará nada.
                     </MudText>
                 }
                 else if (Tracker.Status is "completed" or "completed_with_errors")
@@ -176,16 +176,16 @@
                 @if (Tracker.Errors.Count > 0)
                 {
                     <MudExpansionPanel Class="hs-import-errors mt-2"
-                                       Text="@($"Row errors ({Tracker.ErrorCount})")"
+                                       Text="@($"Errores por fila ({Tracker.ErrorCount})")"
                                        Expanded="@(Tracker.Status == "completed_with_errors")">
                         @foreach (var error in Tracker.Errors)
                         {
-                            <MudText Typo="Typo.body2" Class="hs-import-error-row">Row @error.Row — @error.Message</MudText>
+                            <MudText Typo="Typo.body2" Class="hs-import-error-row">Fila @error.Row — @error.Message</MudText>
                         }
                         @if (Tracker.ErrorCount > Tracker.Errors.Count)
                         {
                             <MudText Typo="Typo.caption" Class="hs-import-stats">
-                                Showing first @Tracker.Errors.Count of @Tracker.ErrorCount errors.
+                                Mostrando los primeros @Tracker.Errors.Count de @Tracker.ErrorCount errores.
                             </MudText>
                         }
                     </MudExpansionPanel>
@@ -194,11 +194,11 @@
                 <div class="d-flex gap-3 mt-3">
                     @if (Tracker.Status is "completed" or "completed_with_errors")
                     {
-                        <MudButton OnClick="DismissJob" Color="MudBlazor.Color.Primary" Variant="Variant.Filled">Done</MudButton>
+                        <MudButton OnClick="DismissJob" Color="MudBlazor.Color.Primary" Variant="Variant.Filled">Hecho</MudButton>
                     }
                     else if (Tracker.Status is "failed" or "cancelled" or "not_found")
                     {
-                        <MudButton OnClick="DismissJob" Variant="Variant.Outlined" Color="MudBlazor.Color.Primary">Dismiss</MudButton>
+                        <MudButton OnClick="DismissJob" Variant="Variant.Outlined" Color="MudBlazor.Color.Primary">Descartar</MudButton>
                     }
                 </div>
 
@@ -213,7 +213,7 @@
 
 @code {
     private IBrowserFile? _selectedFile;
-    private string _displayName = "Signed-in user";
+    private string _displayName = "Usuario con sesión iniciada";
     private string? _email;
     private bool _isExporting;
     private bool _isTrainer;
@@ -239,7 +239,7 @@
             ?? user.FindFirst(ClaimTypes.Name)?.Value
             ?? user.FindFirst("name")?.Value
             ?? _email
-            ?? "Signed-in user";
+            ?? "Usuario con sesión iniciada";
 
         // Reload / re-attach: a job started earlier (or from another page)
         // resumes its panel here (spec §4, localStorage key hs.import.job).
@@ -264,7 +264,7 @@
         }
         catch
         {
-            Snackbar.Add("Failed to download template.", Severity.Error);
+            Snackbar.Add("No se pudo descargar la plantilla.", Severity.Error);
         }
     }
 
@@ -286,7 +286,7 @@
         catch
         {
             Snackbar.Add(
-                "Your data could not be exported.",
+                "No se pudieron exportar tus datos.",
                 Severity.Error);
         }
         finally
@@ -306,7 +306,7 @@
     {
         if (_selectedFile == null)
         {
-            Snackbar.Add("Please select a file first.", Severity.Warning);
+            Snackbar.Add("Selecciona primero un archivo.", Severity.Warning);
             return;
         }
 
@@ -317,7 +317,7 @@
         // rows; catch the predictable failures without a round-trip.
         if (!_selectedFile.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
         {
-            _preflightError = "Imports support CSV files up to 5 MB (about 50,000 rows).";
+            _preflightError = "Las importaciones admiten archivos CSV de hasta 5 MB (unas 50.000 filas).";
             return;
         }
 
@@ -325,7 +325,7 @@
         {
             var sizeMb = _selectedFile.Size / (1024.0 * 1024.0);
             _preflightError =
-                $"That file is {sizeMb:0.#} MB. Imports support CSV files up to 5 MB (about 50,000 rows).";
+                $"Ese archivo pesa {sizeMb:0.#} MB. Las importaciones admiten archivos CSV de hasta 5 MB (unas 50.000 filas).";
             return;
         }
 
@@ -333,7 +333,7 @@
         if (dataRows > CsvImportTracker.MaxUploadRows)
         {
             _preflightError =
-                $"That file has {dataRows:N0} rows. Imports support CSV files up to 5 MB (about 50,000 rows).";
+                $"Ese archivo tiene {dataRows:N0} filas. Las importaciones admiten archivos CSV de hasta 5 MB (unas 50.000 filas).";
             return;
         }
 
@@ -359,7 +359,7 @@
         }
         catch (IOException)
         {
-            _preflightError = "That file is too large to upload (max 5 MB).";
+            _preflightError = "El archivo es demasiado grande para subirlo (máx. 5 MB).";
         }
         finally
         {
@@ -414,14 +414,14 @@
     {
         // A poll failure only costs visibility: the job is still importing
         // (spec §3 — never show a job failure because of a failed fetch).
-        _ when Tracker.PollingFailed && Tracker.IsBusy => "Importing",
-        "queued" => "Queued",
-        "running" => "Importing",
-        "completed" => "Completed",
-        "completed_with_errors" => "Completed with issues",
-        "failed" => "Stopped",
-        "cancelled" => "Cancelled",
-        "not_found" => "Not found",
+        _ when Tracker.PollingFailed && Tracker.IsBusy => "Importando",
+        "queued" => "En cola",
+        "running" => "Importando",
+        "completed" => "Completada",
+        "completed_with_errors" => "Completada con incidencias",
+        "failed" => "Detenida",
+        "cancelled" => "Cancelada",
+        "not_found" => "No encontrada",
         _ => ""
     };
 
@@ -446,14 +446,14 @@
     // only, so they must never read as a count of saved rows in those states.
     // Live progress (running/queued) keeps the numbers as-is.
     private string ProcessedText => Tracker.Status is "failed" or "cancelled"
-        ? "No rows were saved"
-        : $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows";
+        ? "No se guardó ninguna fila"
+        : $"{Tracker.Processed:N0} de {Tracker.Total:N0} filas";
 
     private string BarValueText => Tracker.Status switch
     {
-        "failed" => "Import stopped — no rows were saved",
-        "cancelled" => "Import cancelled — no rows were saved",
-        _ => $"{Tracker.Processed:N0} of {Tracker.Total:N0} rows imported"
+        "failed" => "Importación detenida — no se guardó ninguna fila",
+        "cancelled" => "Importación cancelada — no se guardó ninguna fila",
+        _ => $"{Tracker.Processed:N0} de {Tracker.Total:N0} filas importadas"
     };
 
     private string StatsText
@@ -466,9 +466,9 @@
             }
 
             var rate = Tracker.RowsPerSecond is > 0
-                ? $"≈ {Tracker.RowsPerSecond:N0} rows/s"
-                : "measuring speed…";
-            return $"{rate} · {ElapsedText} elapsed";
+                ? $"≈ {Tracker.RowsPerSecond:N0} filas/s"
+                : "midiendo velocidad…";
+            return $"{rate} · {ElapsedText} transcurrido";
         }
     }
 
@@ -487,8 +487,8 @@
 
     private string FinishedText => Tracker.Status switch
     {
-        "completed" => $"Import finished — {Tracker.Processed:N0} rows added to your history.",
-        _ => $"Import finished — {Tracker.Processed:N0} rows added, {Tracker.ErrorCount:N0} rows skipped."
+        "completed" => $"Importación completada: {Tracker.Processed:N0} filas añadidas a tu historial.",
+        _ => $"Importación completada: {Tracker.Processed:N0} filas añadidas, {Tracker.ErrorCount:N0} filas omitidas."
     };
 
     public void Dispose() => Tracker.Changed -= HandleTrackerChanged;

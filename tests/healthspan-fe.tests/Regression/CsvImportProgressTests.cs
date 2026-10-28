@@ -62,7 +62,7 @@ public sealed class CsvImportProgressTests : BlazorTestBase
         ClickButtonWithText(cut, "Import");
 
         cut.WaitForElement(".hs-import-inline-error");
-        Assert.Contains("Imports support CSV files up to 5 MB", cut.Find(".hs-import-inline-error").TextContent);
+        Assert.Contains("CSV de hasta 5 MB", cut.Find(".hs-import-inline-error").TextContent);
         Assert.Empty(cut.FindAll(".hs-import-panel"));
         // No POST was attempted (MockHttp throws on an unmatched request).
     }
@@ -84,7 +84,7 @@ public sealed class CsvImportProgressTests : BlazorTestBase
         ClickButtonWithText(cut, "Import");
 
         cut.WaitForElement(".hs-import-inline-error");
-        Assert.Contains("50,000 rows", cut.Find(".hs-import-inline-error").TextContent);
+        Assert.Contains("50.000 filas", cut.Find(".hs-import-inline-error").TextContent);
         Assert.Empty(cut.FindAll(".hs-import-panel"));
     }
 
@@ -140,14 +140,14 @@ public sealed class CsvImportProgressTests : BlazorTestBase
 
         // Real progress from the poll — never a fake local percentage.
         cut.WaitForState(() => cut.FindAll(".hs-import-count")
-            .Any(e => e.TextContent.Contains($"{4200:N0} of {10000:N0}")));
+            .Any(e => e.TextContent.Contains($"{4200:N0} de {10000:N0}")));
 
         // Completed state with the exact spec copy.
         cut.WaitForElement(".hs-import-finished");
-        Assert.Contains($"{10000:N0} rows added to your history", cut.Find(".hs-import-finished").TextContent);
+        Assert.Contains($"{10000:N0} filas añadidas a tu historial", cut.Find(".hs-import-finished").TextContent);
 
-        // Done dismisses the panel.
-        ClickButtonWithText(cut, "Done");
+        // Hecho descarta el panel.
+        ClickButtonWithText(cut, "Hecho");
         cut.WaitForState(() => !cut.FindAll(".hs-import-panel").Any());
     }
 
@@ -165,16 +165,16 @@ public sealed class CsvImportProgressTests : BlazorTestBase
         ClickButtonWithText(cut, "Import");
 
         cut.WaitForElement(".hs-import-finished");
-        Assert.Contains($"{9863:N0} rows added, {137:N0} rows skipped",
+        Assert.Contains($"{9863:N0} filas añadidas, {137:N0} filas omitidas",
             cut.Find(".hs-import-finished").TextContent);
 
         var rows = cut.FindAll(".hs-import-error-row");
         Assert.Equal(2, rows.Count);
-        Assert.Contains("Row 12", rows[0].TextContent);
+        Assert.Contains("Fila 12", rows[0].TextContent);
         Assert.Contains("Invalid date", rows[0].TextContent);
 
         // Cap message when errorCount exceeds the exposed 100-item list (spec §6).
-        Assert.Contains($"Showing first 2 of {137:N0} errors", cut.Markup);
+        Assert.Contains($"Mostrando los primeros 2 de {137:N0} errores", cut.Markup);
     }
 
     [Fact]
@@ -190,12 +190,12 @@ public sealed class CsvImportProgressTests : BlazorTestBase
         ClickButtonWithText(cut, "Import");
 
         cut.WaitForElement(".hs-import-reconnect");
-        Assert.Contains("No connection — reconnecting", cut.Find(".hs-import-reconnect").TextContent);
+        Assert.Contains("Sin conexión — reconectando", cut.Find(".hs-import-reconnect").TextContent);
 
-        // The job is still "Importing" — no failure copy anywhere.
-        Assert.Contains("Importing", cut.Find(".hs-import-chip").TextContent);
+        // The job is still "Importando" — no failure copy anywhere.
+        Assert.Contains("Importando", cut.Find(".hs-import-chip").TextContent);
         Assert.Empty(cut.FindAll(".hs-import-failure"));
-        Assert.DoesNotContain("Stopped", cut.Markup);
+        Assert.DoesNotContain("Detenida", cut.Markup);
     }
 
     [Fact]
@@ -224,7 +224,7 @@ public sealed class CsvImportProgressTests : BlazorTestBase
 
         // Snapshot renders immediately (no fake 0%), then polling continues.
         cut.WaitForElement(".hs-import-panel");
-        Assert.Contains($"{4200:N0} of {10000:N0}", cut.Find(".hs-import-count").TextContent);
+        Assert.Contains($"{4200:N0} de {10000:N0}", cut.Find(".hs-import-count").TextContent);
         cut.WaitForState(() => polled);
     }
 
@@ -239,20 +239,20 @@ public sealed class CsvImportProgressTests : BlazorTestBase
         ClickButtonWithText(cut, "Import");
         cut.WaitForElement(".hs-import-panel");
 
-        ClickButtonWithText(cut, "Hide progress");
+        ClickButtonWithText(cut, "Ocultar progreso");
         cut.WaitForState(() => !cut.FindAll(".hs-import-panel").Any());
 
         // The job stays visible as a compact row with View.
         Assert.NotEmpty(cut.FindAll(".hs-import-compact"));
-        Assert.Contains("Import in progress", cut.Find(".hs-import-compact").TextContent);
+        Assert.Contains("Importación en curso", cut.Find(".hs-import-compact").TextContent);
 
         // View reopens the panel with the same job state.
-        ClickButtonWithText(cut, "View");
+        ClickButtonWithText(cut, "Ver");
         cut.WaitForElement(".hs-import-panel");
 
         // Hide ≠ cancel: MockHttp has no cancel/DELETE route, so an attempted
         // cancel would have thrown; the job is still busy and importing.
-        Assert.Contains("Importing", cut.Find(".hs-import-chip").TextContent);
+        Assert.Contains("Importando", cut.Find(".hs-import-chip").TextContent);
     }
 
     [Fact]
@@ -309,7 +309,7 @@ public sealed class CsvImportProgressTests : BlazorTestBase
 
             var pill = RenderComponent<ImportProgressPill>();
             pill.WaitForElement(".hs-import-pill");
-            Assert.Contains("Importing", pill.Find(".hs-import-pill-text").TextContent);
+            Assert.Contains("Importando", pill.Find(".hs-import-pill-text").TextContent);
         }
         tracker.Dispose();
     }
@@ -379,11 +379,11 @@ public sealed class CsvImportProgressTests : BlazorTestBase
 
         cut.WaitForElement(".hs-import-failure");
         var failure = cut.Find(".hs-import-failure").TextContent;
-        Assert.Contains("No rows were saved", failure);
-        Assert.Contains("Upload the same CSV again", failure);
-        Assert.DoesNotContain("were imported", cut.Markup);
-        Assert.DoesNotContain("of 10,000 rows", cut.Markup);
-        Assert.DoesNotContain("5,000 of 10,000", cut.Markup);
+        Assert.Contains("No se guardó ninguna fila", failure);
+        Assert.Contains("Vuelve a subir el mismo CSV", failure);
+        Assert.DoesNotContain("filas importadas", cut.Markup);
+        Assert.DoesNotContain($"{10000:N0} filas", cut.Markup);
+        Assert.DoesNotContain($"{5000:N0} de {10000:N0}", cut.Markup);
     }
 
     [Fact]
@@ -402,9 +402,9 @@ public sealed class CsvImportProgressTests : BlazorTestBase
         ClickButtonWithText(cut, "Import");
 
         cut.WaitForElement(".hs-import-failure");
-        Assert.DoesNotContain("Try again", cut.Markup);
+        Assert.DoesNotContain("Reintentar", cut.Markup);
         var buttons = cut.FindAll(".hs-import-panel .mud-button-root");
-        Assert.Equal(new[] { "Dismiss" }, buttons.Select(b => b.TextContent.Trim()));
+        Assert.Equal(new[] { "Descartar" }, buttons.Select(b => b.TextContent.Trim()));
     }
 
     [Fact]
@@ -421,14 +421,14 @@ public sealed class CsvImportProgressTests : BlazorTestBase
         ClickButtonWithText(cut, "Import");
 
         cut.WaitForElement(".hs-import-chip");
-        cut.WaitForState(() => cut.Find(".hs-import-chip").TextContent.Contains("Cancelled"));
+        cut.WaitForState(() => cut.Find(".hs-import-chip").TextContent.Contains("Cancelada"));
 
-        Assert.Contains("No rows were saved", cut.Find(".hs-import-count").TextContent);
+        Assert.Contains("No se guardó ninguna fila", cut.Find(".hs-import-count").TextContent);
         Assert.Equal(
-            "Import cancelled — no rows were saved",
+            "Importación cancelada — no se guardó ninguna fila",
             cut.Find(".hs-import-bar-wrap").GetAttribute("aria-valuetext"));
-        Assert.DoesNotContain("5,000 of 10,000", cut.Markup);
-        Assert.DoesNotContain("were imported", cut.Markup);
+        Assert.DoesNotContain($"{5000:N0} de {10000:N0}", cut.Markup);
+        Assert.DoesNotContain("filas importadas", cut.Markup);
     }
 
     /// <summary>

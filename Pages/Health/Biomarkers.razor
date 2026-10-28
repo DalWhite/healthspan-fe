@@ -3,28 +3,28 @@
 @inject TitleService TitleService
 @inject NavigationManager NavigationManager
 
-<PageTitle>Biomarkers</PageTitle>
+<PageTitle>Biomarcadores</PageTitle>
 
 <PageShell>
-    <PageHeader Title="Biomarkers" />
+    <PageHeader Title="Biomarcadores" />
 
     @if (_isLoading)
     {
-        <LoadingState Message="Loading biomarkers..." />
+        <LoadingState Message="Cargando biomarcadores…" />
     }
     else if (!string.IsNullOrWhiteSpace(_loadError))
     {
-        <ErrorState Title="Biomarkers unavailable"
+        <ErrorState Title="Biomarcadores no disponibles"
                     Message="@_loadError"
-                    ActionLabel="Retry"
+                    ActionLabel="Reintentar"
                     OnAction="LoadAsync" />
     }
     else if (_allMarkers.Count == 0)
     {
         <div class="hs-health-panel">
             <EmptyState Icon="@Icons.Material.Filled.MonitorHeart"
-                        Title="No biomarker data"
-                        Subtitle="Finalize a blood test to see biomarkers." />
+                        Title="Sin datos de biomarcadores"
+                        Subtitle="Finaliza una analítica para ver biomarcadores." />
         </div>
     }
     else
@@ -33,14 +33,14 @@
             <MudTextField T="string"
                           Value="_search"
                           ValueChanged="OnSearchChanged"
-                          Placeholder="Search biomarkers"
+                          Placeholder="Buscar biomarcadores"
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Search"
                           Variant="Variant.Outlined"
                           Margin="Margin.Dense"
                           Immediate="true" />
             <MudSelect T="string"
-                       Label="Category"
+                       Label="Categoría"
                        Value="_selectedCategory"
                        ValueChanged="OnCategoryChanged"
                        Variant="Variant.Outlined"
@@ -65,8 +65,8 @@
                 @if (_selectedMarker is null)
                 {
                     <EmptyState Icon="@Icons.Material.Filled.ShowChart"
-                                Title="Select a biomarker"
-                                Subtitle="Choose one from the list." />
+                                Title="Selecciona un biomarcador"
+                                Subtitle="Elige uno de la lista." />
                 }
                 else
                 {
@@ -98,7 +98,7 @@
 
                     <div class="hs-period-filter"
                          role="group"
-                         aria-label="Trend period">
+                         aria-label="Periodo de tendencia">
                         @foreach (var period in PeriodOptions)
                         {
                             <button type="button"
@@ -112,16 +112,16 @@
                     <details class="hs-custom-range">
                         <summary>
                             @(_period == TrendPeriod.Custom
-                                ? "Custom range active"
-                                : "Custom range")
+                                ? "Rango personalizado activo"
+                                : "Rango personalizado")
                         </summary>
                         <div>
-                            <MudDatePicker Label="From"
+                            <MudDatePicker Label="Desde"
                                            @bind-Date="_customFrom"
                                            MaxDate="DateTime.Today"
                                            Variant="Variant.Outlined"
                                            Margin="Margin.Dense" />
-                            <MudDatePicker Label="To"
+                            <MudDatePicker Label="Hasta"
                                            @bind-Date="_customTo"
                                            MaxDate="DateTime.Today"
                                            Variant="Variant.Outlined"
@@ -129,14 +129,14 @@
                             <MudButton Variant="Variant.Outlined"
                                        Color="Color.Primary"
                                        OnClick="ApplyCustomRangeAsync">
-                                Apply
+                                Aplicar
                             </MudButton>
                         </div>
                     </details>
 
                     @if (_isTrendLoading)
                     {
-                        <LoadingState Message="Loading trend..." />
+                        <LoadingState Message="Cargando tendencia…" />
                     }
                     else if (!string.IsNullOrWhiteSpace(_trendError))
                     {
@@ -150,14 +150,14 @@
                     {
                         <MudAlert Severity="Severity.Warning"
                                   Dense="true">
-                            This marker uses incompatible units:
+                            Este marcador usa unidades incompatibles:
                             @string.Join(", ", _selectedTrendResponse.AvailableUnits ?? [])
                         </MudAlert>
                     }
                     else if (_selectedTrendResponse?.Points?.Count < 2)
                     {
                         <div class="hs-inline-empty">
-                            One measurement. Add another test to see a trend.
+                            Una sola medición. Añade otra analítica para ver una tendencia.
                         </div>
                     }
                     else if (_selectedTrend is not null)
@@ -189,13 +189,13 @@
             </section>
 
             <section class="hs-biomarker-list"
-                     aria-label="Biomarker list">
+                     aria-label="Lista de biomarcadores">
                 @if (FilteredMarkers.Count == 0)
                 {
                     <div class="hs-health-panel">
                         <EmptyState Icon="@Icons.Material.Filled.SearchOff"
-                                    Title="No biomarkers found"
-                                    Subtitle="Change the search or filters." />
+                                    Title="No se encontraron biomarcadores"
+                                    Subtitle="Cambia la búsqueda o los filtros." />
                     </div>
                 }
                 else
@@ -235,8 +235,8 @@
         [
             new(TrendPeriod.ThreeMonths, "3M"),
             new(TrendPeriod.SixMonths, "6M"),
-            new(TrendPeriod.OneYear, "1Y"),
-            new(TrendPeriod.All, "All")
+            new(TrendPeriod.OneYear, "1A"),
+            new(TrendPeriod.All, "Todos")
         ];
 
     private readonly List<LatestMarkerSnapshotResource>
@@ -293,14 +293,14 @@
             var change =
                 points[^1].Value - points[^2].Value;
             return change == 0
-                ? "No change"
+                ? "Sin cambio"
                 : $"{(change > 0 ? "+" : string.Empty)}{change:0.##} since previous";
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
-        TitleService.Title = "Biomarkers";
+        TitleService.Title = "Biomarcadores";
         await LoadAsync();
     }
 
@@ -338,7 +338,7 @@
         }
         catch
         {
-            _loadError = "Biomarkers could not be loaded.";
+            _loadError = "No se pudieron cargar los biomarcadores.";
         }
         finally
         {
@@ -404,7 +404,7 @@
         {
             _selectedTrendResponse = null;
             _selectedTrend = null;
-            _trendError = "Trend could not be loaded.";
+            _trendError = "No se pudo cargar la tendencia.";
         }
         finally
         {
@@ -426,7 +426,7 @@
                 > _customTo.Value.Date)
         {
             _trendError =
-                "Choose a valid custom date range.";
+                "Elige un rango de fechas personalizado válido.";
             return;
         }
 
@@ -501,12 +501,12 @@
             marker.ReferenceMaxValue) switch
         {
             (not null, not null) =>
-                $"Range {marker.ReferenceMinValue:0.##}–{marker.ReferenceMaxValue:0.##} {marker.Unit}".Trim(),
+                $"Rango {marker.ReferenceMinValue:0.##}–{marker.ReferenceMaxValue:0.##} {marker.Unit}".Trim(),
             (not null, null) =>
-                $"Range ≥ {marker.ReferenceMinValue:0.##} {marker.Unit}".Trim(),
+                $"Rango ≥ {marker.ReferenceMinValue:0.##} {marker.Unit}".Trim(),
             (null, not null) =>
-                $"Range ≤ {marker.ReferenceMaxValue:0.##} {marker.Unit}".Trim(),
-            _ => "No reference range"
+                $"Rango ≤ {marker.ReferenceMaxValue:0.##} {marker.Unit}".Trim(),
+            _ => "Sin rango de referencia"
         };
 
     private static TrendSeriesResource? BuildTrend(

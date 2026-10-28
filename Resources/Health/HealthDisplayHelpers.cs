@@ -2,11 +2,11 @@ public static class HealthDisplayHelpers
 {
     public static string GetProcessingStatusLabel(BloodTestProcessingStatus status) => status switch
     {
-        BloodTestProcessingStatus.PendingReview => "Pending review",
-        BloodTestProcessingStatus.Processed => "Processed",
-        BloodTestProcessingStatus.ExtractionFailed => "Extraction failed",
-        BloodTestProcessingStatus.Processing => "Processing...",
-        _ => "Unknown"
+        BloodTestProcessingStatus.PendingReview => "Pendiente de revisión",
+        BloodTestProcessingStatus.Processed => "Procesada",
+        BloodTestProcessingStatus.ExtractionFailed => "Extracción fallida",
+        BloodTestProcessingStatus.Processing => "En proceso…",
+        _ => "Desconocido"
     };
 
     public static string GetMarkerStatusLabel(MarkerStatus status, double? value = null, double? min = null, double? max = null)
@@ -15,22 +15,22 @@ public static class HealthDisplayHelpers
         {
             if (min.HasValue && value.HasValue && value.Value < min.Value)
             {
-                return "Low";
+                return "Bajo";
             }
 
             if (max.HasValue && value.HasValue && value.Value > max.Value)
             {
-                return "High";
+                return "Alto";
             }
         }
 
         return status switch
         {
-            MarkerStatus.InRange => "In range",
-            MarkerStatus.Low => "Low",
-            MarkerStatus.High => "High",
-            MarkerStatus.RequiresReview => "Requires review",
-            _ => "Review"
+            MarkerStatus.InRange => "En rango",
+            MarkerStatus.Low => "Bajo",
+            MarkerStatus.High => "Alto",
+            MarkerStatus.RequiresReview => "Requiere revisión",
+            _ => "Revisión"
         };
     }
 
@@ -60,43 +60,43 @@ public static class HealthDisplayHelpers
 
         if (raw.Contains("ldl") || raw.Contains("hdl") || raw.Contains("trig") || raw.Contains("chol") || raw.Contains("apob"))
         {
-            return "Lipids";
+            return "Lípidos";
         }
 
         if (raw.Contains("vitamin") || raw.Contains("ferritin") || raw.Contains("glucose") || raw.Contains("a1c") || raw.Contains("insulin"))
         {
-            return "Metabolic";
+            return "Metabólico";
         }
 
         if (raw.Contains("testosterone") || raw.Contains("estradiol") || raw.Contains("tsh") || raw.Contains("t3") || raw.Contains("t4"))
         {
-            return "Hormones";
+            return "Hormonas";
         }
 
         if (raw.Contains("crp") || raw.Contains("esr") || raw.Contains("inflamm"))
         {
-            return "Inflammation";
+            return "Inflamación";
         }
 
         if (raw.Contains("hemoglobin") || raw.Contains("hemat") || raw.Contains("platelet") || raw.Contains("wbc") || raw.Contains("rbc"))
         {
-            return "CBC";
+            return "Hemograma";
         }
 
-        return "Other";
+        return "Otros";
     }
 
     public static string ResolveAdaptationLabel(GalpinAdaptationType adaptation) => adaptation switch
     {
-        GalpinAdaptationType.Skill => "Skill",
-        GalpinAdaptationType.Strength => "Strength",
-        GalpinAdaptationType.Power => "Power",
-        GalpinAdaptationType.Speed => "Speed",
-        GalpinAdaptationType.Hypertrophy => "Hypertrophy",
-        GalpinAdaptationType.MuscularEndurance => "Muscular Endurance",
-        GalpinAdaptationType.AnaerobicCapacity => "Anaerobic Capacity",
-        GalpinAdaptationType.MaximalAerobicPower => "Maximal Aerobic Power",
-        GalpinAdaptationType.LongDurationEndurance => "Long Duration Endurance",
+        GalpinAdaptationType.Skill => "Habilidad",
+        GalpinAdaptationType.Strength => "Fuerza",
+        GalpinAdaptationType.Power => "Potencia",
+        GalpinAdaptationType.Speed => "Velocidad",
+        GalpinAdaptationType.Hypertrophy => "Hipertrofia",
+        GalpinAdaptationType.MuscularEndurance => "Resistencia muscular",
+        GalpinAdaptationType.AnaerobicCapacity => "Capacidad anaeróbica",
+        GalpinAdaptationType.MaximalAerobicPower => "Potencia aeróbica máxima",
+        GalpinAdaptationType.LongDurationEndurance => "Resistencia de larga duración",
         _ => adaptation.ToString()
     };
 }
