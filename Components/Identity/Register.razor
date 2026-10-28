@@ -4,20 +4,20 @@
 @using Healthspan.Authentication
 @inject IAccountManagement Acct
 
-<PageTitle>Register</PageTitle>
+<PageTitle>Crear cuenta</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-4">
-    <h1 class="hs-page-title">Register</h1>
+    <h1 class="hs-page-title">Crear cuenta</h1>
 
     <AuthorizeView>
         <Authorized>
-            <MudAlert Severity="Severity.Success">You're already logged in as @context.User.Identity?.Name.</MudAlert>
+            <MudAlert Severity="Severity.Success">Ya has iniciado sesión como @context.User.Identity?.Name.</MudAlert>
         </Authorized>
         <NotAuthorized>
             @if (success)
             {
                 <MudAlert Severity="Severity.Success">
-                    You successfully registered. Now you can <MudLink Href="login">login</MudLink>.
+                    Te has registrado correctamente. Ya puedes <MudLink Href="login">iniciar sesión</MudLink>.
                 </MudAlert>
             }
             else
@@ -30,18 +30,18 @@
                     }
                 }
                 <MudForm>
-                    <MudTextField Label="Email" Required="true" Placeholder="Enter your email address"
-                        Variant="Variant.Outlined" @bind-Value="email" InputType="InputType.Email" />
-                    <MudTextField Label="Password" Required="true" Placeholder="Enter your password"
+                    <MudTextField Label="Correo electrónico" Required="true" Placeholder="Introduce tu correo electrónico"
+                        Variant="Variant.Outlined" @bind-Value="email" InputType="InputType.Email" id="register-email" />
+                    <MudTextField Label="Contraseña" Required="true" Placeholder="Introduce tu contraseña"
                         Variant="Variant.Outlined" InputType="@PasswordInput" Adornment="Adornment.End"
                         AdornmentIcon="@PasswordInputIcon" @bind-Value="password" Class="mt-2"
-                        OnAdornmentClick="@ButtonTestclick" />
-                    <MudTextField Label="Retype password" Required="true" Placeholder="Re-enter your password"
+                        OnAdornmentClick="@ButtonTestclick" id="register-password" />
+                    <MudTextField Label="Repetir contraseña" Required="true" Placeholder="Vuelve a introducir tu contraseña"
                         Variant="Variant.Outlined" InputType="@PasswordInput" Adornment="Adornment.End"
                         AdornmentIcon="@PasswordInputIcon" @bind-Value="confirmPassword" Class="mt-2"
-                        OnAdornmentClick="@ButtonTestclick" />
+                        OnAdornmentClick="@ButtonTestclick" id="register-confirm-password" />
                     <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" OnClick="DoRegisterAsync" Class="mt-4">
-                        Register</MudButton>
+                        Crear cuenta</MudButton>
                 </MudForm>
             }
         </NotAuthorized>
@@ -82,7 +82,7 @@
         if (string.IsNullOrWhiteSpace(email))
         {
             errors = true;
-            errorList = ["Email is required."];
+            errorList = ["El correo electrónico es obligatorio."];
 
             return;
         }
@@ -90,7 +90,7 @@
         if (string.IsNullOrWhiteSpace(password))
         {
             errors = true;
-            errorList = ["Password is required."];
+            errorList = ["La contraseña es obligatoria."];
 
             return;
         }
@@ -98,7 +98,7 @@
         if (string.IsNullOrWhiteSpace(confirmPassword))
         {
             errors = true;
-            errorList = ["Please confirm your password."];
+            errorList = ["Confirma tu contraseña."];
 
             return;
         }
@@ -106,7 +106,7 @@
         if (password != confirmPassword)
         {
             errors = true;
-            errorList = ["Passwords don't match."];
+            errorList = ["Las contraseñas no coinciden."];
 
             return;
         }

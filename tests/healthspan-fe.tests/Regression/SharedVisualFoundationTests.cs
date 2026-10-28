@@ -64,7 +64,7 @@ public class SharedVisualFoundationTests : BlazorTestBase
     {
         var cut = RenderComponent<LoadingState>();
 
-        cut.Find("[role='status']").TextContent.Should().Contain("Loading");
+        cut.Find("[role='status']").TextContent.Should().Contain("Cargando");
     }
 
     [Fact]

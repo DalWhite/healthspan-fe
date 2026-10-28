@@ -4,21 +4,21 @@
 @inject NavigationManager NavigationManager
 @implements IAsyncDisposable
 
-<PageTitle>Blood Tests</PageTitle>
+<PageTitle>Analíticas</PageTitle>
 
 <PageShell>
-    <PageHeader Title="Blood tests">
+    <PageHeader Title="Analíticas">
         <Actions>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.CloudUpload"
                        OnClick="ToggleUploadPanel">
-                Upload
+                Subir
             </MudButton>
             <MudButton Variant="Variant.Text"
                        Color="Color.Default"
                        OnClick="ToggleManualEntry">
-                Enter manually
+                Introducir a mano
             </MudButton>
         </Actions>
     </PageHeader>
@@ -49,12 +49,12 @@
                  aria-labelledby="upload-report-title">
             <div class="hs-detail-heading">
                 <MudText Typo="Typo.h6" id="upload-report-title">
-                    Upload report
+                    Subir informe
                 </MudText>
                 <MudIconButton Icon="@Icons.Material.Filled.Close"
                                Size="Size.Small"
                                OnClick="CloseUploadPanel"
-                               aria-label="Close upload" />
+                               aria-label="Cerrar subida" />
             </div>
 
             <MudFileUpload T="IBrowserFile"
@@ -70,7 +70,7 @@
                         <MudIcon Icon="@Icons.Material.Filled.UploadFile" />
                         <span>
                             @(_selectedFile?.Name
-                                ?? "Choose PDF or image")
+                                ?? "Elige un PDF o imagen")
                         </span>
                     </MudButton>
                 </ButtonTemplate>
@@ -86,7 +86,7 @@
                     <MudButton Variant="Variant.Text"
                                Size="Size.Small"
                                OnClick="ClearSelectedFile">
-                        Replace
+                        Cambiar
                     </MudButton>
                 </div>
             }
@@ -100,13 +100,13 @@
             }
 
             <div class="hs-upload-metadata">
-                <MudDatePicker Label="Test date"
+                <MudDatePicker Label="Fecha de la analítica"
                                @bind-Date="_uploadDraft.TestDate"
                                MaxDate="DateTime.Today"
                                Variant="Variant.Outlined"
                                Margin="Margin.Dense" />
                 <MudTextField @bind-Value="_uploadDraft.LabName"
-                              Label="Lab (optional)"
+                              Label="Laboratorio (opcional)"
                               Variant="Variant.Outlined"
                               Margin="Margin.Dense" />
             </div>
@@ -118,7 +118,7 @@
                            Disabled="@(_selectedFile is null || _fileError is not null || _isUploading)"
                            Loading="_isUploading"
                            OnClick="UploadAsync">
-                    @(_isUploading ? "Uploading report" : "Upload report")
+                    @(_isUploading ? "Subiendo informe" : "Subir informe")
                 </MudButton>
                 <MudText Typo="Typo.caption"
                          Class="hs-muted-copy">
@@ -139,17 +139,17 @@
                 <MudIconButton Icon="@Icons.Material.Filled.Close"
                                Size="Size.Small"
                                OnClick="CloseManualEntry"
-                               aria-label="Close manual entry" />
+                               aria-label="Cerrar entrada manual" />
             </div>
 
             <div class="hs-upload-metadata">
-                <MudDatePicker Label="Test date"
+                <MudDatePicker Label="Fecha de la analítica"
                                @bind-Date="_manualTestDate"
                                MaxDate="DateTime.Today"
                                Variant="Variant.Outlined"
                                Margin="Margin.Dense" />
                 <MudTextField @bind-Value="_manualDraft.LabName"
-                              Label="Lab (optional)"
+                              Label="Laboratorio (opcional)"
                               Variant="Variant.Outlined"
                               Margin="Margin.Dense" />
             </div>
@@ -159,22 +159,22 @@
                 {
                     <div class="hs-manual-marker-row">
                         <MudTextField @bind-Value="marker.Name"
-                                      Label="Marker"
+                                      Label="Marcador"
                                       Variant="Variant.Outlined"
                                       Margin="Margin.Dense" />
                         <MudNumericField T="double?"
                                          @bind-Value="marker.Value"
-                                         Label="Value"
+                                         Label="Valor"
                                          Variant="Variant.Outlined"
                                          Margin="Margin.Dense" />
                         <MudTextField @bind-Value="marker.Unit"
-                                      Label="Unit"
+                                      Label="Unidad"
                                       Variant="Variant.Outlined"
                                       Margin="Margin.Dense" />
                         <MudIconButton Icon="@Icons.Material.Filled.Close"
                                        Size="Size.Small"
                                        OnClick="() => RemoveManualMarker(marker)"
-                                       aria-label="Remove marker" />
+                                       aria-label="Quitar marcador" />
                     </div>
                 }
             </div>
@@ -183,14 +183,14 @@
                 <MudButton Variant="Variant.Text"
                            StartIcon="@Icons.Material.Filled.Add"
                            OnClick="AddManualMarker">
-                    Add marker
+                    Añadir marcador
                 </MudButton>
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            Disabled="_isCreatingManual"
                            Loading="_isCreatingManual"
                            OnClick="CreateManualAsync">
-                    Save test
+                    Guardar analítica
                 </MudButton>
             </div>
         </section>
@@ -198,13 +198,13 @@
 
     @if (_isLoading)
     {
-        <LoadingState Message="Loading blood tests..." />
+        <LoadingState Message="Cargando analíticas…" />
     }
     else
     {
         <div class="hs-compact-filters"
              role="group"
-             aria-label="Blood test status">
+             aria-label="Estado de analíticas">
             @foreach (var filter in AvailableFilters)
             {
                 <button type="button"
@@ -221,7 +221,7 @@
         {
             <div class="hs-health-panel">
                 <EmptyState Icon="@Icons.Material.Filled.Science"
-                            Title="No blood tests"
+                            Title="Sin analíticas"
                             Subtitle="@EmptyStateText" />
             </div>
         }
@@ -238,7 +238,7 @@
                                     @item.TestDate.ToString("dd MMM yyyy")
                                 </div>
                                 <div class="hs-list-card-subtitle">
-                                    @(item.LabName ?? "Unknown lab")
+                                    @(item.LabName ?? "Laboratorio desconocido")
                                     · @FormatMarkerCount(item)
                                 </div>
                             </div>
@@ -286,10 +286,10 @@
     private static readonly IReadOnlyList<FilterOption>
         AvailableFilters =
         [
-            new(TestFilter.All, "All"),
-            new(TestFilter.NeedsReview, "Review"),
-            new(TestFilter.Processing, "Processing"),
-            new(TestFilter.Issues, "Issues")
+            new(TestFilter.All, "Todos"),
+            new(TestFilter.NeedsReview, "Revisión"),
+            new(TestFilter.Processing, "En proceso"),
+            new(TestFilter.Issues, "Incidencias")
         ];
 
     private readonly List<BloodTestSummaryResource> _bloodTests = [];
@@ -332,12 +332,12 @@
 
     private string EmptyStateText
         => _activeFilter == TestFilter.All
-            ? "Upload a report or enter results manually."
-            : "No tests match this status.";
+            ? "Sube un informe o introduce los resultados a mano."
+            : "Ninguna analítica coincide con este estado.";
 
     protected override async Task OnParametersSetAsync()
     {
-        TitleService.Title = "Blood Tests";
+        TitleService.Title = "Analíticas";
         if (OpenUpload)
         {
             _showUploadPanel = true;
@@ -368,7 +368,7 @@
         }
         catch
         {
-            _errorMessage = "Blood tests could not be loaded.";
+            _errorMessage = "No se pudieron cargar las analíticas.";
         }
         finally
         {
@@ -410,13 +410,13 @@
     {
         if (file.Size > MaxFileSize)
         {
-            return "This file is larger than 20 MB.";
+            return "Este archivo supera los 20 MB.";
         }
 
         var extension = Path.GetExtension(file.Name);
         return AllowedExtensions.Contains(extension)
             ? null
-            : "Choose a PDF, PNG, JPG, TIFF or BMP file.";
+            : "Elige un archivo PDF, PNG, JPG, TIFF o BMP.";
     }
 
     private async Task UploadAsync()
@@ -449,7 +449,7 @@
         catch
         {
             _operationSeverity = Severity.Error;
-            _operationMessage = "The report could not be uploaded.";
+            _operationMessage = "No se pudo subir el informe.";
         }
         finally
         {
@@ -472,7 +472,7 @@
             {
                 _operationSeverity = Severity.Warning;
                 _operationMessage =
-                    "Add at least one marker with a value.";
+                    "Añade al menos un marcador con valor.";
                 return;
             }
 
@@ -484,7 +484,7 @@
             ResetManualEntry();
             await LoadAsync(showLoading: false);
             _operationSeverity = Severity.Success;
-            _operationMessage = "Blood test saved.";
+            _operationMessage = "Analítica guardada.";
         }
         catch (HealthApiException ex)
         {
@@ -494,7 +494,7 @@
         catch
         {
             _operationSeverity = Severity.Error;
-            _operationMessage = "The blood test could not be saved.";
+            _operationMessage = "No se pudo guardar la analítica.";
         }
         finally
         {
@@ -553,20 +553,20 @@
     private static string GetStatusLabel(
         BloodTestSummaryResource item)
         => IsInterrupted(item)
-            ? "Interrupted"
+            ? "Interrumpida"
             : HealthDisplayHelpers.GetProcessingStatusLabel(
                 item.ProcessingStatus);
 
     private static string GetRequiredAction(
         BloodTestSummaryResource item)
         => IsInterrupted(item)
-            ? "Upload again or enter results"
+            ? "Vuelve a subirla o introduce los resultados"
             : item.RequiresReview
-                ? "Review results"
+                ? "Revisar resultados"
                 : item.ProcessingStatus
                     == BloodTestProcessingStatus.ExtractionFailed
-                    ? "Enter results"
-                    : "Open";
+                    ? "Introducir resultados"
+                    : "Abrir";
 
     private static string GetStatusCardClass(
         BloodTestSummaryResource item)
@@ -587,7 +587,7 @@
         BloodTestSummaryResource item)
     {
         var count = item.MarkerCount;
-        return $"{count} {(count == 1 ? "marker" : "markers")}";
+        return $"{count} {(count == 1 ? "marcador" : "marcadores")}";
     }
 
     private static string FormatFileSize(long bytes)

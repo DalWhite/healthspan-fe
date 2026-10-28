@@ -25,7 +25,7 @@ public class LoginPageTests : BlazorTestBase
 
         var headings = cut.FindAll("h1");
         headings.Should().ContainSingle();
-        headings[0].TextContent.Should().Be("Sign in");
+        headings[0].TextContent.Should().Be("Iniciar sesión");
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public class LoginPageTests : BlazorTestBase
         {
             // NN/g: the message sits next to the field, names the fix, and the
             // typed value is never thrown away.
-            cut.Markup.Should().Contain("Use an email address like name@example.com.");
+            cut.Markup.Should().Contain("Usa un correo electrónico como nombre@ejemplo.com.");
             cut.FindComponents<MudTextField<string>>()[0].Instance.Value
                 .Should().Be("not-an-email");
             // A field problem must not escalate into a generic form-wide banner.
@@ -90,9 +90,9 @@ public class LoginPageTests : BlazorTestBase
 
     [Theory]
     [InlineData("Invalid login attempt.",
-        "We couldn't match that email and password. Check them and try again.")]
+        "Ese correo y contraseña no coinciden. Revísalos e inténtalo de nuevo.")]
     [InlineData("This account is temporarily locked.",
-        "Too many attempts. Wait a few minutes and try again.")]
+        "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.")]
     public void Failed_Sign_In_Restates_The_Server_Error_In_Plain_Language(
         string serverError, string expectedMessage)
     {
@@ -108,7 +108,7 @@ public class LoginPageTests : BlazorTestBase
 
         // Through the button, the way a user does it, so the failure lands in
         // the rendered form and not just in the service call.
-        cut.Find("button:contains('Log In')").Click();
+        cut.Find("button:contains('Iniciar sesión')").Click();
 
         cut.WaitForAssertion(() =>
         {
@@ -133,7 +133,7 @@ public class LoginPageTests : BlazorTestBase
         // Field identity must not depend on placeholder text that vanishes on typing.
         var labels = cut.FindAll(".mud-input-label");
         labels.Select(l => l.TextContent.Trim())
-            .Should().Contain(["Email", "Password"]);
+            .Should().Contain(["Correo electrónico", "Contraseña"]);
 
         foreach (var input in cut.FindAll("input"))
         {

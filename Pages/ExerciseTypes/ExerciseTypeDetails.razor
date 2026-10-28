@@ -14,20 +14,20 @@
     <PageHeader Title="@_title">
         <Actions>
             <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
-                           aria-label="Back"
+                           aria-label="Volver"
                            OnClick="GoBack" />
         </Actions>
     </PageHeader>
 
     @if (_isLoading)
     {
-        <LoadingState Message="Loading exercise..." />
+        <LoadingState Message="Cargando ejercicio…" />
     }
     else if (!string.IsNullOrWhiteSpace(_errorMessage))
     {
-        <ErrorState Title="Couldn't load this exercise"
+        <ErrorState Title="No se pudo cargar este ejercicio"
                     Message="@_errorMessage"
-                    ActionLabel="Retry"
+                    ActionLabel="Reintentar"
                     OnAction="RetryAsync" />
     }
     else if (_exerciseType is not null)
@@ -35,7 +35,7 @@
         <article class="hs-exercise-hero hs-surface">
             <div class="hs-exercise-hero-media">
                 <img src="@HeroImageUrl"
-                     alt="@(_exerciseType.Name ?? "Exercise")"
+                     alt="@(_exerciseType.Name ?? "Ejercicio")"
                      loading="lazy"
                      decoding="async"
                      onerror="this.remove()" />
@@ -49,20 +49,20 @@
                                    Size="MudBlazor.Size.Small"
                                    StartIcon="@(_exerciseType.IsFavourite ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)"
                                    OnClick="ToggleFavouriteAsync">
-                            @(_exerciseType.IsFavourite ? "Favourite" : "Add to favourites")
+                            @(_exerciseType.IsFavourite ? "Favorito" : "Añadir a favoritos")
                         </MudButton>
                         <MudButton Variant="Variant.Text"
                                    Size="MudBlazor.Size.Small"
                                    StartIcon="@Icons.Material.Filled.Edit"
                                    OnClick="GoToEditExerciseType">
-                            Edit
+                            Editar
                         </MudButton>
                     </div>
                 }
             </div>
         </article>
 
-        <nav class="hs-exercise-detail-tabs" aria-label="Exercise details">
+        <nav class="hs-exercise-detail-tabs" aria-label="Detalles del ejercicio">
             @foreach (var tab in DetailSections)
             {
                 var isActive = _activeSection == tab.Key;
@@ -80,11 +80,11 @@
         {
             <div class="hs-analysis-tag-filter"
                  aria-label="Filter analysis by training tag">
-                <span>Filter</span>
+                <span>Filtro</span>
                 <button type="button"
                         class="@(_selectedTrainingTag is null ? "is-active" : null)"
                         @onclick="() => SelectTrainingTagAsync(null)">
-                    All
+                    Todos
                 </button>
                 @foreach (var tag in AvailableTrainingTags)
                 {
@@ -108,13 +108,13 @@
                 case "history":
                     <section id="exercise-section-history"
                              class="hs-exercise-detail-section"
-                             aria-label="History">
+                             aria-label="Historial">
                         @if (_exercises.Count == 0)
                         {
                             <EmptyState Icon="@Icons.Material.Filled.History"
-                                        Title="No history yet"
-                                        Subtitle="Log this exercise in Train to start its history."
-                                        ActionLabel="Open Train"
+                                        Title="Sin historial todavía"
+                                        Subtitle="Registra este ejercicio para iniciar su historial."
+                                        ActionLabel="Registrar entreno"
                                         OnAction="OpenToday" />
                         }
                         else
@@ -147,44 +147,44 @@
                 case "trends":
                     <section id="exercise-section-trends"
                              class="hs-exercise-detail-section"
-                             aria-label="Trends">
+                             aria-label="Tendencias">
                         @if (_exercises.Count == 0)
                         {
                             <EmptyState Icon="@Icons.Material.Filled.ShowChart"
-                                        Title="No trend yet"
-                                        Subtitle="A trend appears after this exercise is logged." />
+                                        Title="Sin tendencia todavía"
+                                        Subtitle="La tendencia aparece cuando registres este ejercicio." />
                         }
                         else if (!SupportsLoadMetrics)
                         {
                             <EmptyState Icon="@Icons.Material.Filled.Repeat"
-                                        Title="Repetition-based exercise"
-                                        Subtitle="Load and 1RM trends aren't used for this exercise." />
+                                        Title="Ejercicio por repeticiones"
+                                        Subtitle="Las tendencias de carga y 1RM no se usan en este ejercicio." />
                         }
                         else if (!string.IsNullOrWhiteSpace(_performanceError))
                         {
-                            <ErrorState Title="Couldn't load performance trends"
+                            <ErrorState Title="No se pudieron cargar las tendencias de rendimiento"
                                         Message="@_performanceError"
-                                        ActionLabel="Retry"
+                                        ActionLabel="Reintentar"
                                         OnAction="RetryPerformanceAsync" />
                         }
                         else if (_rmTrends.Count == 0 && _volumeTrends.Count == 0)
                         {
                             <EmptyState Icon="@Icons.Material.Filled.ShowChart"
-                                        Title="No trend data"
-                                        Subtitle="More complete workout entries are needed." />
+                                        Title="Sin datos de tendencia"
+                                        Subtitle="Hacen falta registros de entrenamiento más completos." />
                         }
                         else
                         {
                             <div class="hs-exercise-trend-card hs-surface">
                                 <div class="hs-exercise-trend-header">
                                     <div>
-                                        <span>Performance trend</span>
+                                        <span>Tendencia de rendimiento</span>
                                         <strong>@ActiveTrendTitle</strong>
                                         <small>@ActiveTrendDescription</small>
                                     </div>
                                     <div class="hs-exercise-trend-metrics"
                                          role="group"
-                                         aria-label="Trend metric">
+                                         aria-label="Métrica de tendencia">
                                         <button type="button"
                                                 class="@(_selectedTrendMetric == RmTrendMetric ? "is-active" : null)"
                                                 aria-pressed="@(_selectedTrendMetric == RmTrendMetric)"
@@ -195,7 +195,7 @@
                                                 class="@(_selectedTrendMetric == VolumeTrendMetric ? "is-active" : null)"
                                                 aria-pressed="@(_selectedTrendMetric == VolumeTrendMetric)"
                                                 @onclick="() => SelectTrendMetric(VolumeTrendMetric)">
-                                            Volume
+                                            Volumen
                                         </button>
                                     </div>
                                 </div>
@@ -203,13 +203,13 @@
                                 @if (ActiveTrendPoints.Count == 0)
                                 {
                                     <div class="hs-exercise-trend-empty">
-                                        No @ActiveTrendTitle.ToLowerInvariant() data for this filter.
+                                        Sin datos de @ActiveTrendTitle para este filtro.
                                     </div>
                                 }
                                 else
                                 {
                                     <div class="hs-exercise-trend-latest">
-                                        Latest
+                                        Último
                                         <strong>@FormatTrendValue(ActiveTrendPoints[^1])</strong>
                                     </div>
                                     <ApexChart @key="_selectedTrendMetric"
@@ -232,7 +232,7 @@
                 case "variations":
                     <section id="exercise-section-variations"
                              class="hs-exercise-detail-section"
-                             aria-label="Variations">
+                             aria-label="Variantes">
                         @if (_parentType is not null)
                         {
                             <a class="hs-exercise-related-card hs-surface"
@@ -258,8 +258,8 @@
                         else if (_parentType is null)
                         {
                             <EmptyState Icon="@Icons.Material.Filled.AccountTree"
-                                        Title="No variations"
-                                        Subtitle="This exercise has no catalog variations." />
+                                        Title="Sin variantes"
+                                        Subtitle="Este ejercicio no tiene variantes en el catálogo." />
                         }
                     </section>
                     break;
@@ -267,7 +267,7 @@
                 default:
                     <section id="exercise-section-overview"
                              class="hs-exercise-detail-section"
-                             aria-label="Overview">
+                             aria-label="Resumen">
                         <div class="hs-exercise-kpi-grid">
                             <article class="hs-exercise-kpi hs-surface">
                                 <strong>@_exercises.Count</strong>
@@ -275,7 +275,7 @@
                             </article>
                             <article class="hs-exercise-kpi hs-surface">
                                 <strong>@FormatLastPerformed()</strong>
-                                <span>Last performed</span>
+                                <span>Última realización</span>
                             </article>
 
                             @if (SupportsLoadMetrics && _kpis is not null && _kpis.MaxRM > 0)
@@ -284,22 +284,22 @@
                                         class="hs-exercise-kpi hs-surface is-action"
                                         @onclick="() => OpenBestSessionAsync(_kpis.MaxRMDate)">
                                     <strong>@_kpis.MaxRM.ToString("N1") kg</strong>
-                                    <span>Best estimated 1RM</span>
+                                    <span>Mejor 1RM estimado</span>
                                 </button>
                                 <article class="hs-exercise-kpi hs-surface">
                                     <strong>@_kpis.Current1RM.ToString("N1") kg</strong>
-                                    <span>Current estimated 1RM</span>
+                                    <span>1RM estimado actual</span>
                                 </article>
                             }
                             else if (!SupportsLoadMetrics)
                             {
                                 <article class="hs-exercise-kpi hs-surface">
                                     <strong>Reps</strong>
-                                    <span>Tracking mode</span>
+                                    <span>Modo de seguimiento</span>
                                 </article>
                                 <article class="hs-exercise-kpi hs-surface">
                                     <strong>@(_kpis?.WeeklyFrequency ?? RecentSessionCount)</strong>
-                                    <span>Last 7 days</span>
+                                    <span>Últimos 7 días</span>
                                 </article>
                             }
                         </div>
@@ -308,7 +308,7 @@
                         {
                             <div class="hs-exercise-inline-error" role="alert">
                                 <span>@_performanceError</span>
-                                <button type="button" @onclick="RetryPerformanceAsync">Retry</button>
+                                <button type="button" @onclick="RetryPerformanceAsync">Reintentar</button>
                             </div>
                         }
 
@@ -319,17 +319,17 @@
                             }
 
                             <div class="hs-exercise-overview-line">
-                                <span>Muscles</span>
+                                <span>Músculos</span>
                                 <strong>@AppState.FormatExerciseTypeMuscleLine(_exerciseType)</strong>
                             </div>
                             <div class="hs-exercise-overview-line">
-                                <span>Load</span>
+                                <span>Carga</span>
                                 <strong>@FormatWeightMode(_exerciseType.WeightType)</strong>
                             </div>
 
                             @if ((_exerciseType.Tags?.Count ?? 0) > 0)
                             {
-                                <div class="hs-exercise-overview-tags" aria-label="Exercise tags">
+                                <div class="hs-exercise-overview-tags" aria-label="Etiquetas del ejercicio">
                                     @foreach (var tag in _exerciseType.Tags!
                                         .Select(item => item.Name)
                                         .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -351,10 +351,10 @@
 @code {
     private static readonly (string Key, string Label)[] DetailSections =
     [
-        ("overview", "Overview"),
-        ("history", "History"),
-        ("trends", "Trends"),
-        ("variations", "Variations")
+        ("overview", "Resumen"),
+        ("history", "Historial"),
+        ("trends", "Tendencias"),
+        ("variations", "Variantes")
     ];
     private const string RmTrendMetric = "rm";
     private const string VolumeTrendMetric = "volume";
@@ -380,7 +380,7 @@
     private List<DataPoint> _rmTrends = [];
     private List<DataPoint> _volumeTrends = [];
     private ExerciseKpis? _kpis;
-    private string _title = "Exercise details";
+    private string _title = "Detalles del ejercicio";
     private string _activeSection = "overview";
     private string? _errorMessage;
     private string? _performanceError;
@@ -404,13 +404,13 @@
 
     private string ActiveTrendTitle
         => _selectedTrendMetric == VolumeTrendMetric
-            ? "Session volume"
-            : "Estimated 1RM";
+            ? "Volumen por sesión"
+            : "1RM estimado";
 
     private string ActiveTrendDescription
         => _selectedTrendMetric == VolumeTrendMetric
-            ? "Total load completed in each workout."
-            : "Best estimated strength from each workout.";
+            ? "Carga total completada en cada entreno."
+            : "Mejor fuerza estimada de cada entreno.";
 
     private List<string> AvailableTrainingTags
         => _allExercises
@@ -466,7 +466,7 @@
             var variationCount = RelatedVariations.Count;
             if (variationCount > 0)
             {
-                segments.Add(variationCount == 1 ? "1 variation" : $"{variationCount} variations");
+                segments.Add(variationCount == 1 ? "1 variante" : $"{variationCount} variantes");
             }
 
             return string.Join(" · ", segments);
@@ -493,7 +493,7 @@
 
             if (!response.IsSuccessStatusCode)
             {
-                Snackbar.Add("Couldn't update the favourite. Try again.", Severity.Error);
+                Snackbar.Add("No se pudo actualizar el favorito. Inténtalo de nuevo.", Severity.Error);
                 return;
             }
 
@@ -502,7 +502,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("Couldn't update the favourite. Check your connection.", Severity.Error);
+            Snackbar.Add("No se pudo actualizar el favorito. Revisa tu conexión.", Severity.Error);
         }
     }
 
@@ -614,7 +614,7 @@
                     TrainingTag,
                     StringComparison.OrdinalIgnoreCase));
             ApplyTrainingTagFilter();
-            _title = _exerciseType.Name ?? "Exercise details";
+            _title = _exerciseType.Name ?? "Detalles del ejercicio";
             TitleService.Title = _title;
             _loadedExerciseTypeId = ExerciseTypeId;
 
@@ -638,9 +638,9 @@
         }
         catch
         {
-            _title = "Exercise details";
+            _title = "Detalles del ejercicio";
             TitleService.Title = _title;
-            _errorMessage = "Check your connection and try again.";
+            _errorMessage = "Revisa tu conexión e inténtalo de nuevo.";
         }
         finally
         {
@@ -690,7 +690,7 @@
         }
         catch
         {
-            _performanceError = "Performance data is temporarily unavailable.";
+            _performanceError = "Los datos de rendimiento no están disponibles temporalmente.";
             _kpis = null;
             _rmTrends = [];
             _volumeTrends = [];
@@ -777,7 +777,7 @@
             builder.AddAttribute(sequence++, "class", "hs-exercise-history-date");
             builder.AddContent(
                 sequence++,
-                exercise.Workout?.Date?.ToString("d MMM yyyy") ?? "Date unavailable");
+                exercise.Workout?.Date?.ToString("d MMM yyyy") ?? "Fecha no disponible");
             builder.CloseElement();
 
             builder.OpenElement(sequence++, "span");
@@ -814,7 +814,7 @@
     {
         var series = exercise.Series ?? 0;
         var repetitions = exercise.Repetitions ?? 0;
-        var prescription = $"{series} sets × {repetitions} reps";
+        var prescription = $"{series} series × {repetitions} reps";
 
         if (SupportsLoadMetrics && exercise.Weight is > 0)
         {
@@ -828,7 +828,7 @@
         => _exercises
             .MaxBy(exercise => exercise.Workout?.Date)
             ?.Workout?.Date?.ToString("d MMM")
-            ?? "Not yet";
+            ?? "Aún no";
 
     private string FormatTagLine(GetExerciseTypeResource exercise)
     {
@@ -838,7 +838,7 @@
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(2)
             .ToList();
-        return tags.Count == 0 ? "Exercise variation" : string.Join(" · ", tags);
+        return tags.Count == 0 ? "Variante de ejercicio" : string.Join(" · ", tags);
     }
 
     private string BuildEditRoute(Guid exerciseId)
@@ -901,14 +901,14 @@
     }
 
     private static string FormatSessionLabel(int count)
-        => count == 1 ? "Session" : "Sessions";
+        => count == 1 ? "Sesión" : "Sesiones";
 
     private static string FormatWeightMode(ExerciseWeightType? weightType)
         => weightType switch
         {
-            ExerciseWeightType.None => "Repetitions only",
-            ExerciseWeightType.BodyWeight => "Body weight + load",
-            _ => "External load"
+            ExerciseWeightType.None => "Solo repeticiones",
+            ExerciseWeightType.BodyWeight => "Peso corporal + carga",
+            _ => "Carga externa"
         };
 
     private static string FormatTrendValue(DataPoint point)

@@ -10,7 +10,7 @@
 @using MudBlazor
 @implements IAsyncDisposable
 
-<PageTitle>Login</PageTitle>
+<PageTitle>Iniciar sesión</PageTitle>
 
 <div class="login-page">
     <div class="login-left">
@@ -20,16 +20,16 @@
                 <div id="slowLoadingAnimation"
                      style="width:130px; height:130px; margin:auto;">
                     <img src="icon-512.png"
-                         alt="Loading"
+                         alt="Cargando"
                          style="width:100%; height:100%;">
                 </div>
             </div>
-            <h2 class="headline">Enhance Your Health Journey</h2>
+            <h2 class="headline">Potencia tu camino hacia la salud</h2>
             <ul class="features-list">
-                <li>Track and improve your health with expert insights</li>
-                <li>Connect with certified professionals in real-time</li>
-                <li>Access personalized health and wellness plans</li>
-                <li>Join a community focused on well-being and vitality</li>
+                <li>Registra y mejora tu salud con análisis de expertos</li>
+                <li>Conecta con profesionales certificados en tiempo real</li>
+                <li>Accede a planes de salud y bienestar personalizados</li>
+                <li>Únete a una comunidad centrada en el bienestar y la vitalidad</li>
             </ul>
         </div>
     </div>
@@ -40,7 +40,7 @@
             <MudPaper Class="login-form hs-login-card rounded-container"
                       Elevation="0">
 
-                <h1 class="hs-page-title hs-login-title">Sign in</h1>
+                <h1 class="hs-page-title hs-login-title">Iniciar sesión</h1>
 
                 @* Form-level problems (Google init, failed sign-in). Field-level
                    problems live inline under their own field. *@
@@ -61,17 +61,20 @@
                        whose password is simply wrong, and the server already
                        knows. *@
                     <MudTextField @bind-Value="email"
-                                  Label="Email"
+                                  id="login-email"
+                                  Label="Correo electrónico"
+                                  InputType="InputType.Email"
                                   Variant="Variant.Outlined"
                                   Margin="Margin.Dense"
                                   Required="true"
-                                  RequiredError="Enter your email to sign in."
+                                  RequiredError="Introduce tu correo para iniciar sesión."
                                   Validation="@(new Func<string, string?>(ValidateEmail))"
                                   FullWidth="true"
                                   Class="input-field text-field outlined" />
 
                     <MudTextField @bind-Value="password"
-                                  Label="Password"
+                                  id="login-password"
+                                  Label="Contraseña"
                                   Variant="Variant.Outlined"
                                   Margin="Margin.Dense"
                                   InputType="@PasswordInput"
@@ -79,7 +82,7 @@
                                   AdornmentIcon="@PasswordInputIcon"
                                   OnAdornmentClick="ButtonTestclick"
                                   Required="true"
-                                  RequiredError="Enter your password to sign in."
+                                  RequiredError="Introduce tu contraseña para iniciar sesión."
                                   FullWidth="true"
                                   Class="input-field text-field outlined" />
 
@@ -88,7 +91,7 @@
                                Color="MudBlazor.Color.Primary"
                                OnClick="DoLoginAsync"
                                FullWidth="true"
-                               Class="mb-3 rounded-button">Log In</MudButton>
+                               Class="mb-3 rounded-button">Iniciar sesión</MudButton>
                     <MudButton Variant="Variant.Outlined"
                                Color="MudBlazor.Color.Secondary"
                                StartIcon="@Icons.Custom.Brands.Google"
@@ -97,15 +100,15 @@
                                OnClick="StartGoogleLoginAsync"
                                FullWidth="true"
                                Class="google-button rounded-button">
-                        Continue with Google
+                        Continuar con Google
                     </MudButton>
 
                     <MudText Typo="Typo.body2"
                              Align="Align.Center"
                              Class="mt-3">
-                        New here? <MudButton Variant="Variant.Text"
+                        ¿Nuevo aquí? <MudButton Variant="Variant.Text"
                                    Color="MudBlazor.Color.Primary"
-                                   OnClick="NavigateToRegister">Create an account</MudButton>
+                                   OnClick="NavigateToRegister">Crea una cuenta</MudButton>
                     </MudText>
                 </MudForm>
             </MudPaper>
@@ -139,12 +142,12 @@
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return "Enter your email to sign in.";
+            return "Introduce tu correo para iniciar sesión.";
         }
 
         if (!EmailPattern.IsMatch(value.Trim()))
         {
-            return "Use an email address like name@example.com.";
+            return "Usa un correo electrónico como nombre@ejemplo.com.";
         }
 
         return null;
@@ -185,7 +188,7 @@
         catch (JSException)
         {
             errors = true;
-            errorList = ["Google Sign-In could not be initialized. Please refresh and try again."];
+            errorList = ["No se pudo iniciar la autenticación con Google. Actualiza la página y vuelve a intentarlo."];
             StateHasChanged();
         }
     }
@@ -221,18 +224,18 @@
     {
         if (string.IsNullOrWhiteSpace(serverError))
         {
-            return "We couldn't sign you in. Check your email and password and try again.";
+            return "No pudimos iniciar tu sesión. Revisa tu correo y tu contraseña e inténtalo de nuevo.";
         }
 
         if (serverError.Contains("locked", StringComparison.OrdinalIgnoreCase))
         {
-            return "Too many attempts. Wait a few minutes and try again.";
+            return "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.";
         }
 
         if (serverError.Contains("password", StringComparison.OrdinalIgnoreCase) ||
             serverError.Contains("login attempt", StringComparison.OrdinalIgnoreCase))
         {
-            return "We couldn't match that email and password. Check them and try again.";
+            return "Ese correo y contraseña no coinciden. Revísalos e inténtalo de nuevo.";
         }
 
         return serverError;
@@ -258,7 +261,7 @@
         {
             googleBusy = false;
             errors = true;
-            errorList = ["Unable to start Google Sign-In. Please try again later."];
+            errorList = ["No se pudo iniciar el acceso con Google. Inténtalo de nuevo más tarde."];
             StateHasChanged();
         }
     }
@@ -272,7 +275,7 @@
         if (string.IsNullOrWhiteSpace(credential))
         {
             errors = true;
-            errorList = ["Google did not return a credential. Please try again."];
+            errorList = ["Google no devolvió una credencial. Inténtalo de nuevo."];
             StateHasChanged();
             return;
         }
@@ -300,7 +303,7 @@
             reason.StartsWith("not_displayed", System.StringComparison.OrdinalIgnoreCase))
         {
             errors = true;
-            errorList = ["Google Sign-In was blocked by the browser. Please allow pop-ups and try again."];
+            errorList = ["El navegador bloqueó el acceso con Google. Permite las ventanas emergentes e inténtalo de nuevo."];
         }
 
         StateHasChanged();

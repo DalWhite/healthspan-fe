@@ -44,7 +44,7 @@ public class BloodTestsPageTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("blood test");
+            cut.Markup.Should().Contain("analítica");
         }, timeout: TimeSpan.FromSeconds(3));
     }
 
@@ -69,8 +69,8 @@ public class BloodTestsPageTests : BlazorTestBase
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Pending review");
-            cut.Markup.Should().Contain("Review results");
+            cut.Markup.Should().Contain("Pendiente de revisión");
+            cut.Markup.Should().Contain("Revisar resultados");
         });
     }
 }
