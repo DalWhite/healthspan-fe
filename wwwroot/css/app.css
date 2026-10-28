@@ -640,8 +640,13 @@ button:focus-visible,
     padding: 0 var(--hs-space-1);
   }
 
-  .hs-page-header-title-only,
-  .hs-page-header-with-actions .hs-page-header-copy {
+  /* D6 (t_cae11b27): pages that provide a Subtitle are exempt — the subtitle is
+     substantive context ('Follow them in Training > Today'), and this fake sr-only
+     inherited white-space:nowrap, so the copy flex item sized to max-content
+     (~482px) and escaped the 1px clip box at 390px (left 11 -> right 493).
+     The mobile .hs-page-header above already wraps, so visible copy fits. */
+  .hs-page-header-title-only:not(.hs-page-header-keeps-copy),
+  .hs-page-header-with-actions:not(.hs-page-header-keeps-copy) .hs-page-header-copy {
     position: absolute !important;
     width: 1px !important;
     height: 1px !important;
