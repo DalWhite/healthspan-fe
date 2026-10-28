@@ -20,8 +20,15 @@
     [Parameter] public string? Subtitle { get; set; }
     [Parameter] public RenderFragment? Actions { get; set; }
 
+    @* D6 (t_cae11b27): a Subtitle is substantive secondary copy (page identity +
+       what to do next, e.g. 'Follow them in Training > Today'). The mobile rule that
+       hides header copy to save vertical space turned the subtitle into a fake sr-only:
+       1px overflow-hidden box + inherited white-space:nowrap, so the nowrap flex item
+       sized to max-content (~482px) and escaped the clip at 390px (left 11 -> right 493).
+       Pages that provide a Subtitle keep their header copy visible on mobile (the
+       .hs-today-page precedent); only subtitle-less pages stay compact. *@
     private string HeaderClass
-        => Actions is null
-            ? "hs-page-header hs-page-header-title-only"
-            : "hs-page-header hs-page-header-with-actions";
+        => "hs-page-header "
+            + (Actions is null ? "hs-page-header-title-only" : "hs-page-header-with-actions")
+            + (string.IsNullOrWhiteSpace(Subtitle) ? "" : " hs-page-header-keeps-copy");
 }
