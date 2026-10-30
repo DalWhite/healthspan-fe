@@ -461,10 +461,9 @@ public class TodayWorkoutTests : BlazorTestBase
         var cut = RenderComponent<TodayWorkout>();
         cut.WaitForState(() => !cut.Markup.Contains("Cargando"), TimeSpan.FromSeconds(8));
 
-        cut.WaitForAssertion(() =>
-            cut.FindAll("button")
-                .Single(btn => btn.GetAttribute("class")?.Contains("hs-cta-secondary") == true)
-                .Click(), TimeSpan.FromSeconds(10));
+        // Wait for the DOM, act outside the wait: a predicate that dispatches a
+        // click re-enters the wait helper through the render the click causes.
+        cut.WaitForElement("button.hs-cta-secondary", TimeSpan.FromSeconds(10)).Click();
 
         cut.WaitForAssertion(() =>
         {
@@ -516,10 +515,7 @@ public class TodayWorkoutTests : BlazorTestBase
         var cut = RenderComponent<TodayWorkout>();
         cut.WaitForState(() => !cut.Markup.Contains("Cargando"), TimeSpan.FromSeconds(8));
 
-        cut.WaitForAssertion(() =>
-            cut.FindAll("button")
-                .Single(btn => btn.GetAttribute("class")?.Contains("hs-cta-secondary") == true)
-                .Click(), TimeSpan.FromSeconds(10));
+        cut.WaitForElement("button.hs-cta-secondary", TimeSpan.FromSeconds(10)).Click();
 
         cut.WaitForAssertion(() =>
         {

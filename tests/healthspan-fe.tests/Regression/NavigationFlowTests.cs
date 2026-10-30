@@ -160,14 +160,13 @@ public class NavigationFlowTests : BlazorTestBase
 
         // FAB action = quick start from any screen (DESIGN.md §3): it is not a
         // second route to Hoy, it opens the logging state directly (?start=1).
-        // Re-query and re-click inside the assertion: the layout re-renders while
-        // the auth/roles round-trip completes, and a click on a superseded render
-        // frame is dropped — on slower CI machines that race used to fail this.
-        cut.WaitForAssertion(() =>
-        {
-            cut.Find(".hs-fab").Click();
-            navigationManager.Uri.Should().EndWith("/training/today?start=1");
-        }, TimeSpan.FromSeconds(5));
+        // Wait for the DOM, act outside the wait: a predicate that dispatches a
+        // click re-enters the wait helper through the render the click causes.
+        cut.WaitForElement(".hs-fab", TimeSpan.FromSeconds(5)).Click();
+        cut.WaitForState(
+            () => navigationManager.Uri.EndsWith("/training/today?start=1"),
+            TimeSpan.FromSeconds(5));
+        navigationManager.Uri.Should().EndWith("/training/today?start=1");
     }
 
     [Theory]
