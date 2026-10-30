@@ -402,6 +402,16 @@ public sealed class CsvImportProgressTests : BlazorTestBase
         ClickButtonWithText(cut, "Import");
 
         cut.WaitForElement(".hs-import-failure");
+        // The poller writes Status (and the derived IsBusy) from a background
+        // thread; a render racing the terminal poll can read a mixed snapshot
+        // — the failed copy AND the busy-only "Hide progress" button in the
+        // same diff (torn-render repro, t_2ba3d469). The poll loop exits on the
+        // terminal status, so the tracker stops mutating and the panel is
+        // stable one render later: settle on the terminal action set before
+        // reading the actions.
+        cut.WaitForState(() => cut.FindAll(".hs-import-panel .mud-button-root")
+            .Select(b => b.TextContent.Trim())
+            .SequenceEqual(new[] { "Dismiss" }));
         Assert.DoesNotContain("Try again", cut.Markup);
         var buttons = cut.FindAll(".hs-import-panel .mud-button-root");
         Assert.Equal(new[] { "Dismiss" }, buttons.Select(b => b.TextContent.Trim()));
