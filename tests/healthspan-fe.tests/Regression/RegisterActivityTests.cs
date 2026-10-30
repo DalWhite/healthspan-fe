@@ -261,8 +261,12 @@ public class RegisterActivityTests : BlazorTestBase
         _cut.WaitForElement(".hs-reg-success-title", TimeSpan.FromSeconds(10));
 
         var expected = EsFormat.WeekdayDayMonthFull(pastDay);
-        _cut.Find(".hs-reg-success-title").TextContent.Trim()
-            .Should().Be($"Guardado · Sauna · {expected}");
+        // The success panel renders after the POST round-trip: wait for it instead of
+        // finding it the instant the mock saw the body (raced on slower CI runners).
+        _cut.WaitForAssertion(
+            () => _cut.Find(".hs-reg-success-title").TextContent.Trim()
+                .Should().Be($"Guardado · Sauna · {expected}"),
+            TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -278,8 +282,10 @@ public class RegisterActivityTests : BlazorTestBase
         // después del Find y el test caía con ElementNotFoundException.
         _cut.WaitForElement(".hs-reg-success-title", TimeSpan.FromSeconds(10));
 
-        _cut.Find(".hs-reg-success-title").TextContent.Trim()
-            .Should().Be("Guardado · Sauna · Hoy");
+        _cut.WaitForAssertion(
+            () => _cut.Find(".hs-reg-success-title").TextContent.Trim()
+                .Should().Be("Guardado · Sauna · Hoy"),
+            TimeSpan.FromSeconds(5));
     }
 
     [Fact]

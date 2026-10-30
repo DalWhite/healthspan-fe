@@ -85,6 +85,9 @@ public sealed class InMemoryLocalStore : ILocalStore
 
     // ── Catalog mirror ────────────────────────────────────────────────────────
 
+    public Task SaveCatalogBodyAsync(string kind, string body, string idProperty)
+        => SaveCatalogAsync(kind, CatalogMirrorBody.Split(body, idProperty));
+
     public Task SaveCatalogAsync(
         string kind, IEnumerable<(string Id, string Payload)> items)
     {
@@ -108,8 +111,26 @@ public sealed class InMemoryLocalStore : ILocalStore
                 ? bucket.OrderBy(pair => pair.Key).Select(pair => pair.Value).ToList()
                 : []);
 
+    public Task<(List<string> Payloads, int Total)> GetCatalogPayloadsPageAsync(
+        string kind, int skip, int take)
+    {
+        if (!_catalog.TryGetValue(kind, out var bucket))
+        {
+            return Task.FromResult<(List<string>, int)>(([], 0));
+        }
+
+        var ordered = bucket.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => pair.Value);
+        var page = take <= 0
+            ? ordered.Skip(Math.Max(0, skip))
+            : ordered.Skip(Math.Max(0, skip)).Take(take);
+        return Task.FromResult((page.ToList(), bucket.Count));
+    }
+
     public Task<bool> HasCatalogAsync(string kind)
         => Task.FromResult(_catalog.TryGetValue(kind, out var bucket) && bucket.Count > 0);
+
+    public Task<int> CountCatalogAsync(string kind)
+        => Task.FromResult(_catalog.TryGetValue(kind, out var bucket) ? bucket.Count : 0);
 
     public Task InvalidateCatalogAsync(string kind)
     {

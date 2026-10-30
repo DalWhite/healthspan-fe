@@ -1,3 +1,4 @@
+@implements IDisposable
 @inject HttpClient Http
 @inject AppStateService AppState
 @inject NavigationManager NavigationManager
@@ -235,23 +236,38 @@ else
     private bool ShouldPersistLibraryState
         => TraineeId is null && !FavouritesOnly;
 
+    private long _hspStart;
+    private long _hspInit;
+    private Dictionary<int, List<GetExerciseTypeResource>> _variationsByParent = new();
+    private bool _listensToCatalog;
+
     protected override async Task OnInitializedAsync()
     {
+        _hspStart = Environment.TickCount64;
         RestoreLibraryState();
         await AppState.GetMusclesAsync();
         _musclesById = AppState.GetMuscleLookup();
         _muscleGroups = AppState.GetMuscleGroups();
 
+        var libraryMode = !TrainedOnly && TraineeId is null;
+        if (libraryMode)
+        {
+            // The catalog hydrates in pages (t_81a400b3): the first screen of cards
+            // is enough to paint, the rest arrives in the background and re-filters.
+            AppState.ExerciseTypesUpdated += OnCatalogUpdated;
+            _listensToCatalog = true;
+        }
+
         try
         {
-            // Plain library reads go through the shared AppState cache: re-entering the
-            // library must not re-download and re-parse 876 records (~4s of main-thread
-            // work in WASM). Trained/trainee variants are different result sets, so they
-            // keep their own fetch.
-            if (!TrainedOnly && TraineeId is null)
+            // Plain library reads go through the shared AppState catalog: re-entering
+            // the library must not re-download and re-parse 876 records (~4s of
+            // main-thread work in WASM). Trained/trainee variants are different result
+            // sets, so they keep their own fetch.
+            if (libraryMode)
             {
-                var cached = await AppState.GetExerciseTypesAsync();
-                _all = cached.ToArray();
+                await AppState.GetExerciseTypesAsync();
+                _all = AppState.GetExerciseTypesSnapshot();
             }
             else
             {
@@ -266,10 +282,74 @@ else
             Snackbar.Add("Couldn't load your exercises.", Severity.Error);
         }
 
+        RebuildVariationIndex();
         BuildFilterOptions();
         ApplyFilter();
         _isLoading = false;
+        _hspInit = Environment.TickCount64 - _hspStart;
+        Console.WriteLine($"HSPERF library-ready={_hspInit}ms rows={_all.Length} visible={_visibleMainExercises.Count}");
     }
+
+    private void OnCatalogUpdated()
+    {
+        _all = AppState.GetExerciseTypesSnapshot();
+        RebuildVariationIndex();
+
+        var filtering = !string.IsNullOrWhiteSpace(_search)
+                        || !string.IsNullOrWhiteSpace(_selectedEquipment)
+                        || !string.IsNullOrWhiteSpace(_selectedMovement)
+                        || !string.IsNullOrWhiteSpace(_selectedMuscleGroup)
+                        || _favouritesOnlyFilter
+                        || FavouritesOnly;
+
+        // Filter options and results grow with the catalog, so a view that is
+        // filtering has to re-run; an unfiltered first page shows the same cards
+        // and only refreshes once the catalog is complete (fewer full re-renders
+        // of 40 cards in interpreted wasm).
+        if (filtering || AppState.ExerciseTypesHydrated)
+        {
+            BuildFilterOptions();
+            ApplyFilter();
+        }
+
+        StateHasChanged();
+    }
+
+    private void RebuildVariationIndex()
+    {
+        var index = new Dictionary<int, List<GetExerciseTypeResource>>();
+        foreach (var exercise in _all)
+        {
+            if (exercise.ParentExerciseTypeId is not { } parentId)
+            {
+                continue;
+            }
+
+            if (!index.TryGetValue(parentId, out var variations))
+            {
+                variations = new List<GetExerciseTypeResource>();
+                index[parentId] = variations;
+            }
+
+            variations.Add(exercise);
+        }
+
+        foreach (var variations in index.Values)
+        {
+            variations.Sort((left, right) => string.Compare(left.Name, right.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        _variationsByParent = index;
+    }
+
+    public void Dispose()
+    {
+        if (_listensToCatalog)
+        {
+            AppState.ExerciseTypesUpdated -= OnCatalogUpdated;
+        }
+    }
+
 
     private void OnSearchChanged(string value)
     {
@@ -312,9 +392,9 @@ else
     }
 
     private IEnumerable<GetExerciseTypeResource> GetVariationsFor(GetExerciseTypeResource mainExercise)
-        => _all
-            .Where(exercise => exercise.ParentExerciseTypeId == mainExercise.Id)
-            .OrderBy(exercise => exercise.Name);
+        => _variationsByParent.TryGetValue(mainExercise.Id, out var variations)
+            ? variations
+            : Enumerable.Empty<GetExerciseTypeResource>();
 
     private IEnumerable<GetExerciseTypeResource> ExerciseFamily(GetExerciseTypeResource mainExercise)
         => new[] { mainExercise }.Concat(GetVariationsFor(mainExercise));
@@ -390,6 +470,10 @@ else
     private static string FormatVariationCount(int variationCount)
         => variationCount == 1 ? "1 variation" : $"{variationCount} variations";
 
+    // The grid pages main exercises only, so the counter reports what this view
+    // can actually show: rows already loaded minus variations. The server total
+    // (all 979 rows, variations included) is a different number — using it printed
+    // "of 979" and then fell to 755 as the catalog finished hydrating (t_81a400b3).
     private string FormatResultCount(int count)
     {
         if (count == 0)
