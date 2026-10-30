@@ -170,11 +170,11 @@ button:focus-visible,
 }
 
 /* Numeric steppers are a fine-pointer affordance: two 20px buttons stacked inside
-   a 44px field can never each reach 44px. On touch, the field itself is the target. */
-@media (pointer: coarse) {
-  .mud-input-control.mud-input-number-control .mud-input-numeric-spin {
-    display: none;
-  }
+   a 44px field can never each reach 24px (WCAG 2.2 SC 2.5.8), let alone 44px.
+   They are hidden for every pointer type: the field itself is the target and the
+   value stays editable by typing or with ArrowUp/ArrowDown. */
+.mud-input-control.mud-input-number-control .mud-input-numeric-spin {
+  display: none;
 }
 
 /* ── Application shell and shared page primitives ───────────────────────── */
