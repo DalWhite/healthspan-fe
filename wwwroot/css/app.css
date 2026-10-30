@@ -667,7 +667,12 @@ button:focus-visible,
      primary context and the topbar does not show it, so the generic
      "hide the header copy on mobile" rule removed the whole activation
      context (prod QA: no "Hoy", no date). */
-  .hs-today-page > .hs-page-header .hs-page-header-copy {
+  /* Same for Insights (card t_dcccd188): its subtitle ("Weekly muscle load"
+     or the selected week range) is the page's context and was measured as a
+     sr-only ghost overflowing to right=501 at 390px. Visible copy that wraps
+     in the content column cannot overflow the viewport. */
+  .hs-today-page > .hs-page-header .hs-page-header-copy,
+  .hs-insights-page > .hs-page-header .hs-page-header-copy {
     position: static !important;
     width: auto !important;
     height: auto !important;
