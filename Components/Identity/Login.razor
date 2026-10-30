@@ -37,10 +37,51 @@
     <div class="login-right">
         <MudContainer MaxWidth="MaxWidth.Small"
                       Class="login-container">
-            <MudPaper Class="login-form hs-login-card rounded-container"
-                      Elevation="0">
+            <MudPaper Class="@LoginCardClass" Elevation="0">
 
-                <h1 class="hs-page-title hs-login-title">Sign in</h1>
+                @* D2 (docs/design/unauth-redirect-state.md): when a returnUrl
+                   survives from a protected route, the login is no longer
+                   anonymous — it names the destination and puts Google first.
+                   Without returnUrl the generic login is untouched. *@
+                @if (Contextual)
+                {
+                    <div class="hs-chip-protected">
+                        <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                        <span>Vista protegida · @ProtectedViews.DestinationChipName(ReturnUrl)</span>
+                    </div>
+
+                    @* D5: arrived because the session expired, not a cold link. *@
+                    @if (ExpiredFlag)
+                    {
+                        <MudAlert Severity="Severity.Info"
+                                  Class="hs-login-expired">
+                            Tu sesión caducó. Inicia sesión para continuar donde lo dejaste.
+                        </MudAlert>
+                    }
+
+                    <h1 class="hs-page-title hs-login-title">Continúa donde lo dejaste</h1>
+                    <MudText Typo="Typo.body2" Class="hs-login-value">
+                        Tu plan, tus sesiones y tus métricas son privados: solo tú los ves.
+                        Al entrar vuelves directamente a @ProtectedViews.DestinationName(ReturnUrl).
+                    </MudText>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="MudBlazor.Color.Primary"
+                               StartIcon="@Icons.Custom.Brands.Google"
+                               Disabled="@(!GoogleButtonEnabled)"
+                               Loading="@googleBusy"
+                               OnClick="StartGoogleLoginAsync"
+                               FullWidth="true"
+                               Class="hs-google-primary mt-4">
+                        Continuar con Google
+                    </MudButton>
+
+                    <div class="hs-divider">o con tu email</div>
+                }
+                else
+                {
+                    <h1 class="hs-page-title hs-login-title">Sign in</h1>
+                }
 
                 @* Form-level problems (Google init, failed sign-in). Field-level
                    problems live inline under their own field. *@
@@ -84,28 +125,54 @@
                                   Class="input-field text-field outlined" />
 
 
-                    <MudButton Variant="Variant.Filled"
-                               Color="MudBlazor.Color.Primary"
-                               OnClick="DoLoginAsync"
-                               FullWidth="true"
-                               Class="mb-3 rounded-button">Log In</MudButton>
-                    <MudButton Variant="Variant.Outlined"
-                               Color="MudBlazor.Color.Secondary"
-                               StartIcon="@Icons.Custom.Brands.Google"
-                               Disabled="@(!GoogleButtonEnabled)"
-                               Loading="@googleBusy"
-                               OnClick="StartGoogleLoginAsync"
-                               FullWidth="true"
-                               Class="google-button rounded-button">
-                        Continue with Google
-                    </MudButton>
+                    @if (!Contextual)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="MudBlazor.Color.Primary"
+                                   OnClick="DoLoginAsync"
+                                   FullWidth="true"
+                                   Class="mb-3 rounded-button">Log In</MudButton>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="MudBlazor.Color.Secondary"
+                                   StartIcon="@Icons.Custom.Brands.Google"
+                                   Disabled="@(!GoogleButtonEnabled)"
+                                   Loading="@googleBusy"
+                                   OnClick="StartGoogleLoginAsync"
+                                   FullWidth="true"
+                                   Class="google-button rounded-button">
+                            Continue with Google
+                        </MudButton>
+                    }
+
+                    @* D2: login-first — in the contextual flow the email form
+                       is the "o con tu email" alternative below the Google CTA. *@
+                    @if (Contextual)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="MudBlazor.Color.Primary"
+                                   OnClick="DoLoginAsync"
+                                   FullWidth="true"
+                                   Class="mt-3 rounded-button">Entrar con email</MudButton>
+                    }
 
                     <MudText Typo="Typo.body2"
                              Align="Align.Center"
                              Class="mt-3">
-                        New here? <MudButton Variant="Variant.Text"
-                                   Color="MudBlazor.Color.Primary"
-                                   OnClick="NavigateToRegister">Create an account</MudButton>
+                        @if (Contextual)
+                        {
+                            @* D3: the returnUrl survives the whole funnel —
+                               Strava pattern: sign-in or create-account on the
+                               same screen (spec §7). *@
+                            <span>¿No tienes cuenta?</span> <MudButton Variant="Variant.Text"
+                                               Color="MudBlazor.Color.Primary"
+                                               OnClick="NavigateToRegister">Crear cuenta gratis</MudButton>
+                        }
+                        else
+                        {
+                            <span>New here?</span> <MudButton Variant="Variant.Text"
+                                       Color="MudBlazor.Color.Primary"
+                                       OnClick="NavigateToRegister">Create an account</MudButton>
+                        }
                     </MudText>
                 </MudForm>
             </MudPaper>
@@ -129,6 +196,20 @@
 
     [SupplyParameterFromQuery(Name = "returnUrl")]
     public string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery(Name = "expired")]
+    public string? Expired { get; set; }
+
+    // D2: contextual mode is driven by a surviving safe returnUrl; D5 by the
+    // expired flag RedirectToLogin appends when a session's token died.
+    public bool Contextual => ProtectedViews.IsSafeReturnUrl(ReturnUrl);
+    public bool ExpiredFlag => Expired == "1";
+
+    // Kept as a computed string: Razor component attributes reject a ternary
+    // with quoted literals inline (RZ9986).
+    private string LoginCardClass => Contextual
+        ? "login-form hs-login-card rounded-container hs-login-contextual"
+        : "login-form hs-login-card rounded-container";
 
     private bool GoogleButtonEnabled => googleInitialized && !googleBusy;
 
@@ -309,24 +390,19 @@
 
     private void NavigateToRegister()
     {
-        Navigation.NavigateTo("/register");
+        // D3: the destination survives the whole funnel — a new user who
+        // arrives through a shared link must be able to come back to it.
+        Navigation.NavigateTo(Contextual
+            ? $"/register?returnUrl={Uri.EscapeDataString(ReturnUrl!)}"
+            : "/register");
     }
 
     private void NavigateAfterLogin()
         => Navigation.NavigateTo(GetSafeReturnUrl(), replace: true);
 
-    private string GetSafeReturnUrl()
-    {
-        if (!string.IsNullOrWhiteSpace(ReturnUrl) &&
-            ReturnUrl.StartsWith('/') &&
-            !ReturnUrl.StartsWith("//", StringComparison.Ordinal) &&
-            !ReturnUrl.StartsWith("/\\", StringComparison.Ordinal))
-        {
-            return ReturnUrl;
-        }
-
-        return "/training/today";
-    }
+    // Single validation contract shared with RedirectToLogin/Register
+    // (ProtectedViews): internal path only, fallback /training/today.
+    private string GetSafeReturnUrl() => ProtectedViews.SafeReturnUrl(ReturnUrl);
 
     public async ValueTask DisposeAsync()
     {

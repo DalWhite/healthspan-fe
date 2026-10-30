@@ -176,4 +176,93 @@ public class LoginPageTests : BlazorTestBase
 
         navigationManager.Uri.Should().EndWith("/training/today");
     }
+
+    [Fact]
+    public void Login_With_ReturnUrl_Is_Contextual_And_Login_First()
+    {
+        // D2 (unauth-redirect-state.md): a surviving returnUrl turns the
+        // anonymous login into the continuation of a started task.
+        var account = Substitute.For<IAccountManagement>();
+        Services.AddSingleton(account);
+
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo(
+            navigationManager.GetUriWithQueryParameter("returnUrl", "/training/today"));
+        var cut = RenderComponent<Login>();
+
+        cut.FindAll(".hs-chip-protected").Should().ContainSingle();
+        cut.Markup.Should().Contain("Vista protegida · Entrenamiento de hoy");
+        cut.Find("h1").TextContent.Should().Be("Continúa donde lo dejaste");
+        cut.Markup.Should().Contain("Al entrar vuelves directamente a tu entrenamiento de hoy");
+
+        // Login-first: the Google CTA is the primary filled button that comes
+        // before the email form in the DOM; the email form is the alternative
+        // under the separator.
+        var buttonTexts = cut.FindAll("button")
+            .Select(b => b.TextContent.Trim())
+            .ToList();
+        var google = cut.Find("button.hs-google-primary");
+        var email = cut.Find("button:contains('Entrar con email')");
+        google.ClassList.Should().Contain("mud-button-filled");
+        google.TextContent.Should().Contain("Continuar con Google");
+        email.ClassList.Should().Contain("mud-button-filled");
+        buttonTexts.IndexOf("Continuar con Google")
+            .Should().BeLessThan(buttonTexts.IndexOf("Entrar con email"));
+        cut.Markup.Should().Contain("o con tu email");
+        cut.Markup.Should().Contain("¿No tienes cuenta?");
+    }
+
+    [Fact]
+    public void Login_Contextual_Register_Link_Preserves_ReturnUrl()
+    {
+        // D3: the funnel to a new account keeps the destination alive.
+        var account = Substitute.For<IAccountManagement>();
+        Services.AddSingleton(account);
+
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo(
+            navigationManager.GetUriWithQueryParameter("returnUrl", "/health/biomarkers"));
+        var cut = RenderComponent<Login>();
+
+        cut.Find("button:contains('Crear cuenta gratis')").Click();
+
+        navigationManager.Uri.Should()
+            .EndWith("/register?returnUrl=%2Fhealth%2Fbiomarkers");
+    }
+
+    [Fact]
+    public void Login_With_Expired_Flag_Shows_The_Session_Copy()
+    {
+        // D5: a dead session is named as such, not treated as a cold link.
+        var account = Substitute.For<IAccountManagement>();
+        Services.AddSingleton(account);
+
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo(
+            navigationManager.GetUriWithQueryParameter("returnUrl", "/settings"));
+        navigationManager.NavigateTo(
+            navigationManager.GetUriWithQueryParameter("expired", "1"));
+        var cut = RenderComponent<Login>();
+
+        cut.Markup.Should().Contain("Tu sesión caducó. Inicia sesión para continuar donde lo dejaste.");
+    }
+
+    [Fact]
+    public void Login_Without_ReturnUrl_Keeps_The_Generic_Login()
+    {
+        // The accepted behavior of /login with no context is untouched.
+        var account = Substitute.For<IAccountManagement>();
+        Services.AddSingleton(account);
+
+        var cut = RenderComponent<Login>();
+
+        cut.Find("h1").TextContent.Should().Be("Sign in");
+        cut.FindAll(".hs-chip-protected").Should().BeEmpty();
+        cut.Markup.Should().NotContain("Continúa donde lo dejaste");
+        cut.Find("button:contains('Log In')")
+            .ClassList.Should().Contain("mud-button-filled");
+        // Generic mode keeps the original order: email form first, Google as
+        // the outlined alternative.
+        cut.Find(".google-button").ClassList.Should().Contain("mud-button-outlined");
+    }
 }

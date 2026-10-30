@@ -2271,6 +2271,81 @@ a.hs-exercise-history-row:hover {
   border-color: var(--hs-color-muted);
 }
 
+/* ── Unauthenticated journey (docs/design/unauth-redirect-state.md) ────── */
+
+/* D1 bridge: the protected destination never shows an empty screen while the
+   auth-check resolves. Card surface, max 420px, centered. */
+.hs-unauth-bridge {
+  max-width: 420px;
+  margin: 30vh auto 0;
+  padding: var(--hs-space-6) var(--hs-space-5);
+  background-color: var(--hs-card);
+  border: 1px solid var(--hs-border);
+  border-radius: var(--hs-radius-card);
+  color: var(--hs-t1);
+}
+
+/* D2 context chip: names the destination the login protects. */
+.hs-chip-protected {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hs-space-2);
+  padding: 6px 12px;
+  border: 1px solid var(--hs-border);
+  border-radius: 999px;
+  background: var(--hs-input);
+  color: var(--hs-t2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: var(--hs-space-3);
+}
+
+/* D5 expired-session notice sits under the chip. */
+.hs-login-expired {
+  margin-bottom: var(--hs-space-4);
+}
+
+/* D2 value line: what is protected and why. */
+.hs-login-value {
+  color: var(--hs-t2);
+  margin-bottom: var(--hs-space-5);
+  line-height: 1.5;
+}
+
+/* D2 separator under the Google-first CTA. */
+.hs-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-3);
+  color: var(--hs-t3);
+  font-size: 0.8125rem;
+  margin: var(--hs-space-4) 0 var(--hs-space-2);
+}
+
+.hs-divider::before,
+.hs-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--hs-border);
+}
+
+/* Login-first Google CTA (spec token: single accent, full width). */
+.hs-google-primary {
+  min-height: var(--hs-touch-target, 44px);
+  font-weight: 700;
+}
+
+/* D3 register payoff panel: ≤2 taps back to the destination. */
+.hs-register-success {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-2);
+}
+
+.hs-register-success .mud-button-root {
+  min-height: var(--hs-touch-target, 44px);
+}
+
 /* Error Message Styling */
 .mud-input-error {
   color: var(--hs-color-danger) !important;

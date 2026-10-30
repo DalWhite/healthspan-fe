@@ -3,6 +3,7 @@
 @page "/register"
 @using Healthspan.Authentication
 @inject IAccountManagement Acct
+@inject NavigationManager Navigation
 
 <PageTitle>Register</PageTitle>
 
@@ -16,9 +17,33 @@
         <NotAuthorized>
             @if (success)
             {
-                <MudAlert Severity="Severity.Success">
-                    You successfully registered. Now you can <MudLink Href="login">login</MudLink>.
-                </MudAlert>
+                @* D3 (docs/design/unauth-redirect-state.md): registering from a
+                   shared deep link must pay the user back with the destination
+                   they came for — in ≤2 taps. No auto-login: the identity
+                   backend doesn't guarantee it today. *@
+                @if (ProtectedViews.IsSafeReturnUrl(ReturnUrl))
+                {
+                    <MudAlert Severity="Severity.Success">
+                        <div class="hs-register-success">
+                            <div>Cuenta creada. Inicia sesión para volver a @ProtectedViews.DestinationName(ReturnUrl).</div>
+                            <MudButton Variant="Variant.Filled"
+                                       Color="MudBlazor.Color.Primary"
+                                       FullWidth="true"
+                                       Class="mt-3"
+                                       OnClick="GoToLoginWithReturnUrl">Iniciar sesión y volver</MudButton>
+                            <MudButton Variant="Variant.Text"
+                                       Color="MudBlazor.Color.Primary"
+                                       FullWidth="true"
+                                       OnClick="GoToToday">Ir a mis entrenamientos</MudButton>
+                        </div>
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Success">
+                        You successfully registered. Now you can <MudLink Href="login">login</MudLink>.
+                    </MudAlert>
+                }
             }
             else
             {
@@ -58,6 +83,17 @@
     bool isShow;
     InputType PasswordInput = InputType.Password;
     string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+
+    // D3: returnUrl arrives from the contextual login link and is validated
+    // with the same rule as login (safe internal path only).
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private void GoToLoginWithReturnUrl() =>
+        Navigation.NavigateTo(ProtectedViews.LoginUrlFor(ReturnUrl));
+
+    private void GoToToday() =>
+        Navigation.NavigateTo(ProtectedViews.DefaultReturnUrl);
 
     void ButtonTestclick()
     {

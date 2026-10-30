@@ -71,9 +71,15 @@
     </aside>
 
     <main class="main-content hs-main-content">
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="hs-app-content">
-            @Body
-        </MudContainer>
+        @* D5 provenance for the bridge (RedirectToLogin): does this layout
+           instance ever open with a live session? Only then can the journey
+           say "tu sesión caducó"; a cold deep link never had a session and
+           must not claim one. *@
+        <CascadingValue Value="@_sessionWasLive" IsFixed="false">
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="hs-app-content">
+                @Body
+            </MudContainer>
+        </CascadingValue>
     </main>
 
     <nav class="hs-bottom-nav" aria-label="Primary navigation">
@@ -117,6 +123,10 @@
     private DotNetObjectReference<MainLayout>? _selfRef;
 
     private bool _isTrainer;
+
+    // True when this layout instance initialized with an authenticated user
+    // (cascade target: RedirectToLogin / spec D5).
+    private bool _sessionWasLive;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -165,6 +175,9 @@
 
         if (authState.User.Identity?.IsAuthenticated == true)
         {
+            // Provenance for the unauth bridge (see the CascadingValue above).
+            _sessionWasLive = true;
+
             var roles = await AppState.GetUserRolesAsync();
             _isTrainer = roles.Contains("Trainer");
 

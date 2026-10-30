@@ -50,6 +50,8 @@ public class NavigationFlowTests : BlazorTestBase
 
         RenderComponent<RedirectToLogin>();
 
+        // Standalone RedirectToLogin has no live-session provenance (no
+        // cascade): cold path, no expired flag (spec D5).
         navigationManager.Uri.Should().EndWith("/login?returnUrl=%2Fhealth%2Fprofile%3Ftab%3Doverview");
     }
 
@@ -102,7 +104,28 @@ public class NavigationFlowTests : BlazorTestBase
         navigationManager.NavigateTo("https://localhost/training/today");
         RenderComponent<RedirectToLogin>();
 
-        navigationManager.Uri.Should().Be(mainLayoutTarget);
+        // They must agree on the destination they protect. The expired flag
+        // (spec D5) is only added by the in-app bridge when a live session
+        // dies; a cold standalone render must not claim that.
+        QueryOf(mainLayoutTarget).Should().Be(QueryOf(navigationManager.Uri));
+
+        static string QueryOf(string uri) =>
+            new Uri(uri).Query;
+    }
+
+    [Fact]
+    public void RedirectToLogin_Renders_Bridge_Naming_The_Destination()
+    {
+        // D1: never an empty screen while the auth-check resolves — the bridge
+        // names where the user is going, in Spanish.
+        var navigationManager = Services.GetRequiredService<FakeNavigationManager>();
+        navigationManager.NavigateTo("https://localhost/training/today");
+
+        var cut = RenderComponent<RedirectToLogin>();
+
+        cut.Markup.Should().Contain("Abriendo acceso a tu entrenamiento de hoy");
+        cut.FindAll(".hs-unauth-bridge").Should().ContainSingle();
+        cut.Markup.Should().NotContain("Redirecting");
     }
 
     [Fact]
