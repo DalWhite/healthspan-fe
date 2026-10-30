@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Results · KPIs de resultados — prototype t_33c412cf</title>
+<style>
+/* ============ healthspan design system v1 — tokens verbatim desde app.css ============ */
+:root{
+  --hs-canvas:#0E1116; --hs-card:#161B22; --hs-input:#1F2630; --hs-raised:#283040; --hs-border:#262C36;
+  --hs-accent:#1E6FFF; --hs-accent-soft:#14233F; --hs-done:#2FBF71; --hs-pr:#F5B83D; --hs-err:#F1545B;
+  --hs-t1:#F2F4F8; --hs-t2:#A9B1BE; --hs-t3:#78818F;
+  --hs-font: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --hs-radius-card:14px; --hs-radius-chip:8px; --hs-radius-button:10px;
+}
+*{box-sizing:border-box}
+h1,h2,p,div,ul,li,article,section{margin:0;padding:0}
+html{font-variant-numeric:tabular-nums}
+body{background:var(--hs-canvas); color:var(--hs-t1); font-family:var(--hs-font); margin:0; font-size:15px; line-height:1.5}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:rect(0,0,0,0)}
+
+/* ---------- frame scaffolding (prototipo nada; frames = uno por pantalla) ---------- */
+#frame-a,#frame-b{padding:0 16px; background:var(--hs-canvas)}
+#frame-c{background:var(--hs-canvas); padding:16px; border-top:1px solid var(--hs-border); border-bottom:1px solid var(--hs-border)}
+#frame-c::before{content:""; display:none}
+.new-flag{outline:2px dashed var(--hs-accent); outline-offset:3px}
+.mock-note{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--hs-t3)}
+
+/* ============ COMPONENTES NEW: hs-results-* (spec section 3) ============ */
+.hs-page-title{font-size:22px;font-weight:700;letter-spacing:-.3px;color:var(--hs-t1);margin:0}
+.hs-page-sub{font-size:12.5px;font-weight:500;color:var(--hs-t2)}
+
+/* line product (summary-first: la coach scanealo la mes en una line) */
+.hs-results-summary{background:var(--hs-card);border:1px solid var(--hs-border);border-radius:var(--hs-radius-card);
+  padding:8px 14px;font-size:14px;font-weight:600;color:var(--hs-t1)}
+.hs-results-summary .sep{color:var(--hs-t3)}
+
+/* card base (DESIGN: radio 14, borde 1px, padding 16, sin sombra) */
+.hs-results-card{background:var(--hs-card);border:1px solid var(--hs-border);border-radius:var(--hs-radius-card);
+  padding:14px;display:flex;flex-direction:column;min-height:auto}
+.hs-results-label{font-size:11px;line-height:1.2;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--hs-t2)}
+.hs-results-hero{font-size:34px;line-height:1.05;font-weight:800;letter-spacing:-1.5px;color:var(--hs-t1)}
+.hs-results-hero-num{font-variant-numeric:tabular-nums}
+.hs-results-why{font-size:12.5px;font-weight:500;color:var(--hs-t2)}
+.hs-results-state{font-size:15px;font-weight:600;color:var(--hs-t2)} /* estado copy, nunca un fake 0 */
+.hs-results-card > * + *{margin-top:6px}
+
+/* chip delta: wash16-18%; DELTA chips neutral (semantics nunca judgment) */
+.hs-delta-chip{display:inline-flex;align-items:center;gap:6px;background:var(--hs-raised);color:var(--hs-t1);
+  border-radius:var(--hs-radius-chip);padding:4px 10px;font-size:12.5px;font-weight:700;letter-spacing:.4px}
+.hs-delta-chip .arrow{font-size:14px}
+.hs-delta-chip .arrow-decor{display:none} /* aria-hidden span in DOM; visible arrow below */
+.chip-up{background:rgba(30,111,255,.16);color:var(--hs-t1)}
+.chip-flat{background:var(--hs-input);color:var(--hs-t2)}
+.hs-session-chip{display:inline-flex;align-items:center;background:var(--hs-accent-soft);border-radius:var(--hs-radius-chip);
+  padding:4px 10px;font-size:12.5px;font-weight:700;color:#9DBDFF}
+
+/* mini bars 6 months — CSS puro, zero libs, zero requests */
+.hs-results-bars{display:flex;gap:6px;align-items:flex-end;height:40px;width:100%;margin-top:8px}
+.hs-results-bars i{background:var(--hs-accent);border-radius:3px 3px 0 0;flex:1;transition:height .5s ease}
+.hs-results-bars i.current{background:var(--hs-accent);box-shadow:0 0 0 1px var(--hs-t1) inset}
+.hs-results-bars-x{display:flex;gap:6px;margin-top:2px}
+.hs-results-bars-x b{font-size:10px;font-weight:600;color:var(--hs-t3);text-transform:uppercase}
+
+/* weight line — inline SVG, aria-hidden + data in real text */
+.hs-results-line{width:100%;height:52px;margin-top:8px}
+
+/* chips de 1RM per type (unit never mixed) */
+.hs-results-type-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.hs-type-chip{display:inline-flex;align-items:center;gap:7px;background:var(--hs-input);border:1px solid var(--hs-border);
+  border-radius:var(--hs-radius-chip);padding:6px 9px;font-size:11.5px;font-weight:600;color:var(--hs-t1);min-height:30px;flex:0 1 150px}
+.hs-type-chip svg{width:14px;height:14px;color:var(--hs-t2)}
+.hs-type-chip .delta{font-weight:700}
+.hs-type-chip .up{color:var(--hs-t1)}.hs-type-chip .flat{color:var(--hs-t2)}.hs-type-chip .down{color:var(--hs-t1)}
+
+@media (prefers-reduced-motion:reduce){ .hs-results-bars i{transition:none} }
+
+.hs-cards-row{display:flex;flex-direction:column;gap:12px}
+/* desktop >=1000: 3 cards en row (sidebar shell exists in the app; here only the grid) */
+@media (min-width:1000px){ #frame-a,#frame-b{max-width:1240px} .hs-cards-row{flex-direction:row;gap:16px} }
+</style>
+</head>
+<body>
+
+<!-- ================= FRAME A · /trainees/{id}/results — all states ok (mes 2026-09) ================= -->
+<section id="frame-a" data-hs-frame="results-ok">
+  <header class="hs-results-head" style="display:flex;flex-direction:column;min-height:56px">
+    <h1 class="hs-page-title">Results</h1>
+    <p class="hs-page-sub">September 2026 · Ana López</p>
+  </header>
+
+  <!-- product line FIRST: coach understands the mes impact in one scan -->
+  <p class="hs-results-summary" data-hs-el="summary-line">In September: 9 sessions<span class="sep"> · </span>75&nbsp;% consistency<span class="sep"> · </span><span aria-hidden="true">▼</span> −0,6&nbsp;kg<span class="sep"> · </span>+4,2&nbsp;% strength</p>
+
+  <div class="hs-cards-row">
+    <!-- CARD 1 · CONSISTENCY -->
+    <article class="hs-results-card" id="card-consistency">
+      <h2 class="hs-results-label">Consistency of sessions</h2>
+      <p class="hs-results-hero"><span class="hs-results-hero-num">75&nbsp;%</span></p>
+      <p style="margin:0"><span class="hs-delta-chip"><span aria-hidden="true">▼</span>−10&nbsp;pp</span></p>
+      <p style="margin:6px 0 0"><span class="hs-session-chip">9 sessions</span></p>
+      <div class="hs-results-bars" aria-hidden="true">
+        <i style="height:42%"></i><i style="height:55%"></i><i style="height:61%"></i><i style="height:58%"></i><i style="height:85%"></i><i class="current" style="height:75%"></i>
+      </div>
+      <div class="hs-results-bars-x" aria-hidden="true"><b>Abr</b><b>May</b><b>Jun</b><b>Jul</b><b>Ago</b><b>Sep</b></div>
+      <ul class="sr-only" id="bars-data-a">
+        <li>April 42 %</li><li>May 55 %</li><li>June 61 %</li><li>July 58 %</li><li>August 85 %</li><li>September 75 %</li>
+      </ul>
+    </article>
+
+    <!-- CARD 2 · WEIGHT TREND (gap Jun: NO invent points) -->
+    <article class="hs-results-card" id="card-weight">
+      <h2 class="hs-results-label">Weight trend</h2>
+      <p class="hs-results-hero"><span class="hs-results-hero-num">81,4&nbsp;kg</span></p>
+      <p style="margin:0"><span class="hs-delta-chip"><span aria-hidden="true">▼</span>−0,6&nbsp;kg<span style="font-size:11px;font-weight:500;color:var(--hs-t2);margin-left:6px">since last registration</span></span></p>
+      <svg class="hs-results-line" aria-hidden="true" viewBox="0 0 290 56">
+        <polyline points="10,8 40,17 70,20 100,22 190,15 280,30" fill="none" stroke="#1E6FFF" stroke-width="2" stroke-linecap="round"/>
+        <g fill="#1E6FFF"><circle cx="10" cy="8" r="2.5"/><circle cx="40" cy="17" r="2.5"/><circle cx="70" cy="20" r="2.5"/><circle cx="100" cy="22" r="2.5"/><circle cx="190" cy="15" r="2.5"/><circle cx="280" cy="30" r="2.5"/></g>
+        <line x1="130" y1="0" x2="130" y2="56" stroke="#262C36" stroke-dasharray="2 4"/>
+      </svg>
+      <ul class="sr-only" id="line-data-a">
+        <li>April 82,6 kg</li><li>May 82,0 kg</li><li>June 81,9 kg</li><li>July 81,7 kg</li><li>No registration in August</li><li>September 81,4 kg</li>
+      </ul>
+    </article>
+
+    <!-- CARD 3 · STRENGTH (units never mixed; E9 plateau ±0 visible) -->
+    <article class="hs-results-card" id="card-strength">
+      <h2 class="hs-results-label">Strength progress</h2>
+      <p class="hs-results-hero"><span class="hs-results-hero-num">+4,2&nbsp;%</span></p>
+      <p class="hs-results-why" style="margin:0">media mensual vs primer registro · mes anterior</p>
+      <div class="hs-results-type-chips">
+        <span class="hs-type-chip"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 13v-6h8v6" stroke="currentColor" fill="none"/><circle cx="8" cy="4" r="1.6" fill="currentColor"/></svg><b>Squat</b>&nbsp;<span class="delta up"><span aria-hidden="true">▲</span>+2,5&nbsp;kg</span></span>
+        <span class="hs-type-chip"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="6" width="12" height="4" rx="1" stroke="currentColor" fill="none"/></svg><b>Deadlift</b>&nbsp;<span class="delta flat">±&nbsp;0&nbsp;kg</span></span>
+        <span class="hs-type-chip"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5" stroke="currentColor" fill="none"/></svg><b>Chest press</b>&nbsp;<span class="delta up"><span aria-hidden="true">▲</span>+1,8&nbsp;reps</span></span>
+        <span class="hs-type-chip"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 12l5-8l5 8" stroke="currentColor" fill="none"/></svg><b>Pull-up</b>&nbsp;<span class="delta up"><span aria-hidden="true">▲</span>+6,0&nbsp;%</span></span>
+        <span class="hs-type-chip"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10v8h-10z" stroke="currentColor" fill="none"/></svg><b>Muscle-up</b>&nbsp;<span class="delta down"><span aria-hidden="true">▼</span>−1,2&nbsp;%</span></span>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ================= FRAME B · state variants (E1-E9 visible copy; never a fake 0) ================= -->
+<section id="frame-b" data-hs-frame="results-states">
+  <h2 class="hs-cards-row" style="display:block" hidden></h2>
+  <p class="mock-note" style="margin:8px 0 0">Variants state — same components, state copy owned by FE</p>
+  <div class="hs-cards-row">
+    <article class="hs-results-card" id="card-ns">
+      <h2 class="hs-results-label">Consistency of sessions</h2>
+      <p class="hs-results-state" data-hs-state="not_started">Todavía no completó sessions</p>
+    </article>
+    <article class="hs-results-card" id="card-co">
+      <h2 class="hs-results-label">Weight trend</h2>
+      <p class="hs-results-hero"><span class="hs-results-hero-num">81,4&nbsp;kg</span></p>
+      <p class="hs-results-why" data-hs-state="current_only">Still no previous registration</p>
+    </article>
+    <article class="hs-results-card" id="card-id">
+      <h2 class="hs-results-label">Strength progress</h2>
+      <p class="hs-results-state" data-hs-state="insufficient_data">Insufficient data</p>
+      <p class="hs-results-why">Needs at least two sessions with registered load.</p>
+    </article>
+    <article class="hs-results-card" id="card-zero">
+      <h2 class="hs-results-label">Weight trend · delta 0 legítimo</h2>
+      <p class="hs-results-hero"><span class="hs-results-hero-num">78,0&nbsp;kg</span></p>
+      <p style="margin:0"><span class="hs-delta-chip chip-flat"><span aria-hidden="true">◆</span>±&nbsp;0,0&nbsp;kg<span style="font-size:11px;font-weight:500;color:var(--hs-t2);margin-left:6px">since last registration</span></span></p>
+    </article>
+  </div>
+</section>
+
+<!-- ================= FRAME C · /trainees — 4th button "Results" ================= -->
+<section id="frame-c" data-hs-frame="trainees-4th">
+  <article class="hs-trainee-card" style="background:var(--hs-card);border:1px solid var(--hs-border);border-radius:var(--hs-radius-card);padding:16px;min-height:168px">
+    <div style="display:flex;align-items:center;gap:10px"><span style="font-size:13px;color:var(--hs-t2)">◉</span><b style="font-size:16px;font-weight:700">Ana López</b></div>
+    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px">
+      <button type="button" style="height:44px;border-radius:var(--hs-radius-button);border:1px solid transparent;background:var(--hs-accent);color:#fff;font-weight:700;font-size:14px">Exercises</button>
+      <button type="button" style="height:44px;border-radius:var(--hs-radius-button);background:var(--hs-card);color:var(--hs-t2);font-weight:600;font-size:14px">Favourites</button>
+      <button type="button" style="height:44px;border-radius:var(--hs-radius-button);background:var(--hs-card);color:var(--hs-t2);font-weight:600;font-size:14px">Rutinas</button>
+      <button type="button" class="new-flag" style="height:44px;border-radius:var(--hs-radius-button);background:var(--hs-card);color:var(--hs-t2);font-weight:600;font-size:14px">Results</button>
+    </div>
+  </article>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mock · estado desautenticado login-first · t_cab4dcf5</title>
+<style>
+  :root{
+    --canvas:#0E1116; --card:#161B22; --border:#262E38;
+    --accent:#1E6FFF; --text:#F5F7FA; --text2:#B4BCC9; --text3:#8A94A3;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#05070a}
+  body{font-family:"Inter",-apple-system,"Segoe UI",system-ui,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased}
+  .mock{display:none;background:var(--canvas)}
+  body[data-mock="mobile"] .mock-mobile{display:block}
+  body[data-mock="desktop"] .mock-desktop{display:flex}
+  body[data-mock="bridge"] .mock-bridge{display:flex}
+
+  /* ---------- shared atoms ---------- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;height:56px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;letter-spacing:.2px}
+  .brand .dot{width:22px;height:22px;border-radius:7px;background:var(--accent)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;border-radius:10px;
+       font-size:15px;font-weight:600;min-height:44px;padding:0 18px;border:1px solid transparent;cursor:pointer}
+  .btn-filled{background:var(--accent);color:#fff}
+  .btn-outlined{background:transparent;color:var(--text);border-color:#3A4553}
+  .btn-text{background:transparent;color:var(--accent);min-height:44px}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);
+        border-radius:999px;padding:7px 14px;font-size:13px;color:var(--text2);font-weight:600}
+  .lock{width:16px;height:16px;fill:var(--accent);flex:none}
+  .lock-dim{width:20px;height:20px;fill:var(--text3)}
+  .divider{display:flex;align-items:center;gap:12px;color:var(--text3);font-size:13px;margin:14px 0}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border)}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:13px;color:var(--text2);margin:0 2px 6px}
+  .field input{width:100%;min-height:44px;background:#11151c;border:1px solid #3A4553;border-radius:10px;
+               color:var(--text);font-size:15px;padding:0 12px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px}
+  .gicon{width:18px;height:18px}
+
+  /* ---------- mobile 390x844 ---------- */
+  .mock-mobile{width:390px;height:844px;overflow:hidden}
+  .m-body{padding:18px 20px}
+  .m-title{font-size:24px;line-height:1.25;font-weight:700;margin:14px 0 8px}
+  .m-value{font-size:14.5px;line-height:1.5;color:var(--text2);margin-bottom:18px}
+  .m-login .btn-filled{width:100%}
+  .m-login .btn-outlined{width:100%}
+  .m-register{text-align:center;margin-top:6px}
+  .m-register a{color:var(--accent);font-size:14.5px;font-weight:600;text-decoration:none}
+  .postal{margin-top:22px}
+  .postal .cap{font-size:13px;color:var(--text3);margin:0 2px 10px;display:flex;align-items:center;gap:8px}
+  .postal .stack{position:relative;display:flex;flex-direction:column;gap:12px}
+  .ghost{border-radius:14px;background:#141922;border:1px solid var(--border);opacity:.45;padding:14px}
+  .skel{height:14px;border-radius:7px;background:#232B37;margin-bottom:10px}
+  .skel.w60{width:60%}.skel.w40{width:40%}
+  .ghost-row{display:flex;gap:12px;align-items:center}
+  .ghost-ico{width:40px;height:40px;border-radius:10px;background:#232B37;flex:none}
+  .postal .overlay{position:absolute;inset:0;border-radius:14px;background:rgba(14,17,22,.45);
+                   display:flex;align-items:center;justify-content:center}
+  .postal .overlay .pill{display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);
+                         border-radius:999px;padding:8px 14px;font-size:13px;color:var(--text2);font-weight:600}
+
+  /* ---------- desktop 1024x768 ---------- */
+  .mock-desktop{width:1024px;height:768px;overflow:hidden}
+  .d-left{flex:1.2;padding:44px 48px;display:flex;flex-direction:column;justify-content:center}
+  .d-left h1{font-size:30px;font-weight:700;line-height:1.25;margin:18px 0 10px}
+  .d-left p{font-size:15px;line-height:1.55;color:var(--text2);max-width:440px;margin-bottom:26px}
+  .d-right{width:440px;padding:36px 32px;display:flex;flex-direction:column;justify-content:center}
+  .d-card{padding:28px 26px}
+  .d-card h2{font-size:21px;font-weight:700;margin:16px 0 6px}
+  .d-card .sub{font-size:13.5px;color:var(--text2);line-height:1.5;margin-bottom:18px}
+  .d-card .btn-filled,.d-card .btn-outlined{width:100%}
+  .d-card .m-register{margin-top:10px}
+
+  /* ---------- bridge 390x844 ---------- */
+  .mock-bridge{width:390px;height:844px;align-items:center;justify-content:center}
+  .bridge-card{width:340px;padding:28px 24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+  .spinner{width:34px;height:34px;border-radius:50%;border:3px solid #2A3340;border-top-color:var(--accent);animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .bridge-card p{font-size:15px;color:var(--text2);line-height:1.5}
+  .bridge-card .cap{font-size:12.5px;color:var(--text3)}
+</style>
+</head>
+<body data-mock="mobile">
+
+<!-- ================= MÓVIL 390×844 ================= -->
+<section class="mock mock-mobile">
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span>Healthspan</div>
+    <button class="btn btn-outlined">Iniciar sesión</button>
+  </header>
+  <div class="m-body">
+    <span class="chip">
+      <svg class="lock" viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5v3H5.5A1.5 1.5 0 0 0 4 11.5v8A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 18.5 10H17V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 1 1 6 0v3H9Z"/></svg>
+      Vista protegida · Entrenamiento de hoy
+    </span>
+    <h1 class="m-title">Inicia sesión para ver tu entrenamiento de hoy</h1>
+    <p class="m-value">Tu plan, tus sesiones y tus métricas son privados: solo tú los ves. Al entrar vuelves directamente a tu entrenamiento de hoy.</p>
+
+    <div class="m-login">
+      <button class="btn btn-filled">
+        <svg class="gicon" viewBox="0 0 24 24"><path fill="#fff" d="M21.8 10.2h-9.6v3.3h9.1c-.4 2.2-2.4 3.9-4.9 3.9a5.5 5.5 0 1 1 3.9-9.4l2.4-2.4A8.8 8.8 0 1 0 12 20.8c4.6 0 8.3-3.3 8.7-8.1l-.9-.3-2-.2Z"/></svg>
+        Continuar con Google
+      </button>
+      <div class="divider">o con tu email</div>
+      <div class="field"><label for="e1">Email</label><input id="e1" type="email" placeholder="tu@email.com"></div>
+      <div class="field"><label for="p1">Contraseña</label><input id="p1" type="password" value="••••••••"></div>
+      <button class="btn btn-outlined">Entrar</button>
+      <div class="m-register"><a href="#">¿No tienes cuenta? Crear cuenta gratis</a></div>
+    </div>
+
+    <div class="postal">
+      <div class="cap">
+        <svg class="lock-dim" viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5v3H5.5A1.5 1.5 0 0 0 4 11.5v8A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 18.5 10H17V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 1 1 6 0v3H9Z"/></svg>
+        Así se ve tu entrenamiento de hoy cuando inicias sesión
+      </div>
+      <div class="stack">
+        <div class="ghost"><div class="skel w40"></div><div class="skel"></div><div class="skel w60"></div></div>
+        <div class="ghost"><div class="ghost-row"><div class="ghost-ico"></div><div style="flex:1"><div class="skel w60"></div><div class="skel w40" style="margin:0"></div></div></div></div>
+        <div class="overlay"><span class="pill">
+          <svg class="lock" viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5v3H5.5A1.5 1.5 0 0 0 4 11.5v8A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 18.5 10H17V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 1 1 6 0v3H9Z"/></svg>
+          Contenido disponible al iniciar sesión
+        </span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ESCRITORIO 1024×768 ================= -->
+<section class="mock mock-desktop">
+  <div class="d-left">
+    <span class="chip">
+      <svg class="lock" viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5v3H5.5A1.5 1.5 0 0 0 4 11.5v8A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 18.5 10H17V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 1 1 6 0v3H9Z"/></svg>
+      Vista protegida · Entrenamiento de hoy
+    </span>
+    <h1>Inicia sesión para ver tu entrenamiento de hoy</h1>
+    <p>Tu plan, tus sesiones y tus métricas son privados: solo tú los ves. Al entrar vuelves directamente a tu entrenamiento de hoy.</p>
+    <div class="postal">
+      <div class="cap">Así se ve tu entrenamiento de hoy cuando inicias sesión</div>
+      <div class="stack">
+        <div class="ghost" style="width:70%"><div class="skel w40"></div><div class="skel"></div><div class="skel w60"></div></div>
+        <div class="ghost" style="width:56%"><div class="ghost-row"><div class="ghost-ico"></div><div style="flex:1"><div class="skel w60"></div><div class="skel w40" style="margin:0"></div></div></div></div>
+        <div class="overlay" style="width:70%"><span class="pill">
+          <svg class="lock" viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5v3H5.5A1.5 1.5 0 0 0 4 11.5v8A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 18.5 10H17V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 1 1 6 0v3H9Z"/></svg>
+          Contenido disponible al iniciar sesión
+        </span></div>
+      </div>
+    </div>
+  </div>
+  <div class="d-right">
+    <div class="card d-card">
+      <h2>Continúa donde lo dejaste</h2>
+      <p class="sub">Al entrar volverás a <b>tu entrenamiento de hoy</b>.</p>
+      <button class="btn btn-filled">
+        <svg class="gicon" viewBox="0 0 24 24"><path fill="#fff" d="M21.8 10.2h-9.6v3.3h9.1c-.4 2.2-2.4 3.9-4.9 3.9a5.5 5.5 0 1 1 3.9-9.4l2.4-2.4A8.8 8.8 0 1 0 12 20.8c4.6 0 8.3-3.3 8.7-8.1l-.9-.3-2-.2Z"/></svg>
+        Continuar con Google
+      </button>
+      <div class="divider">o con tu email</div>
+      <div class="field"><label for="e2">Email</label><input id="e2" type="email" placeholder="tu@email.com"></div>
+      <div class="field"><label for="p2">Contraseña</label><input id="p2" type="password" value="••••••••"></div>
+      <button class="btn btn-outlined">Entrar</button>
+      <div class="m-register"><a href="#">¿No tienes cuenta? Crear cuenta gratis</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PUENTE (D1) 390×844 ================= -->
+<section class="mock mock-bridge">
+  <div class="card bridge-card">
+    <div class="spinner"></div>
+    <p>Abriendo acceso a <b>tu entrenamiento de hoy</b>…</p>
+    <span class="cap">Vista protegida · iniciar sesión para continuar aquí</span>
+  </div>
+</section>
+
+<script>
+  const m = new URLSearchParams(location.search).get("mock");
+  if (m) document.body.dataset.mock = m;
+</script>
+</body>
+</html>

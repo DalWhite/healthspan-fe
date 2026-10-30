@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sesión guiada · mockups hi-fi — t_eb3ab918</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============ healthspan design system v1 — tokens verbatim (DESIGN.md) ============ */
+:root{
+  --hs-canvas:#0E1116; --hs-card:#161B22; --hs-input:#1F2630; --hs-raised:#283040; --hs-border:#262C36;
+  --hs-accent:#1E6FFF; --hs-accent-soft:#14233F; --hs-done:#2FBF71; --hs-pr:#F5B83D; --hs-err:#F1545B;
+  --hs-t1:#F2F4F8; --hs-t2:#A9B1BE; --hs-t3:#78818F;
+  --hs-font:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hs-radius-card:14px; --hs-radius-chip:8px; --hs-radius-button:12px;
+  /* motion tokens (hi-fi spec; reducen a 0 con prefers-reduced-motion) */
+  --hs-ease:cubic-bezier(.2,.7,.3,1); --hs-t-fast:120ms; --hs-t-med:220ms;
+}
+*{box-sizing:border-box}
+h1,h2,h3,p,ul,li,section,button,figure{margin:0;padding:0}
+html{font-variant-numeric:tabular-nums}
+body{background:var(--hs-canvas); color:var(--hs-t1); font-family:var(--hs-font); font-size:15px; line-height:1.5}
+img{display:block}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:rect(0,0,0,0)}
+
+/* ---------- scaffolding del prototipo ---------- */
+.proto-title{padding:24px 20px 4px;font-size:22px;font-weight:700;letter-spacing:-.3px}
+.proto-sub{padding:0 20px 20px;font-size:12.5px;color:var(--hs-t2);max-width:900px}
+.proto-grid{display:grid;grid-template-columns:repeat(3,390px);gap:28px;padding:0 20px 48px;justify-content:start}
+.col{display:flex;flex-direction:column;gap:8px}
+.frame-label{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--hs-t3)}
+.phone{width:390px;height:844px;border:1px solid var(--hs-border);border-radius:32px;background:var(--hs-canvas);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.screen{flex:1;display:flex;flex-direction:column;padding:16px 16px 0;gap:12px;min-height:0;position:relative}
+.note{font-size:11.5px;color:var(--hs-t3);border-left:2px solid var(--hs-border);padding-left:8px;line-height:1.45}
+
+/* ---------- componentes del sistema ---------- */
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:var(--hs-radius-chip);padding:4px 10px;font-size:11.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+.chip.done{background:rgba(47,191,113,.16);color:var(--hs-done)}
+.chip.accent{background:var(--hs-accent-soft);color:var(--hs-accent)}
+.chip.neutral{background:var(--hs-raised);color:var(--hs-t2)}
+.chip.err{background:rgba(241,84,91,.16);color:var(--hs-err)}
+.chip.coach{background:rgba(245,184,61,.16);color:var(--hs-pr)}
+.card{background:var(--hs-card);border:1px solid var(--hs-border);border-radius:var(--hs-radius-card);padding:16px}
+.cta{display:block;width:100%;text-align:center;background:var(--hs-accent);color:#fff;border:none;border-radius:var(--hs-radius-button);padding:15px;font-weight:700;font-size:16px;font-family:inherit}
+.cta.secondary{background:var(--hs-accent-soft);color:var(--hs-accent)}
+.cta.done-c{background:var(--hs-done);color:#06250F}
+.meta{font-size:12.5px;font-weight:500;color:var(--hs-t2)}
+.micro{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--hs-t2)}
+.link-tertiary{background:none;border:none;color:var(--hs-t3);font-size:13px;font-family:inherit;text-decoration:underline;text-underline-offset:3px;padding:14px;min-height:46px}
+
+.tabbar{display:flex;align-items:center;justify-content:space-around;border-top:1px solid var(--hs-border);background:rgba(14,17,22,.92);backdrop-filter:blur(8px);padding:9px 6px 12px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--hs-t3);min-width:44px;min-height:44px;justify-content:center}
+.tab .ic{width:20px;height:20px;border-radius:5px;border:1.6px solid currentColor;opacity:.9}
+.tab.on{color:var(--hs-accent)}
+.fab{width:46px;height:46px;border-radius:14px;background:var(--hs-accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:20px;box-shadow:0 0 18px rgba(30,111,255,.45)}
+.fab.green{background:var(--hs-done);color:#06250F;box-shadow:0 0 18px rgba(47,191,113,.45);animation:fab-pulse 1.8s var(--hs-ease) infinite}
+@keyframes fab-pulse{0%,100%{box-shadow:0 0 10px rgba(47,191,113,.35)}50%{box-shadow:0 0 26px rgba(47,191,113,.75)}}
+
+/* ---------- sesión guiada hs-gs-* ---------- */
+.gs-topbar{display:flex;align-items:center;gap:10px;min-height:44px}
+.gs-back{width:44px;height:44px;border-radius:10px;border:1px solid var(--hs-border);background:var(--hs-input);color:var(--hs-t2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.gs-title{font-size:16px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.coachline{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--hs-t2)}
+.coachline .sig{color:var(--hs-pr)}
+
+.gs-segbar{display:flex;gap:4px;height:6px}
+.gs-segbar i{flex:1;border-radius:3px;background:var(--hs-raised);position:relative;overflow:hidden}
+.gs-segbar i b{position:absolute;left:0;top:0;bottom:0;background:var(--hs-done);border-radius:3px}
+.gs-progline{display:flex;justify-content:space-between;font-size:12.5px;color:var(--hs-t2);margin-top:6px}
+
+/* tarjeta de slot con foto real */
+.gs-slot{display:flex;gap:12px;align-items:flex-start}
+.gs-thumb{width:52px;height:52px;border-radius:10px;background:var(--hs-input);border:1px solid var(--hs-border);flex-shrink:0;object-fit:cover}
+.gs-slotname{font-size:15px;font-weight:700;color:var(--hs-accent)}
+.gs-presc{font-size:13px;color:var(--hs-t2);margin-top:2px}
+.gs-dots{display:flex;gap:6px;margin-top:10px}
+.gs-dots i{width:9px;height:9px;border-radius:50%;background:var(--hs-raised)}
+.gs-dots i.f{background:var(--hs-done)}
+.gs-dots i.f.anim{animation:dot-fill var(--hs-t-med) var(--hs-ease) both}
+@keyframes dot-fill{from{transform:scale(0)}to{transform:scale(1)}}
+.gs-dots i.cur{background:var(--hs-accent);box-shadow:0 0 0 3px var(--hs-accent-soft)}
+.gs-detail-link{background:none;border:none;color:var(--hs-t3);font-size:12.5px;font-family:inherit;margin-top:4px;text-align:left;padding:14px 0;min-height:44px;text-decoration:underline;text-underline-offset:3px}
+
+/* contador en vivo */
+.gs-repwrap{background:var(--hs-card);border:1px solid var(--hs-border);border-radius:var(--hs-radius-card);padding:16px;display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.gs-repnum{font-size:76px;font-weight:800;letter-spacing:-3px;line-height:1;text-align:center}
+.gs-repnum.pop{animation:rep-pop var(--hs-t-fast) var(--hs-ease)}
+@keyframes rep-pop{0%{transform:scale(1)}45%{transform:scale(1.12)}100%{transform:scale(1)}}
+.gs-pluszone{min-height:120px;border-radius:var(--hs-radius-card);background:var(--hs-accent-soft);border:1px solid var(--hs-accent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:var(--hs-accent);font-weight:800;font-size:22px;cursor:pointer;user-select:none;transition:background var(--hs-t-fast) var(--hs-ease)}
+.gs-pluszone:active{background:#1B2F55}
+.gs-pluszone small{font-weight:600;font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:var(--hs-t2)}
+.gs-countsub{text-align:center;font-size:13px;color:var(--hs-t2)}
+
+/* descanso: ring con barrido animado */
+.gs-rest{display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 16px}
+.gs-ring{width:150px;height:150px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(var(--hs-accent) 0 312deg, var(--hs-raised) 312deg 360deg);animation:ring-sweep 30s linear infinite}
+@keyframes ring-sweep{from{background:conic-gradient(var(--hs-accent) 0 312deg, var(--hs-raised) 312deg 360deg)}to{background:conic-gradient(var(--hs-accent) 0 0deg, var(--hs-raised) 0deg 360deg)}}
+.gs-ring-in{width:126px;height:126px;border-radius:50%;background:var(--hs-card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.gs-ring-in .t{font-size:34px;font-weight:800;letter-spacing:-1px}
+.gs-restbtns{display:flex;gap:10px;width:100%}
+.gs-restbtns button{flex:1;padding:14px 12px;min-height:46px;border-radius:10px;border:1px solid var(--hs-border);background:var(--hs-input);color:var(--hs-t1);font-family:inherit;font-weight:600;font-size:14px}
+
+/* sheet detalle ejercicio */
+.sheet-scrim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.gs-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--hs-card);border-top:1px solid var(--hs-border);border-radius:20px 20px 0 0;padding:14px 16px 20px;box-shadow:0 -12px 32px rgba(0,0,0,.6)}
+.gs-grabber{width:36px;height:4px;border-radius:2px;background:var(--hs-raised);margin:0 auto 12px}
+.gs-sheet h3{font-size:16px;font-weight:700}
+.gs-hero-img{width:100%;height:170px;border-radius:10px;background:var(--hs-input);border:1px solid var(--hs-border);object-fit:cover;object-position:center 30%;margin-top:10px}
+.gs-tip{margin-top:12px;background:var(--hs-accent-soft);border-radius:10px;padding:10px 12px;font-size:13.5px;color:var(--hs-t1)}
+.gs-tip .micro{display:block;margin-bottom:4px;color:var(--hs-accent)}
+.gs-muscle{display:flex;gap:14px;margin-top:14px;align-items:flex-start}
+.gs-legend{font-size:13px;color:var(--hs-t2)}
+.gs-legend b{color:var(--hs-t1)}
+.gs-body{width:64px;height:132px;flex-shrink:0}
+.gs-body .sil{fill:var(--hs-input);stroke:var(--hs-border);stroke-width:1}
+.gs-body .prim{fill:var(--hs-accent)}
+.gs-body .sec{fill:none;stroke:var(--hs-accent);stroke-width:1.6}
+.gs-body text{fill:var(--hs-t3);font-size:8px;font-weight:700;letter-spacing:.8px}
+
+/* tarjeta-activación */
+.act-card{display:flex;flex-direction:column;gap:10px}
+.act-thumbs{display:flex;gap:8px;align-items:center}
+.act-thumbs img{width:44px;height:44px;border-radius:10px;border:1px solid var(--hs-border);object-fit:cover;background:var(--hs-input)}
+.act-title{font-size:16px;font-weight:700}
+
+/* vacío / completada */
+.empty-card{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:26px 16px}
+.empty-glyph{width:56px;height:56px;border-radius:14px;border:1.5px dashed var(--hs-t3);display:flex;align-items:center;justify-content:center;color:var(--hs-t3);font-size:22px}
+
+/* banner offline */
+.offline-banner{display:flex;align-items:center;gap:8px;background:var(--hs-raised);border:1px solid var(--hs-border);border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--hs-t2)}
+
+/* recap sheet */
+.recap-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--hs-border)}
+.recap-row:last-of-type{border-bottom:none}
+
+/* resumen de sesión */
+.sum-hero{text-align:center;padding:10px 0 2px}
+.sum-hero .t{font-size:56px;font-weight:800;letter-spacing:-2.5px;line-height:1}
+.sum-tiles{display:flex;gap:10px}
+.sum-tile{flex:1;background:var(--hs-card);border:1px solid var(--hs-border);border-radius:var(--hs-radius-card);padding:12px;text-align:center}
+.sum-tile .v{font-size:24px;font-weight:800}
+.sum-tile .l{margin-top:2px}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<h1 class="proto-title">Sesión guiada — mockups hi-fi (t_eb3ab918)</h1>
+<p class="proto-sub">Alta fidelidad sobre los wireframes aprobados de t_fc52ab22. Tokens DESIGN.md v1 verbatim + Inter real; fotos reales del catálogo (free-exercise-db) vía la misma ruta <code>ImageRoute</code>; animaciones = microinteracciones de sesión (ring de descanso, pop del contador, pulso del FAB) con spec de movimiento y <code>prefers-reduced-motion</code>. Cada teléfono = viewport real 390×844. Sin contornos «nuevo»: todo es ya propuesta de diseño definitiva.</p>
+
+<div class="proto-grid">
+
+<!-- A -->
+<div class="col"><div class="frame-label">A · Inicio de sesión guiada — tarjeta-activación en Hoy</div>
+<section class="phone"><div class="screen">
+  <div class="gs-topbar"><span class="gs-title">Hoy</span><span class="chip done"><span aria-hidden="true">✓</span> SYNCED</span></div>
+  <div class="card act-card">
+    <div class="act-thumbs">
+      <img src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg" alt="">
+      <img src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Floor_Press/0.jpg" alt="">
+      <img src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Flyes/0.jpg" alt="">
+      <span class="meta">+2</span>
+    </div>
+    <div class="act-title">Plan de hoy · Empuje</div>
+    <div class="meta">5 ejercicios · 14 series · ~50 min</div>
+    <span class="chip coach" style="align-self:flex-start"><span aria-hidden="true">✍</span> FIRMADO POR COACH ANA</span>
+    <button class="cta"><span aria-hidden="true">▶ </span>Empezar sesión de hoy</button>
+    <p class="note">1 toque, sin wizard. Idempotente por día: si la sesión ya está activa, el CTA pasa a «Seguir sesión en curso» y reabre /training/session con el progreso real.</p>
+  </div>
+  <div class="tabbar" style="margin:0 -16px">
+    <span class="tab on"><span class="ic"></span>Hoy</span><span class="tab"><span class="ic"></span>Historial</span><span class="fab" aria-hidden="true">+</span><span class="tab"><span class="ic"></span>Insights</span><span class="tab"><span class="ic"></span>Biblioteca</span>
+  </div>
+</div></section></div>
+
+<!-- B -->
+<div class="col"><div class="frame-label">B · Vacío — plan_empty (400)</div>
+<section class="phone"><div class="screen">
+  <div class="gs-topbar"><span class="gs-back" aria-label="Volver a Hoy">‹</span><span class="gs-title">Sesión de hoy</span></div>
+  <div class="card empty-card">
+    <div class="empty-glyph" aria-hidden="true">∅</div>
+    <div style="font-size:16px;font-weight:700">Aún no hay entreno de hoy</div>
+    <p class="meta" style="max-width:280px">Tu coach todavía no ha programado esta rutina. Cuando lo haga, aparecerá aquí.</p>
+    <button class="cta secondary" style="margin-top:8px;max-width:260px">Ver mis rutinas</button>
+  </div>
+  <p class="note">Error <code>plan_empty</code> (§3.6 MVP). Nunca un contador 0 engañoso; salida directa a la pantalla donde el plan sí existe.</p>
+</div></section></div>
+
+<!-- C -->
+<div class="col"><div class="frame-label">C · Tarjeta de ejercicio — sheet detalle (imagen, tip, músculos)</div>
+<section class="phone">
+  <div class="screen" style="opacity:.4">
+    <div class="gs-topbar"><span class="gs-back">‹</span><span class="gs-title">Sesión de hoy</span><span class="chip done"><span aria-hidden="true">✓</span> SYNCED</span></div>
+    <div class="gs-segbar" aria-hidden="true"><i><b style="width:100%"></b></i><i><b style="width:25%"></b></i><i></i><i></i><i></i></div>
+    <div class="card gs-slot" style="margin-top:12px"><div class="card" style="width:52px;height:52px;padding:0"></div><div style="flex:1"><div class="card" style="height:14px;width:70%;padding:0"></div></div></div>
+  </div>
+  <div class="sheet-scrim"></div>
+  <div class="gs-sheet">
+    <div class="gs-grabber"></div>
+    <h3>Press mancuernas</h3>
+    <div class="gs-presc meta" style="margin-top:4px">4 series × 10 reps · 22 kg · descanso 1:00</div>
+    <img class="gs-hero-img" src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Floor_Press/0.jpg" alt="Demostración del ejercicio press mancuernas">
+    <div class="gs-tip"><span class="micro"><span aria-hidden="true">✍ </span>Nota del coach</span>Codos a 45°, baja hasta que los brazos toquen el suelo, empuja sin arquear la espalda.</div>
+    <div class="gs-muscle">
+      <svg class="gs-body" viewBox="0 0 60 132" role="img" aria-label="Mapa muscular frontal: pectorales en relleno, deltoides en contorno">
+        <circle class="sil" cx="30" cy="10" r="7"/><rect class="sil" x="27" y="16" width="6" height="5"/>
+        <path class="sil" d="M18 21 Q14 23 14 27 L18 42 L20 62 L40 62 L42 42 L46 27 Q46 23 42 21 Z"/>
+        <rect class="sil" x="8" y="22" width="6" height="34" rx="3"/><rect class="sil" x="46" y="22" width="6" height="34" rx="3"/>
+        <rect class="sil" x="21" y="62" width="8" height="46" rx="4"/><rect class="sil" x="31" y="62" width="8" height="46" rx="4"/>
+        <circle class="sec" cx="13" cy="25" r="4.5"/><circle class="sec" cx="47" cy="25" r="4.5"/>
+        <path class="prim" d="M21 26 Q25 24 29 26 L29 33 Q25 35 21 33 Z"/><path class="prim" d="M31 26 Q35 24 39 26 L39 33 Q35 35 31 33 Z"/>
+        <text x="6" y="126">FRONT</text>
+      </svg>
+      <svg class="gs-body" viewBox="0 0 60 132" role="img" aria-label="Mapa muscular trasero: deltoides en contorno">
+        <circle class="sil" cx="30" cy="10" r="7"/><rect class="sil" x="27" y="16" width="6" height="5"/>
+        <path class="sil" d="M18 21 Q14 23 14 27 L18 42 L20 62 L40 62 L42 42 L46 27 Q46 23 42 21 Z"/>
+        <rect class="sil" x="8" y="22" width="6" height="34" rx="3"/><rect class="sil" x="46" y="22" width="6" height="34" rx="3"/>
+        <rect class="sil" x="21" y="62" width="8" height="46" rx="4"/><rect class="sil" x="31" y="62" width="8" height="46" rx="4"/>
+        <path class="sec" d="M23 22 L37 22 L33 34 L27 34 Z"/>
+        <text x="10" y="126">BACK</text>
+      </svg>
+      <div class="gs-legend"><span class="micro">Músculos</span><br><b>■ Primario:</b> pectorales<br><b>□ Secundario:</b> deltoides, tríceps</div>
+    </div>
+    <p class="note" style="margin-top:12px">Silueta vector del sistema (asset final por MuscleGroup pendiente, ver riesgo del spec). La leyenda de texto es obligatoria siempre. El sheet es vista de reposo y no tapa nunca el contador.</p>
+  </div>
+</section></div>
+
+<!-- D -->
+<div class="col"><div class="frame-label">D · Sesión en curso — slot 2/5, badge «plan firmado por coach»</div>
+<section class="phone"><div class="screen">
+  <div class="gs-topbar"><span class="gs-back" aria-label="Volver a Hoy">‹</span><span class="gs-title">Sesión de hoy</span><span class="chip done"><span aria-hidden="true">✓</span> SYNCED</span></div>
+  <div class="coachline"><span class="sig" aria-hidden="true">✍</span> Plan firmado por Coach Ana</div>
+  <div>
+    <div class="gs-segbar" aria-hidden="true"><i><b style="width:100%"></b></i><i><b style="width:25%"></b></i><i></i><i></i><i></i></div>
+    <div class="gs-progline"><span>Series 5/14 · reps 6/10</span><span>00:12:40</span></div>
+  </div>
+  <div class="card gs-slot">
+    <img class="gs-thumb" src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Floor_Press/0.jpg" alt="">
+    <div style="flex:1;min-width:0">
+      <div class="gs-slotname">Press mancuernas</div>
+      <div class="gs-presc">4×10 · 22 kg · descanso 1:00</div>
+      <div class="gs-dots" aria-label="Serie 2 de 4 en curso"><i class="f" aria-hidden="true"></i><i class="cur" aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div>
+      <button class="gs-detail-link">Ver detalle · tip · músculos ▾</button>
+    </div>
+  </div>
+  <p class="note">Progreso segmentado: un tramo por ejercicio, relleno por serie completada. Nombre en accent = acceso al sheet C. Al cerrar las 4 series, el slot pasa a ✓ y avanza solo al siguiente.</p>
+  <div class="tabbar" style="margin:0 -16px">
+    <span class="tab on"><span class="ic"></span>Hoy</span><span class="tab"><span class="ic"></span>Historial</span><span class="fab green" aria-label="Finalizar sesión">✓</span><span class="tab"><span class="ic"></span>Insights</span><span class="tab"><span class="ic"></span>Biblioteca</span>
+  </div>
+</div></section></div>
+
+<!-- E -->
+<div class="col"><div class="frame-label">E · Contador de series/reps en vivo</div>
+<section class="phone"><div class="screen">
+  <div class="gs-topbar"><span class="gs-back" aria-label="Volver a Hoy">‹</span><span class="gs-title">Press mancuernas</span><span class="chip neutral">PENDING (2)</span></div>
+  <div class="gs-repwrap" style="flex:1">
+    <span class="sr-only" role="status">Serie 2 de 4 · 6 reps de 10</span>
+    <span class="micro" style="text-align:center">REPS DE ESTA SERIE</span>
+    <div class="gs-repnum pop" aria-hidden="true">6</div>
+    <div class="gs-pluszone"><span>+1 REP</span><small>1 toque = 1 rep · zona táctil completa</small></div>
+    <div class="gs-countsub">reps 6/10 · serie 2/4</div>
+    <button class="cta" style="margin-top:2px"><span aria-hidden="true">✓ </span>SERIE HECHA</button>
+    <button class="link-tertiary">Deshacer serie</button>
+  </div>
+  <p class="note">Animación: el número hace pop 120 ms en cada +1 (spec motion abajo). «Serie hecha» = 1 op <code>complete_set</code> con feedback local inmediato; «Deshacer serie» = <code>undo_set</code> con confirmación. No hay zonas fantasma: fuera de la zona, no cuenta.</p>
+</div></section></div>
+
+<!-- F -->
+<div class="col"><div class="frame-label">F · Temporizador de descanso</div>
+<section class="phone"><div class="screen">
+  <div class="gs-topbar"><span class="gs-back" aria-label="Volver a Hoy">‹</span><span class="gs-title">Press mancuernas</span><span class="chip done"><span aria-hidden="true">✓</span> SYNCED</span></div>
+  <div class="card gs-rest">
+    <span class="micro">DESCANSO · SIGUIENTE: Press mancuernas · serie 3</span>
+    <div class="gs-ring" role="timer" aria-label="Quedan 52 segundos de descanso"><div class="gs-ring-in"><span class="t">0:52</span><span style="font-size:11px;color:var(--hs-t3)">de 1:00</span></div></div>
+    <div class="gs-restbtns"><button>+30s</button><button>Saltar</button></div>
+  </div>
+  <div class="gs-dots" style="justify-content:center"><i class="f" aria-hidden="true"></i><i class="f" aria-hidden="true"></i><i class="cur" aria-hidden="true"></i><i aria-hidden="true"></i></div>
+  <p class="note">Arranca solo tras el commit. El ring gira en sentido contrario al reloj (barrido accent → raised, linear); al 0: háptico + flash del ring + sr-only «Descanso terminado» y vuelta automática al contador. Skippable, +30s, nunca bloquea volver al slot.</p>
+</div></section></div>
+
+<!-- G -->
+<div class="col"><div class="frame-label">G · Confirmación / sincronización de fin</div>
+<section class="phone">
+  <div class="screen" style="opacity:.4">
+    <div class="gs-topbar"><span class="gs-back">‹</span><span class="gs-title">Sesión de hoy</span><span class="chip neutral">PENDING (2)</span></div>
+    <div class="card" style="height:64px"></div><div class="card" style="height:150px"></div>
+  </div>
+  <div class="sheet-scrim"></div>
+  <div class="gs-sheet">
+    <div class="gs-grabber"></div>
+    <h3>¿Finalizar sesión de hoy?</h3>
+    <div style="margin-top:10px">
+      <div class="recap-row"><span>Series registradas</span><b>12/14</b></div>
+      <div class="recap-row"><span>Adherencia al plan</span><b style="color:var(--hs-pr)">86%</b></div>
+      <div class="recap-row"><span>Sincronización</span><span class="chip neutral">PENDING (2)</span></div>
+    </div>
+    <p class="note" style="margin-top:10px">Con pending pendientes se puede finalizar igual: los ops salen de OPFS al reconectar y el Historial queda completo. Al confirmar: <code>POST /workouts/{id}/complete</code> → resumen (frame J).</p>
+    <div style="display:flex;gap:10px;margin-top:12px"><button class="cta secondary" style="flex:1">Seguir entrenando</button><button class="cta done-c" style="flex:1">Finalizar</button></div>
+  </div>
+</section></div>
+
+<!-- H -->
+<div class="col"><div class="frame-label">H · Offline — la sesión nunca se bloquea</div>
+<section class="phone"><div class="screen">
+  <div class="gs-topbar"><span class="gs-back" aria-label="Volver a Hoy">‹</span><span class="gs-title">Sesión de hoy</span><span class="chip neutral">PENDING (3)</span></div>
+  <div class="offline-banner"><span aria-hidden="true">⚠</span> SIN CONEXIÓN — TUS TOQUES SE GUARDAN</div>
+  <div class="gs-repwrap">
+    <span class="micro" style="text-align:center">REPS DE ESTA SERIE</span>
+    <div class="gs-repnum" style="font-size:60px" aria-hidden="true">8</div>
+    <div class="gs-pluszone" style="min-height:100px"><span style="font-size:19px">+1 REP</span><small>sigue funcionando sin red</small></div>
+    <div class="gs-countsub">reps 8/10 · serie 4/4 · Fondos en banco</div>
+    <button class="cta"><span aria-hidden="true">✓ </span>SERIE HECHA</button>
+  </div>
+  <p class="note">Snapshot, contadores y ops viven en OPFS (stack offline-first existente). Al reconectar: sync automático <code>PENDING (3) → SYNCED</code>. Los taps nunca se pierden; la red jamás deshabilita el contador.</p>
+</div></section></div>
+
+<!-- H2 -->
+<div class="col"><div class="frame-label">H2 · Error de sync — problem (retry)</div>
+<section class="phone"><div class="screen">
+  <div class="gs-topbar"><span class="gs-back" aria-label="Volver a Hoy">‹</span><span class="gs-title">Sesión de hoy</span><span class="chip err">PROBLEMA (REINTENTAR)</span></div>
+  <div class="card" style="border-color:rgba(241,84,91,.4)">
+    <div style="font-weight:700;color:var(--hs-err)">No se pudo sincronizar</div>
+    <p class="meta" style="margin-top:6px">Reintentando automáticamente (intento 2 de 3). Si sigue fallando, tus series siguen guardadas en el teléfono.</p>
+    <button class="cta secondary" style="margin-top:12px">Reintentar ahora</button>
+  </div>
+  <div class="gs-repwrap" style="opacity:.75">
+    <span class="micro" style="text-align:center">REPS DE ESTA SERIE</span>
+    <div class="gs-repnum" style="font-size:56px" aria-hidden="true">4</div>
+    <button class="cta"><span aria-hidden="true">✓ </span>SERIE HECHA</button>
+  </div>
+  <p class="note">Auto-retry ≤3 con backoff 1/2/4 s; el chip problem solo nace de <code>failed[]</code> de /sync. La sesión sigue usable: los contadores locales son la verdad. Error específico, sin culpa, con acción (NN/g).</p>
+</div></section></div>
+
+<!-- I -->
+<div class="col"><div class="frame-label">I · Sesión ya completada (409 session_completed)</div>
+<section class="phone"><div class="screen">
+  <div class="gs-topbar"><span class="gs-back" aria-label="Volver a Hoy">‹</span><span class="gs-title">Sesión de hoy</span></div>
+  <div class="card empty-card">
+    <div class="empty-glyph" style="border-color:var(--hs-done);color:var(--hs-done);border-style:solid;background:rgba(47,191,113,.16)" aria-hidden="true">✓</div>
+    <div style="font-size:16px;font-weight:700">Fin del entreno — ya está en tu Historial</div>
+    <p class="meta">Sesión de hoy completada · 14/14 series · 00:48:12</p>
+    <button class="cta secondary" style="margin-top:8px;max-width:260px">Ver en Historial</button>
+  </div>
+  <p class="note">Código <code>session_completed</code> (§3.6 MVP). Al recargar /training/session con CompletedAt puesto se abre el resumen directamente; cualquier <code>complete_set</code> posterior devuelve 409. Mañana la tarjeta-activación crea la sesión nueva.</p>
+</div></section></div>
+
+<!-- J -->
+<div class="col"><div class="frame-label">J · Resumen post-sesión — sync confirmado</div>
+<section class="phone"><div class="screen">
+  <div class="gs-topbar"><span class="gs-title">Entreno completado</span></div>
+  <div class="sum-hero">
+    <span class="micro">DURACIÓN TOTAL</span>
+    <div class="t">00:48:12</div>
+  </div>
+  <div class="sum-tiles">
+    <div class="sum-tile"><div class="v">14/14</div><div class="l micro">SERIES</div></div>
+    <div class="sum-tile"><div class="v" style="color:var(--hs-pr)">100%</div><div class="l micro">ADHERENCIA</div></div>
+    <div class="sum-tile"><div class="v">5</div><div class="l micro">EJERCICIOS</div></div>
+  </div>
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+    <div style="font-size:13.5px"><span aria-hidden="true">✍</span> Plan de Coach Ana · Empuje</div>
+    <span class="chip done"><span aria-hidden="true">✓</span> SYNCED</span>
+  </div>
+  <div style="flex:1"></div>
+  <button class="cta" style="margin-bottom:16px">Volver a Hoy</button>
+  <p class="note">El usuario aterriza en contexto, no en catálogo. El chip SYNCED confirma que las 14 series están en el servidor; si llegara con pending, diría <code>PENDING (n)</code> sin bloquear.</p>
+</div></section></div>
+
+</div>
+
+<div style="padding:0 20px 60px;max-width:1240px">
+<h2 style="font-size:15px;font-weight:700;margin-bottom:10px">Spec de movimiento (microinteracciones obligatorias)</h2>
+<table style="width:100%;border-collapse:collapse;font-size:13px;color:var(--hs-t2)">
+<tr style="border-bottom:1px solid var(--hs-border)"><th style="text-align:left;padding:8px 0;color:var(--hs-t1)">Momento</th><th style="text-align:left;padding:8px 0;color:var(--hs-t1)">Animación</th><th style="text-align:left;padding:8px 0;color:var(--hs-t1)">Timing</th></tr>
+<tr style="border-bottom:1px solid var(--hs-border)"><td style="padding:8px 0">+1 rep</td><td style="padding:8px 0">pop del número hero (scale 1→1.12→1)</td><td style="padding:8px 0">120 ms · ease-out</td></tr>
+<tr style="border-bottom:1px solid var(--hs-border)"><td style="padding:8px 0">Serie hecha</td><td style="padding:8px 0">dot del slot se rellena (scale 0→1) + fila a wash done si cierra slot</td><td style="padding:8px 0">220 ms stagger 60 ms</td></tr>
+<tr style="border-bottom:1px solid var(--hs-border)"><td style="padding:8px 0">Descanso</td><td style="padding:8px 0">barrido cónico del ring en linear continuo; al 0: pulso del borde + háptico</td><td style="padding:8px 0">lineal · pulso 600 ms</td></tr>
+<tr style="border-bottom:1px solid var(--hs-border)"><td style="padding:8px 0">Slot completo</td><td style="padding:8px 0">card saliente sale −16 px fade, entrante entra +16 px → 0</td><td style="padding:8px 0">220 ms · cubic-bezier(.2,.7,.3,1)</td></tr>
+<tr><td style="padding:8px 0">Final disponible</td><td style="padding:8px 0">FAB verde pulsa el glow para señalar el único siguiente paso</td><td style="padding:8px 0">1.8 s loop</td></tr>
+</table>
+<p class="note" style="margin-top:12px">Reglas: ninguna animación bloquea interacción; todo se apaga con <code>prefers-reduced-motion:reduce</code>; el feedback de commit es el dot + wash, no la animación (funciona igual sin motion). Las fotos de ejercicio siguen siendo estáticas (corte MVP): la «animación» pedida en la tarjeta es la de la sesión, no vídeo del ejercicio.</p>
+</div>
+</body>
+</html>

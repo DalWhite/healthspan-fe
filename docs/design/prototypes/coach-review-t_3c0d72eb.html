@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Revisión semanal · coach · 5 frames @390 · t_3c0d72eb</title>
+<style>
+:root{
+  --canvas:#0E1116;--card:#161B22;--border:#262C36;--input:#1F2630;--raised:#283040;
+  --accent:#1E6FFF;--accentText:#4D8CFF;--accentDeep:#1B63EA;--soft:#14233F;--done:#2FBF71;--pr:#F5B83D;--err:#F1545B;
+  --t1:#F2F4F8;--t2:#A9B1BE;--t3:#78818F;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#05070A;font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--t1);display:flex;flex-wrap:wrap;gap:28px;padding:28px}
+.f{position:relative;width:390px;min-height:844px;background:var(--canvas);border-radius:18px;border:1px solid var(--border);display:flex;flex-direction:column;gap:12px;padding:14px;overflow:visible}
+.f>*{position:relative}
+h1{font-size:26px;font-weight:800;letter-spacing:-0.5px;margin:0}
+.lbl{position:absolute;top:-22px;left:14px;font-size:12.5px;font-weight:700;color:var(--t2)}
+.card,.sec{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
+.hero{font-size:34px;font-weight:800;letter-spacing:-2px;line-height:1.05}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--soft);color:var(--accentText);border-radius:8px;padding:6px 9px;font-size:11px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase}
+.chip .ic{font-size:14px;line-height:1}
+.chip.pend{background:var(--input);color:var(--t2)}
+.chip.w{background:rgba(245,184,61,.16);color:var(--pr)}
+.chip.g{background:rgba(47,191,113,.14);color:var(--done)}
+.chip.data{background:transparent;border:1px dashed var(--border);color:var(--t2)}
+button{font-family:inherit;border:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{background:var(--accent);color:#fff;border-radius:12px;padding:15px 20px;font-size:16px;font-weight:700;min-height:48px;min-width:150px;display:inline-flex;align-items:center;gap:10px}
+.btn.sec{background:var(--soft);color:var(--accentText);padding:11px 16px;font-size:13.5px;min-height:44px}
+.btn.off{background:var(--input);color:var(--t2);padding:12px 16px;min-height:44px;border-radius:12px;cursor:not-allowed}
+.strip{position:sticky;bottom:0;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.strip .mini{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--t2)}
+.strip .btn2{background:var(--accentDeep);color:#fff;border-radius:12px;padding:8px 16px;min-height:44px;font-size:12.5px;font-weight:700;letter-spacing:.4px}
+.strip .btn2.sec{background:var(--soft);color:var(--accentText)}
+.arr{font-size:18px;font-weight:700}
+.arr.up{color:var(--done)}.arr.dn{color:var(--err)}.arr.eq{color:var(--t2)}
+.vol{margin-left:auto;font-size:13px;color:var(--t2)}
+.gname{font-size:15px;font-weight:700}
+.bar{height:16px;border-radius:4px;background:var(--accent)}
+.bar.g{background:var(--done)}
+.bar.w{background:var(--pr)}
+.bands{display:flex;gap:8px;flex-direction:column}
+.bands .b{display:flex;align-items:center;gap:8px}
+.bands .bn{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--t2);min-width:44px}
+.bands .bl{height:14px;border-radius:4px;background:var(--soft);border:1px dashed var(--accent)}
+.bands .av{height:14px;border-radius:4px;background:var(--accent)}
+.bubble{background:var(--input);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-height:84px}
+.bubble .p{margin:0;font-size:14.5px;color:var(--t1)}
+.bubble .sg{margin-top:8px;font-size:12.5px;color:var(--t2)}
+textarea{background:var(--input);border:1px solid var(--border);border-radius:10px;color:var(--t1);padding:10px 12px;min-height:72px;font-size:13.5px;width:100%;font-family:inherit}
+textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.knob{display:flex;align-items:center;gap:12px;min-height:44px}
+.toggle{width:30px;height:22px;border-radius:8px;background:var(--input);border:1px solid var(--border);position:relative}
+.toggle .k{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:99px;background:var(--t1)}
+.toggle .kR{left:auto;right:2px}
+.err-box{border:1px solid rgba(241,84,91,.5);border-radius:12px;padding:14px;color:var(--t1);font-size:14.5px;background:rgba(241,84,91,.12)}
+.err-box .sub{margin-top:8px;font-size:12.5px;color:var(--t2)}
+.ftr{margin-top:auto;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t3)}
+.mut2{font-size:12.5px;color:var(--t2)}
+.mut3{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--t2)}
+.g{color:var(--done)}.w{color:var(--pr)}.r{color:var(--err)}.a{color:var(--accent)}
+.b{font-weight:700}
+.row{display:flex;align-items:center;gap:10px}
+.week{display:flex;gap:6px}
+.week .d{display:flex;flex-direction:column;align-items:center;gap:3px}
+.week .dl{font-size:11px;font-weight:700;color:var(--t2)}
+.week .dt{width:30px;height:30px;border-radius:99px;background:var(--input);border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:var(--t3)}
+.week .dt.ok{background:rgba(47,191,113,.14);color:var(--done);border-color:rgba(47,191,113,.4)}
+.week .dt.warn{background:rgba(245,184,61,.16);color:var(--pr);border-color:rgba(245,184,61,.45)}
+</style>
+</head>
+<body>
+
+<div class="f">
+  <h1>Revisión</h1>
+  <div class="row">
+    <span class="chip"><span class="ic">●</span>3 por revisar · semana 43</span>
+  </div>
+  <div class="mut2">19 → 25 oct · de menor a mayor cumplimiento</div>
+  <button class="btn" style="min-width:190px">Send (2)</button>
+  <div class="mut2">Send = aprobados y ajustados listos para entregar</div>
+
+  <div class="card">
+    <div class="row"><span class="gname">Iker R.</span><span class="mut2">· Coach Lina</span><span class="w b" style="margin-left:auto;font-size:15px">71%</span></div>
+    <div class="mut2">19 → 25 oct · W43</div>
+    <div class="chip pend"><span class="ic">●</span>Revisar</div>
+    <div class="mut2">Por debajo del plan. Core por debajo del baseline. Recomendación: cubrir el plan.</div>
+  </div>
+
+  <div class="card">
+    <div class="row"><span class="gname">Marta K.</span><span class="mut2">· Coach Pau</span><span class="g b" style="margin-left:auto;font-size:15px">92%</span></div>
+    <div class="mut2">19 → 25 oct · W43</div>
+    <div class="chip pend"><span class="ic">●</span>Revisar</div>
+    <div class="mut2">Plan en marcha. Tren superior fuerte; pierna por debajo del baseline. Recomendación: más volumen bajo.</div>
+  </div>
+
+  <div class="card">
+    <div class="row"><span class="gname">Sofía M.</span><span class="mut2">· Coach Pau</span><span class="mut3" style="margin-left:auto">—</span></div>
+    <div class="mut2">19 → 25 oct · W43</div>
+    <div class="row" style="gap:8px"><span class="chip pend"><span class="ic">●</span>Revisar</span><span class="chip data"><span class="ic">○</span>Sin plan</span></div>
+    <div class="mut2">Sin plan esta semana. Solo actividad de bienestar. Se necesita nota del coach.</div>
+  </div>
+
+  <div class="card">
+    <div class="row"><span class="gname">Alba P.</span><span class="mut2">· Coach Pau</span><span class="g b" style="margin-left:auto;font-size:15px">96%</span></div>
+    <div class="mut2">19 → 25 oct · W43</div>
+    <div class="chip"><span class="ic">✓</span>Aprobado</div>
+  </div>
+
+  <div class="card">
+    <div class="row"><span class="gname">Tomas W.</span><span class="mut2">· Coach Pau</span><span class="g b" style="margin-left:auto;font-size:15px">100%</span></div>
+    <div class="chip w"><span class="ic">✎</span>Ajustado</div>
+  </div>
+
+  <div class="card">
+    <div class="row"><span class="gname">Noa H.</span><span class="mut2">· Coach Pau</span><span class="g b" style="margin-left:auto;font-size:15px">88%</span></div>
+    <div class="chip g"><span class="ic">✈</span>Enviado</div>
+  </div>
+
+  <div class="ftr">Cola · pendientes primero (peor primero) · sin plan tras los con datos · 1 toque = abrir informe</div>
+  <span class="lbl">1 · cola · W43 (generada el lunes)</span>
+</div>
+
+<div class="f">
+  <h1>Revisión</h1>
+  <div class="row"><span class="gname">Marta K.</span><span class="mut2">· Coach Pau · 19 → 25 oct</span></div>
+  <div class="chip pend"><span class="ic">●</span>Revisar</div>
+  <div class="hero">92%</div>
+  <div class="mut2">cumplimiento del plan · 6/7 sesiones</div>
+
+  <div class="sec">
+    <div class="mut3">Cumplimiento</div>
+    <div class="week">
+      <div class="d"><span class="dl">L</span><span class="dt ok">✓</span></div>
+      <div class="d"><span class="dl">M</span><span class="dt ok">✓</span></div>
+      <div class="d"><span class="dl">X</span><span class="dt ok">✓</span></div>
+      <div class="d"><span class="dl">J</span><span class="dt ok">✓</span></div>
+      <div class="d"><span class="dl">V</span><span class="dt warn">!</span></div>
+      <div class="d"><span class="dl">S</span><span class="dt ok">✓</span></div>
+      <div class="d"><span class="dl">D</span><span class="dt">·</span></div>
+    </div>
+    <div class="mut2">✓ hecho · ! parcial · · sin sesión · Vie: 22/64 reps</div>
+  </div>
+
+  <div class="sec">
+    <div class="mut3">Volumen por grupo</div>
+    <div class="row"><span class="gname">Pecho</span><div class="bar" style="width:132px"></div><span class="vol">264 reps</span></div>
+    <div class="row"><span class="gname">Hombro</span><div class="bar" style="width:98px"></div><span class="vol">196 reps</span></div>
+    <div class="row"><span class="gname">Espalda</span><div class="bar" style="width:118px"></div><span class="vol">236 reps</span></div>
+    <div class="row"><span class="gname">Brazo</span><div class="bar" style="width:76px"></div><span class="vol">152 reps</span></div>
+    <div class="row"><span class="gname">Core</span><div class="bar" style="width:84px"></div><span class="vol">168 reps</span></div>
+    <div class="row"><span class="gname">Pierna</span><span class="chip w"><span class="ic">!</span>Punto débil</span><div class="bar w" style="width:48px"></div><span class="vol">96 reps</span></div>
+    <div class="row"><span class="gname">Glúteo</span><div class="bar" style="width:40px"></div><span class="vol">80 reps</span></div>
+  </div>
+
+  <div class="sec">
+    <div class="mut3">Bienestar extra</div>
+    <div class="row"><span class="gname">Fuerza</span><div class="bar g" style="width:52px"></div><span class="vol">52 min</span></div>
+    <div class="mut2">No computa en el volumen muscular.</div>
+  </div>
+
+  <div class="sec">
+    <div class="mut3">Balance de intensidad</div>
+    <div class="bands">
+      <div class="b"><span class="bn">Baja</span><div class="bl" style="width:60px"></div><div class="av" style="width:92px"></div></div>
+      <div class="b"><span class="bn">Media</span><div class="bl" style="width:120px"></div><div class="av" style="width:64px"></div></div>
+      <div class="b"><span class="bn">Alta</span><div class="bl" style="width:60px"></div><div class="av" style="width:24px"></div></div>
+    </div>
+    <div class="mut2">Discontinuo = plan · sólido = realizado · balance 82% · más baja que el plan</div>
+  </div>
+
+  <div class="sec">
+    <div class="mut3">Tendencia · últimas 6 semanas</div>
+    <div class="row"><span class="gname">Pecho</span><span class="arr up">↑</span><span class="vol">+14%</span></div>
+    <div class="row"><span class="gname">Espalda</span><span class="arr eq">→</span><span class="vol">+4%</span></div>
+    <div class="row"><span class="gname">Pierna</span><span class="arr dn">↓</span><span class="vol">−21%</span></div>
+    <div class="row"><span class="gname">% de plan</span><span class="arr eq">→</span><span class="vol">+3%</span></div>
+  </div>
+
+  <div class="bubble">
+    <p class="p">Plan en marcha. Tren superior fuerte; pierna por debajo del baseline. Recomendación: más volumen bajo.</p>
+    <div class="sg">Resumen del coach · de plantilla · toca para ajustar</div>
+  </div>
+
+  <div class="strip">
+    <span class="mini">Acciones</span>
+    <span class="row" style="gap:8px">
+      <button class="btn2 sec">✎ Adjust</button>
+      <button class="btn2">✓ Approve</button>
+    </span>
+  </div>
+
+  <div class="ftr">Detalle · orden fijo D10 · barra de acciones sticky inferior (alcance del pulgar)</div>
+  <span class="lbl">2 · informe · coach_pending</span>
+</div>
+
+<div class="f">
+  <h1>Adjust</h1>
+  <div class="row"><span class="gname">Marta K.</span><span class="mut2">· 19 → 25 oct · 92%</span></div>
+  <div class="strip">
+    <span class="mini">Guardar = estado «ajustado»</span>
+    <button class="btn2">Guardar</button>
+  </div>
+
+  <div class="card">
+    <div class="mut3">1 · nota del coach</div>
+    <textarea>Plan en marcha. Tren superior fuerte; pierna por debajo del baseline. Recomendación: más volumen bajo.</textarea>
+    <div class="mut2">Sin cambios = plantilla. Si editas, el deportista solo ve tu nota.</div>
+  </div>
+
+  <div class="card">
+    <div class="mut3">2 · ocultar grupo</div>
+    <div class="row knob"><span class="gname">Pecho</span><div class="toggle"><div class="k"></div></div><span class="mut2" style="margin-left:auto">visible</span></div>
+    <div class="row knob"><span class="gname">Pierna</span><div class="toggle"><div class="kR"></div></div><span class="mut2" style="margin-left:auto">oculto</span></div>
+    <div class="row knob"><span class="gname">Espalda</span><div class="toggle"><div class="k"></div></div><span class="mut2" style="margin-left:auto">visible</span></div>
+    <div class="mut2">Los toggles ocultan filas; ningún número se edita.</div>
+  </div>
+
+  <div class="card">
+    <div class="mut3">3 · recalcular números</div>
+    <button class="btn" style="min-width:170px">Recalcular</button>
+    <div class="mut2">Recuenta desde los datos. El coach nunca escribe cifras.</div>
+  </div>
+
+  <div class="card">
+    <div class="mut3">Conflicto 409 · error inline</div>
+    <div class="err-box">El informe cambió en otro dispositivo. Recarga para revisar la última versión.
+      <div class="sub">Tu nota se conserva · versión 2 → 3</div>
+    </div>
+  </div>
+
+  <div class="ftr">Hoja Adjust · 3 únicos mandos · sin escritura de métricas · Guardar→PATCH If-Match</div>
+  <span class="lbl">3 · hoja Adjust (bottom sheet)</span>
+</div>
+
+<div class="f">
+  <h1>Revisión</h1>
+  <div class="row"><span class="gname">Noa H.</span><span class="mut2">· Coach Pau · 19 → 25 oct</span></div>
+  <div class="chip g"><span class="ic">✈</span>Enviado</div>
+  <div class="hero">88%</div>
+  <div class="mut2">cumplimiento del plan · enviado el 26 oct</div>
+
+  <div class="sec">
+    <div class="mut3">Tendencia · historial insuficiente</div>
+    <div class="mut2">Solo 2 semanas completas. Sin flechas con menos de 3 semanas (E8).</div>
+  </div>
+
+  <div class="sec">
+    <div class="mut3">Balance de intensidad</div>
+    <div class="chip data"><span class="ic">?</span>Sin datos</div>
+    <div class="mut2">Fatiga e intensidad no registradas (E6).</div>
+  </div>
+
+  <div class="bubble">
+    <p class="p">Plan completado. Semana equilibrada. Mantén la tendencia.</p>
+    <div class="sg">Enviado al deportista · bloqueado</div>
+  </div>
+
+  <div class="strip">
+    <span class="mini">Bloqueado · enviado</span>
+    <span class="row" style="gap:8px">
+      <button class="btn off" disabled>✎ Adjust</button>
+      <button class="btn off" disabled>✓ Approve</button>
+    </span>
+  </div>
+
+  <div class="ftr">Enviado = bloqueado (E11) · E6/E8 sin datos, nunca 0 ni flechas falsas</div>
+  <span class="lbl">4 · enviado + estados sin datos</span>
+</div>
+
+<div class="f">
+  <h1>Revisión</h1>
+  <div class="row"><span class="gname">Sofía M.</span><span class="mut2">· Coach Pau · 19 → 25 oct</span></div>
+  <div class="chip data"><span class="ic">○</span>Sin plan</div>
+  <div class="hero">—</div>
+  <div class="mut2">sin plan esta semana · nunca 0% (E1)</div>
+
+  <div class="sec">
+    <div class="mut3">Cumplimiento</div>
+    <div class="chip data"><span class="ic">?</span>Sin datos</div>
+    <div class="mut2">No había plan activo esa semana.</div>
+  </div>
+
+  <div class="sec">
+    <div class="mut3">Bienestar extra</div>
+    <div class="row"><span class="gname">Movilidad</span><div class="bar g" style="width:36px"></div><span class="vol">31 min</span></div>
+    <div class="mut2">Única actividad · no computa en volumen.</div>
+  </div>
+
+  <div class="bubble">
+    <p class="p">Sin plan esta semana. Solo bienestar. Revisa y añade una nota para el deportista.</p>
+    <div class="sg">Resumen del coach · de plantilla</div>
+  </div>
+
+  <div class="strip">
+    <span class="mini">Acciones</span>
+    <span class="row" style="gap:8px">
+      <button class="btn2 sec">✎ Adjust</button>
+      <button class="btn2">✓ Approve</button>
+    </span>
+  </div>
+
+  <div class="ftr">E1 · informe sin plan: aprobable con 1 toque; Approve sigue disponible</div>
+  <span class="lbl">5 · E1 sin plan · Approve disponible</span>
+</div>
+
+</body>
+</html>
