@@ -142,7 +142,7 @@
             return "Enter your email to sign in.";
         }
 
-        if (!EmailPattern.IsMatch(value.Trim()))
+        if (!IsLikelyEmail(value.Trim()))
         {
             return "Use an email address like name@example.com.";
         }
@@ -150,8 +150,27 @@
         return null;
     }
 
-    private static readonly System.Text.RegularExpressions.Regex EmailPattern =
-        new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", System.Text.RegularExpressions.RegexOptions.Compiled);
+    // Equivalent to ^[^\s@]+@[^\s@]+\.[^\s@]+$ without Regex: one '@',
+    // no whitespace, a dot after the '@' and none of '@'/space in any part.
+    private static bool IsLikelyEmail(string value)
+    {
+        var at = value.IndexOf('@');
+        if (at <= 0 || at == value.Length - 1 || value.IndexOf('@', at + 1) >= 0)
+        {
+            return false;
+        }
+
+        var dot = value.IndexOf('.', at + 1);
+        if (dot < 0 || dot == at + 1 || dot == value.Length - 1)
+        {
+            return false;
+        }
+
+        return !value.AsSpan().Contains(' ')
+            && !value.AsSpan().Contains('\t')
+            && !value.AsSpan().Contains('\n')
+            && !value.AsSpan().Contains('\r');
+    }
 
     void ButtonTestclick()
     {

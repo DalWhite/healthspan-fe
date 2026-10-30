@@ -72,7 +72,7 @@ public sealed class LocalMutator
         }
 
         // ── /Workouts/{id}/... ────────────────────────────────────────────────
-        var sessionAdd = Match(path, @"^/workouts/([^/]+)/exercises$");
+        var sessionAdd = MatchRouteId(path, "/workouts", "/exercises");
         if (sessionAdd is not null && method == HttpMethod.Post)
         {
             var workout = await ResolveWorkoutAsync(sessionAdd);
@@ -91,7 +91,7 @@ public sealed class LocalMutator
             return JsonResponse(await BuildSessionAsync(workout));
         }
 
-        var duplicate = Match(path, @"^/workouts/([^/]+)/duplicate$");
+        var duplicate = MatchRouteId(path, "/workouts", "/duplicate");
         if (duplicate is not null && method == HttpMethod.Post)
         {
             var source = await ResolveWorkoutAsync(duplicate);
@@ -111,7 +111,7 @@ public sealed class LocalMutator
         }
 
         // ── /Workouts/{id}/blocks ─────────────────────────────────────────────
-        var blockAdd = Match(path, @"^/workouts/([^/]+)/blocks$");
+        var blockAdd = MatchRouteId(path, "/workouts", "/blocks");
         if (blockAdd is not null && method == HttpMethod.Post)
         {
             var workout = await ResolveWorkoutAsync(blockAdd);
@@ -130,7 +130,7 @@ public sealed class LocalMutator
             return JsonResponse(await AddBlockAsync(workout, body));
         }
 
-        var blockById = Match(path, @"^/workouts/blocks/([^/]+)$");
+        var blockById = MatchRouteId(path, "/workouts/blocks");
         if (blockById is not null && method == HttpMethod.Delete)
         {
             var block = await ResolveBlockAsync(blockById);
@@ -164,7 +164,7 @@ public sealed class LocalMutator
             }
         }
 
-        var workoutById = Match(path, @"^/workouts/([^/]+)$");
+        var workoutById = MatchRouteId(path, "/workouts");
         if (workoutById is not null)
         {
             if (method == HttpMethod.Get)
@@ -224,7 +224,7 @@ public sealed class LocalMutator
             }
         }
 
-        var exerciseById = Match(path, @"^/exercises/([^/]+)$");
+        var exerciseById = MatchRouteId(path, "/exercises");
         if (exerciseById is not null && method == HttpMethod.Delete)
         {
             var exercise = await ResolveExerciseAsync(exerciseById);
@@ -1197,11 +1197,50 @@ public sealed class LocalMutator
                 "application/problem+json")
         };
 
-    private static string? Match(string path, string pattern)
+    // Segment matcher for "/prefix/{id}" and "/prefix/{id}/suffix" routes.
+    // Replaces a Regex.Match per route: same semantics (case-insensitive
+    // prefix/suffix, id = any single non-empty segment), no Regex dependency.
+    private static string? MatchRouteId(string path, string prefix, string? suffix = null)
     {
-        var match = System.Text.RegularExpressions.Regex.Match(
-            path.ToLowerInvariant(), pattern);
-        return match.Success ? match.Groups[1].Value : null;
+        var trimmed = path.Trim('/');
+        if (trimmed.Length == 0)
+        {
+            return null;
+        }
+
+        var segments = trimmed.Split('/');
+        var prefixSegments = prefix.Trim('/').Split('/');
+        var suffixSegments = suffix is null ? [] : suffix.Trim('/').Split('/');
+
+        if (segments.Length != prefixSegments.Length + 1 + suffixSegments.Length)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < prefixSegments.Length; i++)
+        {
+            if (!segments[i].Equals(prefixSegments[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+        }
+
+        var id = segments[prefixSegments.Length];
+        if (id.Length == 0)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < suffixSegments.Length; i++)
+        {
+            if (!segments[prefixSegments.Length + 1 + i]
+                    .Equals(suffixSegments[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+        }
+
+        return id;
     }
 
     private static DateOnly? ParseDate(string? value)

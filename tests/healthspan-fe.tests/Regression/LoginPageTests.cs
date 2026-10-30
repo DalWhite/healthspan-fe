@@ -89,6 +89,33 @@ public class LoginPageTests : BlazorTestBase
     }
 
     [Theory]
+    // Parity with the old ^[^@\s]+@[^@\s]+\.[^@\s]+$ pattern, now segment-based.
+    [InlineData("wall@healthspan.dev", false)]
+    [InlineData("a@b.c", false)]
+    [InlineData("a@b.co.uk", false)]
+    [InlineData("not-an-email", true)]
+    [InlineData("a@b", true)]
+    [InlineData("@b.co", true)]
+    [InlineData("a@", true)]
+    [InlineData("a@@b.co", true)]
+    [InlineData("a@.co", true)]
+    [InlineData("a@b.", true)]
+    [InlineData("a b@c.com", true)]
+    public void Email_Rule_Rejects_Malformed_And_Accepts_Well_Formed_Addresses(
+        string email, bool mustReject)
+    {
+        var account = Substitute.For<IAccountManagement>();
+        Services.AddSingleton(account);
+
+        var cut = RenderComponent<Login>();
+        cut.FindAll("input")[0].Change(email);
+
+        cut.WaitForAssertion(() =>
+            cut.Markup.Contains("Use an email address like name@example.com.")
+                .Should().Be(mustReject));
+    }
+
+    [Theory]
     [InlineData("Invalid login attempt.",
         "We couldn't match that email and password. Check them and try again.")]
     [InlineData("This account is temporarily locked.",
