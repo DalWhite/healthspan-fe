@@ -34,11 +34,18 @@
     {
         <article class="hs-exercise-hero hs-surface">
             <div class="hs-exercise-hero-media">
-                <img src="@HeroImageUrl"
-                     alt="@(_exerciseType.Name ?? "Exercise")"
-                     loading="lazy"
-                     decoding="async"
-                     onerror="this.remove()" />
+                @* Same rule as the library card: the photo exists only if the record has an
+                   ImageRoute; otherwise the container shows its CSS placeholder and no
+                   request is made. alt="" because the name is already in the page heading. *@
+                @{ var heroUrl = global::ExercisePhoto.Url(_exerciseType.ImageRoute); }
+                @if (heroUrl is not null)
+                {
+                    <img src="@heroUrl"
+                         alt=""
+                         loading="lazy"
+                         decoding="async"
+                         onerror="this.remove()" />
+                }
             </div>
             <div class="hs-exercise-hero-body">
                 <div class="hs-exercise-hero-meta">@HeroMetaLine</div>
@@ -425,13 +432,6 @@
             .Where(variation => variation.Id != ExerciseTypeId)
             .OrderBy(variation => variation.Name)
             .ToList();
-
-    private string HeroImageUrl
-        => _exerciseType is null
-            ? string.Empty
-            : !string.IsNullOrEmpty(_exerciseType.ImageRoute)
-                ? _exerciseType.ImageRoute
-                : $"ExerciseImages/{_exerciseType.Name}.jpg";
 
     // Hero meta line: muscle · equipment · variation count. Segments are omitted when
     // unknown (never "—" and never an empty "· ·").
