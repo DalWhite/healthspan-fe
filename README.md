@@ -3,6 +3,7 @@
 Progressive Web App for **Healthspan**, a self-hosted personal training & health-tracking platform. Users log workouts, follow guided training plans, import training history from CSV, upload blood-test results for analysis, and track running assessments — with an offline-first exercise catalogue.
 
 **Who it's for:** the same audience as the [Healthspan API](https://github.com/DalWhite/healthspan-api): people who want their fitness and health data on infrastructure they control.
+NOTE: Currently not in production and accessible only with allowlist. Even though it could potentially process personal health data, it DOES NOT.
 
 ## Built with
 
