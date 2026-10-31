@@ -413,17 +413,17 @@ public class RegisterActivityTests : BlazorTestBase
         ClickSave();
         _cut.WaitForElement(".hs-reg-success");
 
-        // Polling click: under full-suite load the render triggered by this click
-        // can sit queued behind the success render batch, so a single Find+Click
-        // may act on a stale DOM snapshot. Re-click until the success panel is
-        // actually gone (RegisterAnother is idempotent).
+        // A WaitFor* predicate MUST be side-effect free: bUnit runs the checker
+        // from the renderer's OnAfterRender callback, so a Click inside it
+        // re-enters the same wait helper through ProcessRenderQueue and can
+        // recurse until the test host dies. Wait for the CTA in the DOM, then
+        // act outside the wait.
+        _cut.WaitForElement(
+                ".hs-reg-success-actions .hs-cta-primary",
+                TimeSpan.FromSeconds(10))
+            .Click();
         _cut.WaitForState(
-            () =>
-            {
-                var again = _cut.FindAll(".hs-reg-success-actions .hs-cta-primary");
-                if (again.Count > 0) again[0].Click();
-                return _cut.FindAll(".hs-reg-success").Count == 0;
-            },
+            () => _cut.FindAll(".hs-reg-success").Count == 0,
             TimeSpan.FromSeconds(10));
 
         _cut.Find(".hs-cta-primary").TextContent.Should().Contain("Guardar actividad");
