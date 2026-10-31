@@ -50,6 +50,18 @@ Third-party pieces we build on: MudBlazor extensions at https://codebeam-mudexte
 
 See [ROADMAP.md](ROADMAP.md).
 
+## Privacy & eligibility
+
+The frontend talks to the [Healthspan API](https://github.com/DalWhite/healthspan-api),
+whose deployed instances are registration-gated by an allowlist: the only accounts that
+exist are the operator's own, so the app only ever handles the operator's own
+training/health data. No third-party personal data is processed, and no real user data
+or secrets are committed to this repository (dev seed accounts are synthetic).
+
+**Eligibility.** Personally and solely owned by its author (all commits are by the
+author, assisted by their own AI tooling); no employer, client, university, or company
+ownership and no NDA. Open source under GPL-3.0, an OSI-approved license.
+
 ## License
 
 GPL-3.0 — see [LICENSE](LICENSE).
