@@ -2027,7 +2027,10 @@ a.hs-exercise-history-row:hover {
   background-image: url('/icon-512.png');
   background-position: center;
   background-repeat: no-repeat;
-  background-size: 56px;
+  /* Hero band is much taller than the card band, so the placeholder icon
+     scales with the band (t_d9ac8ff8 / t_5cbed1af): 24% of media width,
+     floored at 72px, capped at 112px. Cards stay fixed at 56px. */
+  background-size: clamp(72px, 24%, 112px);
 }
 
 .hs-exercise-hero-media img {

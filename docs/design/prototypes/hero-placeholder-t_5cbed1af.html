@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<!-- Mock de verificacion t_5cbed1af: hero de ExerciseTypeDetails con placeholder
+     background-size: clamp(72px, 24%, 112px). Reglas copiadas LITERAL de
+     wwwroot/css/app.css (lineas ~1950-2064) + gutters de MudBlazor MudContainer.
+     Abre a cualquier ancho; mide con devtools o con el script de la tarjeta. -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hero placeholder clamp — t_5cbed1af</title>
+<style>
+:root{
+  --hs-canvas:#0E1116; --hs-card:#161B22; --hs-border:#262C36;
+  --hs-t2:#8B949E; --hs-space-3:12px; --hs-space-4:16px;
+  --hs-radius-card:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--hs-canvas);color:#E6EDF3;font-family:Inter,system-ui,sans-serif}
+
+/* MudBlazor MudBlazor.min.css 6.21.0 (literal) */
+.mud-container{width:100%;display:block;box-sizing:border-box;margin-left:auto;margin-right:auto;padding-left:16px;padding-right:16px}
+@media(min-width: 600px){.mud-container{padding-left:24px;padding-right:24px}}
+.mud-container-maxwidth-xlg{max-width:1280px}
+
+/* app.css (literal) */
+.hs-app-content{width:100%;max-width:1280px}
+@media (max-width: 768px){
+  .hs-app-content{padding-left:var(--hs-space-3);padding-right:var(--hs-space-3)}
+}
+
+/* ── Exercise detail hero (app.css literal) ── */
+.hs-exercise-hero{
+  display:grid;
+  grid-template-columns:minmax(140px, 220px) minmax(0, 1fr);
+  gap:var(--hs-space-4);
+  align-items:center;
+  margin-bottom:var(--hs-space-4);
+  padding:var(--hs-space-4);
+  border:1px solid var(--hs-border);
+  border-radius:var(--hs-radius-card);
+  background:var(--hs-card);
+  box-shadow:none;
+}
+.hs-exercise-hero-media{
+  aspect-ratio:16 / 9;
+  overflow:hidden;
+  border:1px solid var(--hs-border);
+  border-radius:12px;
+  background-color:var(--hs-canvas);
+  background-image:url('../../../wwwroot/icon-512.png');
+  background-position:center;
+  background-repeat:no-repeat;
+  /* Ajuste t_5cbed1af: 24% del ancho de la banda, min 72px, max 112px */
+  background-size:clamp(72px, 24%, 112px);
+}
+.hs-exercise-hero-media img{display:block;width:100%;height:100%;object-fit:cover}
+.hs-exercise-hero-body{min-width:0;display:flex;flex-direction:column;gap:var(--hs-space-3)}
+.hs-exercise-hero-meta{color:var(--hs-t2);font-size:0.8125rem;font-weight:500;overflow-wrap:anywhere}
+.hs-exercise-hero h1{font-size:1.5rem;font-weight:700;overflow-wrap:anywhere}
+@media (max-width: 699px){
+  .hs-exercise-hero{grid-template-columns:minmax(0, 1fr)}
+}
+
+/* ── Card de biblioteca (app.css literal; debe seguir en 56px) ── */
+.hs-et-card-photo{
+  height:110px;
+  overflow:hidden;
+  background-color:var(--hs-card);
+  background-image:url('../../../wwwroot/icon-512.png');
+  background-position:center;
+  background-repeat:no-repeat;
+  background-size:56px;
+}
+.hs-et-card{border:1px solid var(--hs-border);border-radius:var(--hs-radius-card);overflow:hidden;background:var(--hs-card);margin-top:16px}
+.hs-et-card-title{padding:10px 12px;font-weight:600;font-size:.9rem}
+</style>
+</head>
+<body>
+<div class="mud-container mud-container-maxwidth-xlg hs-app-content">
+  <article class="hs-exercise-hero">
+    <div class="hs-exercise-hero-media" id="heroMedia"></div>
+    <div class="hs-exercise-hero-body">
+      <div class="hs-exercise-hero-meta">Strength &middot; Barbell</div>
+      <h1>Sentadilla</h1>
+      <div class="hs-exercise-hero-meta">Placeholder: sin ImageRoute, sin &lt;img&gt;, sin request.</div>
+    </div>
+  </article>
+
+  <div class="hs-et-card" id="card">
+    <div class="hs-et-card-photo" id="cardPhoto"></div>
+    <div class="hs-et-card-title">Peso Muerto (card placeholder — 56px)</div>
+  </div>
+</div>
+</body>
+</html>

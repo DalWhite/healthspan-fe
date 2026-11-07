@@ -17,8 +17,21 @@
 - `library_placeholder_t_d9ac8ff8_wide.png` — desktop 1280px.
 - Mock reproducible: `docs/design/prototypes/library-placeholder-t_d9ac8ff8.html` (usa assets relativos de wwwroot).
 
-## Observación opcional (no bloquea merge)
-En el **hero de detalle** la banda es mucho más alta que la de la card (16/9 ≈ 225px en desktop) pero el icono sigue a 56px → se ve pequeño y solo (25% de la altura vs 51% en la card). Sugerencia para una tarjeta futura si se pule el detalle: `background-size: clamp(72px, 24%, 112px)` en `.hs-exercise-hero-media` (mantener 56px en la card). Es cosmético; en móvil (banda ~200px) el tamaño actual ya es aceptable.
+## Ajuste del hero aplicado (t_5cbed1af, 2026-11-07)
+La observación opcional anterior se aplicó: en el **hero de detalle** la banda es mucho más alta que la de la card pero el icono seguía a 56px → se veía pequeño y solo. Cambio en `app.css` → `.hs-exercise-hero-media`: `background-size: clamp(72px, 24%, 112px)` (las cards de biblioteca siguen fijas en 56px, sin tocar).
+
+Medición aplicada (mock `docs/design/prototypes/hero-placeholder-t_5cbed1af.html`, CSS literal del repo + gutters de MudContainer; el glyph pintado es ~0.98 del recuadro por el margen interno del artwork de `icon-512.png`):
+
+| Viewport | Banda hero | Recuadro (clamp) | Glyph pintado | Glyph/banda | Cards |
+|---|---|---|---|---|---|
+| 320px | 262×147 | 72px (suelo) | 70.5×54 | 37% | 56px intacto |
+| 390px | 332×187 | 79.7px | 77.5×59 | 32% | 56px intacto |
+| 699px (grid apila) | 641×361 | 112px (techo) | 110×83.5 | 23% | 56px intacto |
+| 700px (grid 2 col) | 220×124 | 72px (suelo) | 70.5×54 | 44% | 56px intacto |
+| 1024px | 220×124 | 72px (suelo) | 70.5×54 | 44% | 56px intacto |
+| 1280px | 220×124 | 72px (suelo) | 70.5×54 | 44% | 56px intacto |
+
+El glyph mantiene relación de aspecto idéntica a la de la card (0.761 vs 0.764) → sin deformación; overflow horizontal 0 en los 6 viewports. Evidencia: `qa-evidence/t_5cbed1af/` (screenshots 390/699/1024 @2x + JSON de geometría y pixel-check). Nota: en desktop la columna del hero está capada a 220px por el grid `minmax(140px, 220px)`, por eso el clamp vive entre el suelo (72px) y el techo (112px) sobre todo en móvil/tablet.
 
 ## Riesgos/limitaciones de esta validación
 - El mock replica el CSS de card/grid tokens del commit exacto; no renderiza el Blazor WASM host completo (en esta máquina no arranca por falta de SSE4.1 — la evidencia de navegador real del padre t_8ffed894 ya cubrió el render real: 3 placeholder-only, 0 404).
