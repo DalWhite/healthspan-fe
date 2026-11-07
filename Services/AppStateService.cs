@@ -37,6 +37,9 @@ public class AppStateService
     private Task? _exerciseTypesFirstPage;
     private Task? _catalogHydration;
     private int _catalogGeneration;
+    // Full-projection rows fetched for the current generation. Kept as a field
+    // so a hydration that drops mid-flight can resume from this offset.
+    private int _catalogHydratedThrough;
     private List<Muscle>? _muscles;
     private string[]? _userRoles;
     public ExerciseLibraryViewState ExerciseLibraryView { get; } = new();
@@ -85,6 +88,14 @@ public class AppStateService
     public async Task<GetExerciseTypeResource[]> GetFullExerciseTypesAsync()
     {
         await GetExerciseTypesAsync();
+        if (_catalogHydration is null && !ExerciseTypesHydrated && ExerciseTypesTotal > 0)
+        {
+            // A previous hydration dropped mid-flight (e.g. a network blip).
+            // Resume from the offset it left behind instead of leaving the
+            // catalog permanently partial (t_530f9b31).
+            _catalogHydration = HydrateCatalogAsync(_catalogGeneration, ExerciseTypesTotal);
+        }
+
         if (_catalogHydration is { } hydration)
         {
             await hydration;
@@ -165,10 +176,10 @@ public class AppStateService
 
     private async Task HydrateCatalogAsync(int generation, int total)
     {
-        var loaded = 0;
+        var completed = false;
         try
         {
-            while (loaded < total)
+            while (_catalogHydratedThrough < total)
             {
                 // Yield first: the page that opened the library must finish its
                 // render before this chunk claims the main thread, and every chunk
@@ -176,27 +187,45 @@ public class AppStateService
                 // search reads is not lost on the way (t_81a400b3).
                 await Task.Yield();
                 var chunkWatch = System.Diagnostics.Stopwatch.StartNew();
-                var page = await ExerciseCatalogJson.GetPageAsync(_http, loaded, CatalogChunkSize, full: true);
-                if (generation != _catalogGeneration || page.Items.Count == 0)
+                var page = await ExerciseCatalogJson.GetPageAsync(_http, _catalogHydratedThrough, CatalogChunkSize, full: true);
+                if (generation != _catalogGeneration)
                 {
+                    // Canceled: a newer generation owns the list; its own
+                    // hydration starts from a reset offset.
+                    return;
+                }
+
+                if (page.Items.Count == 0)
+                {
+                    // The server has fewer rows than X-Total-Count claims.
                     break;
                 }
 
                 MergeCatalog(page.Items);
-                loaded += page.Items.Count;
-                Console.WriteLine($"HSPERF catalog chunk at={loaded - page.Items.Count} rows={page.Items.Count} ms={chunkWatch.ElapsedMilliseconds} total={total}");
+                _catalogHydratedThrough += page.Items.Count;
+                Console.WriteLine($"HSPERF catalog chunk at={_catalogHydratedThrough - page.Items.Count} rows={page.Items.Count} ms={chunkWatch.ElapsedMilliseconds} total={total}");
                 NotifyCatalogUpdated(generation);
             }
+
+            completed = true;
         }
         catch
         {
-            // A partial catalog still lists and searches what arrived.
+            // A partial catalog still lists and searches what arrived. The offset
+            // stays where it is: the next GetFullExerciseTypesAsync restarts the
+            // background run from this chunk, not from zero (t_530f9b31).
         }
         finally
         {
             if (generation == _catalogGeneration)
             {
-                ExerciseTypesHydrated = true;
+                ExerciseTypesHydrated = completed;
+                if (!completed)
+                {
+                    // Let a later caller resume; hydration is not marked done.
+                    _catalogHydration = null;
+                }
+
                 NotifyCatalogUpdated(generation);
             }
         }
@@ -231,6 +260,7 @@ public class AppStateService
         _exerciseTypesById.Clear();
         _exerciseTypesFirstPage = null;
         _catalogHydration = null;
+        _catalogHydratedThrough = 0;
         ExerciseTypesTotal = 0;
         ExerciseTypesHydrated = false;
     }
