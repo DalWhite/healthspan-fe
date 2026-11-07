@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text;
 
 /// <summary>
 /// Singleton-scoped service that caches commonly fetched data
@@ -101,7 +102,50 @@ public class AppStateService
     public event Action? ExerciseTypesUpdated;
 
     private const int CatalogFirstPageSize = 40;
-    private const int CatalogChunkSize = 160;
+    // Chunks stay at first-page size: a 160-row chunk parse+merge+mirror batch cost
+    // the same as the whole first paint and produced multi-second long tasks on the
+    // main thread (t_e001ec28, PR #50 round 2).
+    private const int CatalogChunkSize = 40;
+
+    // Rebuilding the library per 40-row chunk re-renders the grid nonstop while
+    // hydration runs. Subscribers are notified at most once per this interval;
+    // a trailing timer guarantees the last chunk still lands.
+    private const int CatalogNotifyIntervalMs = 500;
+    private DateTimeOffset _lastCatalogNotifyAt = DateTimeOffset.MinValue;
+    private bool _catalogNotifyPending;
+
+    private void NotifyCatalogUpdated(int generation)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var sinceLastMs = (now - _lastCatalogNotifyAt).TotalMilliseconds;
+        if (sinceLastMs >= CatalogNotifyIntervalMs)
+        {
+            _lastCatalogNotifyAt = now;
+            ExerciseTypesUpdated?.Invoke();
+            return;
+        }
+
+        if (_catalogNotifyPending)
+        {
+            return;
+        }
+
+        _catalogNotifyPending = true;
+        _ = NotifyCatalogAfterAsync(generation, (int)(CatalogNotifyIntervalMs - sinceLastMs));
+    }
+
+    private async Task NotifyCatalogAfterAsync(int generation, int delayMs)
+    {
+        await Task.Delay(delayMs);
+        _catalogNotifyPending = false;
+        if (generation != _catalogGeneration)
+        {
+            return;
+        }
+
+        _lastCatalogNotifyAt = DateTimeOffset.UtcNow;
+        ExerciseTypesUpdated?.Invoke();
+    }
 
     private async Task LoadFirstCatalogPageAsync()
     {
@@ -141,7 +185,7 @@ public class AppStateService
                 MergeCatalog(page.Items);
                 loaded += page.Items.Count;
                 Console.WriteLine($"HSPERF catalog chunk at={loaded - page.Items.Count} rows={page.Items.Count} ms={chunkWatch.ElapsedMilliseconds} total={total}");
-                ExerciseTypesUpdated?.Invoke();
+                NotifyCatalogUpdated(generation);
             }
         }
         catch
@@ -153,7 +197,7 @@ public class AppStateService
             if (generation == _catalogGeneration)
             {
                 ExerciseTypesHydrated = true;
-                ExerciseTypesUpdated?.Invoke();
+                NotifyCatalogUpdated(generation);
             }
         }
     }
@@ -265,17 +309,40 @@ public class AppStateService
     {
         if (string.IsNullOrWhiteSpace(query)) return true;
 
-        return (item.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (item.Description?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (item.Tags?.Any(tag =>
-                tag.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                tag.Category.Contains(query, StringComparison.OrdinalIgnoreCase)) ?? false)
-            || (item.Variations?.Any(variation =>
-                (variation.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (variation.Description?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (variation.Tags?.Any(tag =>
-                    tag.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                    tag.Category.Contains(query, StringComparison.OrdinalIgnoreCase)) ?? false)) ?? false);
+        // One cached concatenated haystack per row instead of re-walking
+        // name+description+tags+variations on every keystroke: the library scan
+        // cost a full second per character on 876 rows (t_e001ec28, PR #50 round 2).
+        // MergeCatalog swaps whole instances (never mutates in place), so keying by
+        // reference is safe: a replaced row simply loses its (unreachable) entry.
+        var haystack = SearchHaystackCache.GetValue(item, BuildSearchHaystack);
+        return haystack.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<GetExerciseTypeResource, string> SearchHaystackCache = new();
+
+    private static string BuildSearchHaystack(GetExerciseTypeResource item)
+    {
+        var sb = new StringBuilder();
+        AppendSearchParts(sb, item);
+        foreach (var variation in item.Variations)
+        {
+            AppendSearchParts(sb, variation);
+        }
+        return sb.ToString();
+    }
+
+    private static void AppendSearchParts(StringBuilder sb, GetExerciseTypeResource item)
+    {
+        if (!string.IsNullOrEmpty(item.Name)) sb.Append(item.Name).Append('\n');
+        if (!string.IsNullOrEmpty(item.Description)) sb.Append(item.Description).Append('\n');
+        if (item.Tags is not null)
+        {
+            foreach (var tag in item.Tags)
+            {
+                if (!string.IsNullOrEmpty(tag.Name)) sb.Append(tag.Name).Append('\n');
+                if (!string.IsNullOrEmpty(tag.Category)) sb.Append(tag.Category).Append('\n');
+            }
+        }
     }
 
     public static bool MatchesSearch(GetExerciseResource item, string query)
