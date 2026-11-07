@@ -1,6 +1,7 @@
 @* Weekly coverage radar: the 9 Galpin adaptations in canonical order (1-9,
    clockwise from the top). One axis unit = one week's target, so the outer
    ring IS the goal; the filled polygon is what the user actually trained. *@
+@using System.Globalization
 
 <div class="hs-coverage-radar-shell">
     <svg viewBox="0 0 460 430"
@@ -117,7 +118,7 @@
         for (var axisIndex = 0; axisIndex < items.Count; axisIndex++)
         {
             var point = GetPoint(axisIndex, ClampedRatio(items[axisIndex]));
-            points.Add($"{point.X:0.##},{point.Y:0.##}");
+            points.Add(string.Create(CultureInfo.InvariantCulture, $"{point.X:0.##},{point.Y:0.##}"));
         }
 
         return string.Join(" ", points);
@@ -130,7 +131,7 @@
         for (var axisIndex = 0; axisIndex < Axes.Count; axisIndex++)
         {
             var point = GetPoint(axisIndex, scale);
-            points.Add($"{point.X:0.##},{point.Y:0.##}");
+            points.Add(string.Create(CultureInfo.InvariantCulture, $"{point.X:0.##},{point.Y:0.##}"));
         }
 
         return string.Join(" ", points);
@@ -153,10 +154,10 @@
         for (var lineIndex = 0; lineIndex < lines.Count; lineIndex++)
         {
             var dy = lineIndex == 0 ? "0" : "1.05em";
-            tspans.Add($"<tspan x=\"{labelPoint.X:0.##}\" dy=\"{dy}\">{System.Net.WebUtility.HtmlEncode(lines[lineIndex])}</tspan>");
+            tspans.Add(string.Create(CultureInfo.InvariantCulture, $"<tspan x=\"{labelPoint.X:0.##}\" dy=\"{dy}\">{System.Net.WebUtility.HtmlEncode(lines[lineIndex])}</tspan>"));
         }
 
-        return $"<text x=\"{labelPoint.X:0.##}\" y=\"{baselineY:0.##}\" text-anchor=\"{GetTextAnchor(labelPoint.X)}\" class=\"hs-coverage-radar-axis-label\">{string.Join(string.Empty, tspans)}</text>";
+        return string.Create(CultureInfo.InvariantCulture, $"<text x=\"{labelPoint.X:0.##}\" y=\"{baselineY:0.##}\" text-anchor=\"{GetTextAnchor(labelPoint.X)}\" class=\"hs-coverage-radar-axis-label\">{string.Join(string.Empty, tspans)}</text>");
     }
 
     private static double ClampedRatio(AdaptationCoverageItemResource item)

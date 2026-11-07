@@ -1,6 +1,7 @@
 @page "/workouts"
 @page "/training/history"
 @using System.ComponentModel.DataAnnotations
+@using System.Globalization
 @using System.Text.Json
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
@@ -649,8 +650,8 @@
 
     private static string FormatSessionMetricValue(GetWorkoutResource workout)
         => workout.TotalVolume > 0
-            ? $"{workout.TotalVolume:N0} kg"
-            : workout.ExerciseCount.ToString("N0");
+            ? string.Create(CultureInfo.InvariantCulture, $"{workout.TotalVolume:N0} kg")
+            : workout.ExerciseCount.ToString("N0", CultureInfo.InvariantCulture);
 
     private static string FormatSessionMetricLabel(GetWorkoutResource workout)
         => workout.TotalVolume > 0
@@ -1345,7 +1346,7 @@
             : $"{count} logged exercise records";
 
     private static string FormatVolume(double volume)
-        => $"{volume:N0} kg volume";
+        => string.Create(CultureInfo.InvariantCulture, $"{volume:N0} kg volume");
 
     private static string FormatExercisePrescription(WorkoutHistoryExerciseResource exercise)
     {
@@ -1365,8 +1366,8 @@
         if (exercise.Weight is > 0)
         {
             prescription = string.IsNullOrEmpty(prescription)
-                ? $"{exercise.Weight.Value:N1} kg"
-                : $"{prescription} · {exercise.Weight.Value:N1} kg";
+                ? string.Create(CultureInfo.InvariantCulture, $"{exercise.Weight.Value:N1} kg")
+                : string.Create(CultureInfo.InvariantCulture, $"{prescription} · {exercise.Weight.Value:N1} kg");
         }
 
         return string.IsNullOrEmpty(prescription)
