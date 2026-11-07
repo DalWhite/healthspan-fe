@@ -2,6 +2,7 @@ using Bunit;
 using Bunit.TestDoubles;
 using Blazored.LocalStorage;
 using FluentAssertions;
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
@@ -26,6 +27,14 @@ public abstract class BlazorTestBase : TestContext
 
     protected BlazorTestBase()
     {
+        // Mirror production WASM (InvariantGlobalization=true): components
+        // format implicitly with CurrentCulture, so every test thread must
+        // render invariant regardless of the OS locale. The ModuleInitializer
+        // in TestHostCulture sets the assembly defaults; this covers thread
+        // pool threads that existed before it ran.
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
         // bUnit's default wait ceiling is 1 s. Under full-suite load the render
         // that carries async data can legitimately take longer, which showed up
         // as flaky WaitFor* timeouts (RegisterActivityTests/ProfilePageTests/
