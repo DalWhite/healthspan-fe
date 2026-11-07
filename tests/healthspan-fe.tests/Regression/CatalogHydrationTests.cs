@@ -64,6 +64,8 @@ public class CatalogHydrationTests
     {
         public HttpClient Http { get; }
         public List<string> Queries { get; } = [];
+        // Full-projection requests at this skip get a 503 until cleared.
+        public int? FailFullAtSkip { get; set; }
 
         public PagedCatalog(TimeSpan? chunkDelay = null)
         {
@@ -75,6 +77,11 @@ public class CatalogHydrationTests
                 var skip = QueryInt(query, "skip");
                 var take = QueryInt(query, "take");
                 var full = query.Contains("fields=full");
+
+                if (full && skip == FailFullAtSkip)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+                }
 
                 // Only the background chunks are slow: the paint page must stay fast,
                 // so a test cannot pass by quietly waiting for the whole catalog.
@@ -166,6 +173,33 @@ public class CatalogHydrationTests
         var full = await state.GetFullExerciseTypesAsync();
         full.Select(row => row.Id).Should().OnlyHaveUniqueItems();
         full.Should().HaveCount(Total);
+    }
+
+    [Fact]
+    public async Task HydrationResumesFromItsOffsetAfterAFailedChunk()
+    {
+        // t_530f9b31: a network blip during hydration used to mark the run done
+        // and leave the catalog permanently partial. The offset must survive so
+        // the next full-catalog call resumes from the failed chunk instead of
+        // refetching the rows that already arrived.
+        using var catalog = new PagedCatalog { FailFullAtSkip = 40 };
+        var state = new AppStateService(catalog.Http);
+
+        _ = await state.GetExerciseTypesAsync();
+
+        var partial = await state.GetFullExerciseTypesAsync();
+        state.ExerciseTypesHydrated.Should().BeFalse();
+        partial.Should().HaveCount(FirstPageSize); // no inline retry
+
+        catalog.FailFullAtSkip = null; // the blip clears
+        var full = await state.GetFullExerciseTypesAsync();
+        state.ExerciseTypesHydrated.Should().BeTrue();
+        full.Should().HaveCount(Total);
+        full.Select(row => row.Id).Should().OnlyHaveUniqueItems();
+
+        // The resume started at the offset: the full page at skip=0 was
+        // requested exactly once across both runs.
+        catalog.Queries.Count(q => q.Contains("fields=full") && q.Contains("skip=0&")).Should().Be(1);
     }
 
     [Fact]
