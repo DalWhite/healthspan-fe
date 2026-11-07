@@ -151,11 +151,19 @@ else
                              @onkeydown="args => OnCardKeyDown(args, exercise)">
                         <div class="hs-et-card-media">
                             <div class="hs-et-card-photo">
-                                <img src="@GetImageUrl(exercise)"
-                                     alt="@exercise.Name"
-                                     loading="lazy"
-                                     decoding="async"
-                                     onerror="this.remove()" />
+                                @* Photo only when the record has an ImageRoute; without one the
+                                   container keeps its CSS placeholder and no request is made.
+                                   alt="" because the photo is decorative: the name is in the
+                                   card's aria-label and title. *@
+                                @{ var photoUrl = global::ExercisePhoto.Url(exercise.ImageRoute); }
+                                @if (photoUrl is not null)
+                                {
+                                    <img src="@photoUrl"
+                                         alt=""
+                                         loading="lazy"
+                                         decoding="async"
+                                         onerror="this.remove()" />
+                                }
                             </div>
                         </div>
 
@@ -351,11 +359,6 @@ else
             .Select(tag => tag.Name)
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.OrdinalIgnoreCase);
-
-    private string GetImageUrl(GetExerciseTypeResource exercise)
-        => !string.IsNullOrEmpty(exercise.ImageRoute)
-            ? exercise.ImageRoute
-            : $"ExerciseImages/{exercise.Name}.jpg";
 
     private string GetMuscleLine(GetExerciseTypeResource exercise)
         => AppState.FormatExerciseTypeMuscleLine(exercise, fallback: string.Empty);

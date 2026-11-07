@@ -272,6 +272,8 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
         // DESIGN.md §5.6: the detail hero carries the photo, the meta line and
         // the controls the library card deliberately dropped.
         cut.Find(".hs-exercise-hero-media img").GetAttribute("loading").Should().Be("lazy");
+        cut.Find(".hs-exercise-hero-media img").GetAttribute("src")
+            .Should().Be("https://cdn.example.test/bench.jpg");
         cut.Find(".hs-exercise-hero-meta").TextContent.Should().Contain("barbell");
         cut.Find(".hs-exercise-hero-meta").TextContent.Should().Contain("1 variation");
 
@@ -297,6 +299,7 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
                   "id": 21,
                   "name": "Bench Press",
                   "description": "Horizontal press",
+                  "imageRoute": "https://cdn.example.test/bench.jpg",
                   "weightType": 0,
                   "muscleAssignments": [
                     { "muscleId": 1, "role": "Primary", "sortOrder": 1 }

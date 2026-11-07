@@ -119,6 +119,7 @@ public class ExerciseTypesPageTests : BlazorTestBase
                       "id": 1,
                       "name": "Sit Up",
                       "description": "Base sit-up pattern",
+                      "imageRoute": "https://cdn.example.test/sit-up.jpg",
                       "muscleAssignments": [
                         { "muscleId": 11, "role": "Primary", "sortOrder": 1 }
                       ],
@@ -465,6 +466,7 @@ public class ExerciseTypesPageTests : BlazorTestBase
                       "id": 1,
                       "name": "Sit Up",
                       "description": "Base sit-up pattern",
+                      "imageRoute": "https://cdn.example.test/sit-up.jpg",
                       "muscleAssignments": [
                         { "muscleId": 11, "role": "Primary", "sortOrder": 1 },
                         { "muscleId": 14, "role": "Secondary", "sortOrder": 1 }
@@ -481,6 +483,7 @@ public class ExerciseTypesPageTests : BlazorTestBase
                       "id": 2,
                       "name": "Romanian Sit Up",
                       "description": "Variation with different emphasis",
+                      "imageRoute": "https://cdn.example.test/romanian-sit-up.jpg",
                       "muscleAssignments": [
                         { "muscleId": 14, "role": "Primary", "sortOrder": 1 },
                         { "muscleId": 11, "role": "Secondary", "sortOrder": 1 }

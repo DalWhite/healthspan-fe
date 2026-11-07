@@ -1951,9 +1951,9 @@ a.hs-exercise-history-row:hover {
   position: relative;
 }
 
-/* Glanceable full-width photo, 110px tall (DESIGN.md §5.6); the app icon is
-   the fallback background when the exercise has no image (the img removes
-   itself on error). */
+/* Glanceable full-width photo, 110px tall (DESIGN.md §5.6); the app icon is the
+   placeholder shown when the record has no ImageRoute (no <img>, no request) or
+   when the remote photo failed (the img removes itself on error). */
 .hs-et-card-photo {
   height: 110px;
   overflow: hidden;
