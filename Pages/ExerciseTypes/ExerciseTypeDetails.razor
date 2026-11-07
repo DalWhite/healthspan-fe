@@ -1,6 +1,7 @@
 @page "/exercises/types/{ExerciseTypeId:int}/details/{TraineeId?}"
 @page "/training/library/{ExerciseTypeId:int}"
 @using ApexCharts
+@using System.Globalization
 @inject AppStateService AppState
 @inject HttpClient Http
 @inject IJSRuntime JSRuntime
@@ -290,11 +291,11 @@
                                 <button type="button"
                                         class="hs-exercise-kpi hs-surface is-action"
                                         @onclick="() => OpenBestSessionAsync(_kpis.MaxRMDate)">
-                                    <strong>@_kpis.MaxRM.ToString("N1") kg</strong>
+                                    <strong>@_kpis.MaxRM.ToString("N1", CultureInfo.InvariantCulture) kg</strong>
                                     <span>Best estimated 1RM</span>
                                 </button>
                                 <article class="hs-exercise-kpi hs-surface">
-                                    <strong>@_kpis.Current1RM.ToString("N1") kg</strong>
+                                    <strong>@_kpis.Current1RM.ToString("N1", CultureInfo.InvariantCulture) kg</strong>
                                     <span>Current estimated 1RM</span>
                                 </article>
                             }
@@ -805,7 +806,7 @@
             {
                 builder.OpenElement(sequence++, "strong");
                 builder.AddAttribute(sequence++, "class", "hs-exercise-history-rm");
-                builder.AddContent(sequence++, $"{exercise.MaxRepetition.Value:N1} kg 1RM");
+                builder.AddContent(sequence++, string.Create(CultureInfo.InvariantCulture, $"{exercise.MaxRepetition.Value:N1} kg 1RM"));
                 builder.CloseElement();
             }
         };
@@ -818,7 +819,7 @@
 
         if (SupportsLoadMetrics && exercise.Weight is > 0)
         {
-            prescription += $" · {exercise.Weight.Value:N1} kg";
+            prescription += string.Create(CultureInfo.InvariantCulture, $" · {exercise.Weight.Value:N1} kg");
         }
 
         return prescription;
@@ -912,7 +913,7 @@
         };
 
     private static string FormatTrendValue(DataPoint point)
-        => $"{point.Data:N0} kg · {point.Time:dd MMM yyyy}";
+        => $"{point.Data.ToString("N0", CultureInfo.InvariantCulture)} kg · {point.Time:dd MMM yyyy}";
 
     public sealed class TrendResult
     {

@@ -1,5 +1,6 @@
 @* Readiness card: one glanceable score (0-10) plus what to train next and a
    one-line "why" built from the same numbers the API used. *@
+@using System.Globalization
 
 <div class="hs-readiness-card">
     <div class="hs-section-heading">
@@ -8,7 +9,7 @@
     </div>
 
     <div class="hs-readiness-score">
-        <strong aria-label="Readiness score out of 10">@Readiness.Score.ToString("0.0")</strong>
+        <strong aria-label="Readiness score out of 10">@Readiness.Score.ToString("0.0", CultureInfo.InvariantCulture)</strong>
         <span>/10</span>
         <MudChip T="string"
                 Size="Size.Small"
@@ -76,7 +77,7 @@
         {
             var parts = new List<string>
             {
-                $"fatiga {Readiness.FatigueLoad7d.ToString("0.#")}/5",
+                $"fatiga {Readiness.FatigueLoad7d.ToString("0.#", CultureInfo.InvariantCulture)}/5",
                 Readiness.Sessions7d == 1
                     ? "1 sesión en 7 días"
                     : $"{Readiness.Sessions7d} sesiones en 7 días"
