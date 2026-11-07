@@ -10,6 +10,7 @@ public sealed class InMemoryLocalStore : ILocalStore
     private readonly Dictionary<Guid, SyncOperation> _queue = [];
     private readonly Dictionary<string, LocalCachedResponse> _responses = [];
     private readonly Dictionary<string, Dictionary<string, string>> _catalog = [];
+    private readonly Dictionary<string, OfflineMirrorState> _mirrorMeta = [];
     private readonly Dictionary<Guid, LocalWorkout> _workouts = [];
     private readonly Dictionary<Guid, LocalExercise> _exercises = [];
     private readonly Dictionary<Guid, LocalBlock> _blocks = [];
@@ -135,6 +136,17 @@ public sealed class InMemoryLocalStore : ILocalStore
     public Task InvalidateCatalogAsync(string kind)
     {
         _catalog.Remove(kind);
+        _mirrorMeta.Remove(kind);
+        return Task.CompletedTask;
+    }
+
+    public Task<OfflineMirrorState?> GetMirrorStateAsync(string kind)
+        => Task.FromResult(
+            _mirrorMeta.TryGetValue(kind, out var state) ? state with { Kind = kind } : null);
+
+    public Task SaveMirrorStateAsync(OfflineMirrorState state)
+    {
+        _mirrorMeta[state.Kind] = state;
         return Task.CompletedTask;
     }
 

@@ -547,10 +547,36 @@ public sealed class OfflineHttpHandler : DelegatingHandler
             var mirrored = await _store.CountCatalogAsync(kind);
             if (total > 0 ? mirrored >= total : mirrored > 0)
             {
+                // Heal mirrors persisted before mirror_meta existed: rows are there
+                // but no state is, so a cold start would needlessly refetch.
+                if (await _store.GetMirrorStateAsync(kind) is null)
+                {
+                    await _store.SaveMirrorStateAsync(new OfflineMirrorState
+                    {
+                        Kind = kind,
+                        Status = OfflineMirrorState.Complete,
+                        TargetTotal = Math.Max(mirrored, total),
+                        HydratedThrough = mirrored,
+                    });
+                }
+
                 return;
             }
 
             await MirrorCatalogAsync(kind, body, idProperty);
+
+            // Observational progress so state is correct even without scheduler
+            // cooperation; the scheduler rewrites it per chunk (its write lands
+            // after its own chunk, so last-write-wins keeps the offset honest).
+            var after = await _store.CountCatalogAsync(kind);
+            await _store.SaveMirrorStateAsync(new OfflineMirrorState
+            {
+                Kind = kind,
+                Status = total > 0 ? (after >= total ? OfflineMirrorState.Complete : OfflineMirrorState.Hydrating)
+                                   : OfflineMirrorState.Complete,
+                TargetTotal = total > 0 ? total : after,
+                HydratedThrough = after,
+            });
         }
         finally
         {

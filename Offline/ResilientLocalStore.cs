@@ -83,6 +83,12 @@ public sealed class ResilientLocalStore : ILocalStore
     public Task<int> CountCatalogAsync(string kind)
         => RunAsync(store => store.CountCatalogAsync(kind));
 
+    public Task<OfflineMirrorState?> GetMirrorStateAsync(string kind)
+        => RunAsync(store => store.GetMirrorStateAsync(kind));
+
+    public Task SaveMirrorStateAsync(OfflineMirrorState state)
+        => RunAsync(store => store.SaveMirrorStateAsync(state));
+
     public Task InvalidateCatalogAsync(string kind)
         => RunAsync(store => store.InvalidateCatalogAsync(kind));
 
