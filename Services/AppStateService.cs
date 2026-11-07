@@ -8,6 +8,10 @@ using System.Text;
 public class AppStateService
 {
     private readonly HttpClient _http;
+    // Cross-session hydration state for the catalog mirror (mirror_meta). Optional
+    // because the pure in-memory tests construct the service without a store.
+    private readonly Healthspan.Offline.ILocalStore? _mirrorStore;
+    private const string CatalogMirrorKind = "exercisetypes";
     private static readonly List<Muscle> FallbackMuscles =
     [
         new() { Id = 1, Slug = "chest", Name = "Chest", Side = "front", MuscleGroup = "Chest", SortOrder = 10 },
@@ -44,9 +48,10 @@ public class AppStateService
     private string[]? _userRoles;
     public ExerciseLibraryViewState ExerciseLibraryView { get; } = new();
 
-    public AppStateService(HttpClient http)
+    public AppStateService(HttpClient http, Healthspan.Offline.ILocalStore? mirrorStore = null)
     {
         _http = http;
+        _mirrorStore = mirrorStore;
     }
 
     // ── Exercise Types ─────────────────────────────────────────────────────────
@@ -179,6 +184,25 @@ public class AppStateService
         var completed = false;
         try
         {
+            // Cold start into a partially hydrated mirror: the in-memory offset is
+            // zero in a new session, mirror_meta says where the last session stopped
+            // (t_780be3a9). A stale offset for a different snapshot total is ignored.
+            if (_catalogHydratedThrough == 0 && _mirrorStore is not null)
+            {
+                var saved = await _mirrorStore.GetMirrorStateAsync(CatalogMirrorKind);
+                if (generation != _catalogGeneration)
+                {
+                    return;
+                }
+
+                if (saved is not null && !saved.IsComplete
+                    && saved.TargetTotal == total
+                    && saved.HydratedThrough > 0 && saved.HydratedThrough < total)
+                {
+                    _catalogHydratedThrough = saved.HydratedThrough;
+                }
+            }
+
             while (_catalogHydratedThrough < total)
             {
                 // Yield first: the page that opened the library must finish its
@@ -203,6 +227,10 @@ public class AppStateService
 
                 MergeCatalog(page.Items);
                 _catalogHydratedThrough += page.Items.Count;
+                // chunk-then-state: the handler has already mirrored this chunk by
+                // the time GetPageAsync returns, so the persisted offset never
+                // runs ahead of the stored rows (contract comment 514).
+                await PersistMirrorStateAsync(generation, Healthspan.Offline.OfflineMirrorState.Hydrating, total);
                 Console.WriteLine($"HSPERF catalog chunk at={_catalogHydratedThrough - page.Items.Count} rows={page.Items.Count} ms={chunkWatch.ElapsedMilliseconds} total={total}");
                 NotifyCatalogUpdated(generation);
             }
@@ -226,8 +254,40 @@ public class AppStateService
                     _catalogHydration = null;
                 }
 
+                // Durable cancellation/pause: whatever stopped this run, the offset
+                // is already stored; recording the status makes the stop itself
+                // survive a cold start (t_780be3a9).
+                await PersistMirrorStateAsync(generation,
+                    completed ? Healthspan.Offline.OfflineMirrorState.Complete
+                              : Healthspan.Offline.OfflineMirrorState.Paused,
+                    total);
+
                 NotifyCatalogUpdated(generation);
             }
+        }
+    }
+
+    private async Task PersistMirrorStateAsync(int generation, string status, int total)
+    {
+        if (_mirrorStore is null || generation != _catalogGeneration)
+        {
+            return;
+        }
+
+        try
+        {
+            await _mirrorStore.SaveMirrorStateAsync(new Healthspan.Offline.OfflineMirrorState
+            {
+                Kind = CatalogMirrorKind,
+                Status = status,
+                TargetTotal = total,
+                HydratedThrough = _catalogHydratedThrough,
+            });
+        }
+        catch
+        {
+            // Losing the progress note must not kill hydration: the rows are the
+            // durable part; worst case the next cold start refetches one chunk.
         }
     }
 
@@ -263,6 +323,26 @@ public class AppStateService
         _catalogHydratedThrough = 0;
         ExerciseTypesTotal = 0;
         ExerciseTypesHydrated = false;
+
+        // The rows behind this offset are now stale too: clear mirror+meta together
+        // (contract rule 5) so no cold start resumes a pre-mutation snapshot.
+        _ = InvalidateMirrorAsync();
+    }
+
+    private async Task InvalidateMirrorAsync()
+    {
+        try
+        {
+            if (_mirrorStore is not null)
+            {
+                await _mirrorStore.InvalidateCatalogAsync(CatalogMirrorKind);
+            }
+        }
+        catch
+        {
+            // Offline store hiccup: the next successful full hydration overwrites
+            // the mirror anyway; never fail the UI mutation for this.
+        }
     }
 
     // ── Muscles ────────────────────────────────────────────────────────────────
