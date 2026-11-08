@@ -8,6 +8,7 @@ using MudBlazor;
 using MudBlazor.Services;
 using NSubstitute;
 using RichardSzalay.MockHttp;
+using System.Globalization;
 using Xunit;
 using healthspan_fe_wasm_pwa.Shared;
 
@@ -26,6 +27,13 @@ public abstract class BlazorTestBase : TestContext
 
     protected BlazorTestBase()
     {
+        // Production WASM runs with InvariantGlobalization=true, so components
+        // format numbers in the invariant culture no matter the developer's
+        // locale. Pin the same culture here so a local es_ES host doesn't
+        // render "2.560 kg" while the asserts expect the production "2,560 kg".
+        // (t_bce02313 / t_fad6e6aa)
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+
         // bUnit's default wait ceiling is 1 s. Under full-suite load the render
         // that carries async data can legitimately take longer, which showed up
         // as flaky WaitFor* timeouts (RegisterActivityTests/ProfilePageTests/
