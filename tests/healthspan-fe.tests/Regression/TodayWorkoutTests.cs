@@ -468,7 +468,9 @@ public class TodayWorkoutTests : BlazorTestBase
                 """);
 
         var cut = RenderComponent<TodayWorkout>();
-        cut.WaitForState(() => !cut.Markup.Contains("Cargando"), TimeSpan.FromSeconds(8));
+        // Positive anchor: wait for the repeat CTA itself (rendered only once
+        // the last-workout load resolves), not for the skeleton's disappearance.
+        cut.WaitForElement("button.hs-cta-secondary", TimeSpan.FromSeconds(8));
 
         cut.WaitForAssertion(() =>
             cut.FindAll("button")
@@ -523,7 +525,9 @@ public class TodayWorkoutTests : BlazorTestBase
             .Respond(HttpStatusCode.BadRequest, "application/json", "{}");
 
         var cut = RenderComponent<TodayWorkout>();
-        cut.WaitForState(() => !cut.Markup.Contains("Cargando"), TimeSpan.FromSeconds(8));
+        // Positive anchor: wait for the repeat CTA itself (rendered only once
+        // the last-workout load resolves), not for the skeleton's disappearance.
+        cut.WaitForElement("button.hs-cta-secondary", TimeSpan.FromSeconds(8));
 
         cut.WaitForAssertion(() =>
             cut.FindAll("button")

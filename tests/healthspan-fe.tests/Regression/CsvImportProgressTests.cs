@@ -252,7 +252,10 @@ public sealed class CsvImportProgressTests : BlazorTestBase
 
         // Hide ≠ cancel: MockHttp has no cancel/DELETE route, so an attempted
         // cancel would have thrown; the job is still busy and importing.
-        Assert.Contains("Importing", cut.Find(".hs-import-chip").TextContent);
+        // WaitForState: the tracker's first poll (Task.Run) may not have
+        // settled Status="running" yet at this render — a bare assert here
+        // flakes on "Queued".
+        cut.WaitForState(() => cut.Find(".hs-import-chip").TextContent.Contains("Importing"));
     }
 
     [Fact]
