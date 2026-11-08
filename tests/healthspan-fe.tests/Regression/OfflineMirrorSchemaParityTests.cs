@@ -13,7 +13,8 @@ namespace healthspan_fe.tests.Regression;
 /// </summary>
 public class OfflineMirrorSchemaParityTests
 {
-    private static readonly string[] MirrorTables = ["workouts", "exercises", "blocks"];
+    private static readonly string[] MirrorTables =
+        ["workouts", "exercises", "blocks", "mirror_catalog", "mirror_meta"];
 
     [Fact]
     public void Every_Column_The_Local_Store_Writes_Exists_In_The_Worker_Schema()

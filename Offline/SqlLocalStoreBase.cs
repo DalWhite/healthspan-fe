@@ -197,6 +197,43 @@ public abstract class SqlLocalStoreBase : ILocalStore
     public async Task InvalidateCatalogAsync(string kind)
     {
         await ExecuteAsync("DELETE FROM mirror_catalog WHERE kind = ?", kind);
+        await ExecuteAsync("DELETE FROM mirror_meta WHERE kind = ?", kind);
+    }
+
+    public async Task<OfflineMirrorState?> GetMirrorStateAsync(string kind)
+    {
+        var rows = await QueryAsync(
+            "SELECT status, target_total, hydrated_through, updated_at_utc FROM mirror_meta WHERE kind = ?",
+            kind);
+        if (rows.Count == 0)
+        {
+            return null;
+        }
+
+        var row = rows[0];
+        return new OfflineMirrorState
+        {
+            Kind = kind,
+            Status = row["status"] ?? OfflineMirrorState.Hydrating,
+            TargetTotal = int.TryParse(row["target_total"], out var total) ? total : 0,
+            HydratedThrough = int.TryParse(row["hydrated_through"], out var through) ? through : 0,
+            UpdatedAtUtc = DateTime.TryParse(
+                row["updated_at_utc"], null, System.Globalization.DateTimeStyles.RoundtripKind, out var utc)
+                ? utc
+                : DateTime.UtcNow,
+        };
+    }
+
+    public async Task SaveMirrorStateAsync(OfflineMirrorState state)
+    {
+        await ExecuteAsync(
+            """
+            INSERT OR REPLACE INTO mirror_meta
+                (kind, status, target_total, hydrated_through, updated_at_utc)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            state.Kind, state.Status, state.TargetTotal, state.HydratedThrough,
+            state.UpdatedAtUtc.ToString("O"));
     }
 
     // ── Entity mirrors ────────────────────────────────────────────────────────

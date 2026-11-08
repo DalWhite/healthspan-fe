@@ -203,6 +203,38 @@ public class CatalogHydrationTests
     }
 
     [Fact]
+    public async Task ColdStart_ResumesHydrationFromPersistedMirrorState()
+    {
+        // t_780be3a9: after a network drop the paused offset lives in mirror_meta,
+        // so a brand-new AppStateService (cold start) resumes from it instead of
+        // refetching chunks that are already mirrored.
+        var store = new InMemoryLocalStore();
+
+        using var catalog1 = new PagedCatalog { FailFullAtSkip = 40 };
+        var session1 = new AppStateService(catalog1.Http, store);
+        _ = await session1.GetExerciseTypesAsync();
+        _ = await session1.GetFullExerciseTypesAsync();
+
+        var paused = await store.GetMirrorStateAsync(CatalogKind);
+        paused!.Status.Should().Be(OfflineMirrorState.Paused);
+        paused.HydratedThrough.Should().Be(FirstPageSize);
+        paused.TargetTotal.Should().Be(Total);
+
+        using var catalog2 = new PagedCatalog();
+        var session2 = new AppStateService(catalog2.Http, store);
+        _ = await session2.GetExerciseTypesAsync();
+        var full = await session2.GetFullExerciseTypesAsync();
+
+        full.Should().HaveCount(Total);
+        full.Select(row => row.Id).Should().OnlyHaveUniqueItems();
+        catalog2.Queries.Any(q => q.Contains("fields=full") && q.Contains("skip=0&"))
+            .Should().BeFalse(); // resumed at 40: the mirrored page was not refetched
+
+        var done = await store.GetMirrorStateAsync(CatalogKind);
+        done!.Status.Should().Be(OfflineMirrorState.Complete);
+    }
+
+    [Fact]
     public async Task MirroredPagesKeepEveryRowWithItsDescription()
     {
         var store = new InMemoryLocalStore();

@@ -74,6 +74,16 @@ const SCHEMA = `
         cached_at_utc TEXT NOT NULL,
         PRIMARY KEY (kind, item_id)
     );
+    -- Snapshot state per catalog mirror: where hydration got to, whether it
+    -- was cancelled, and the offset a cold start resumes from. Row counts
+    -- alone cannot tell 'paused' from 'complete'.
+    CREATE TABLE IF NOT EXISTS mirror_meta (
+        kind TEXT PRIMARY KEY,
+        status TEXT NOT NULL,
+        target_total INTEGER NOT NULL,
+        hydrated_through INTEGER NOT NULL,
+        updated_at_utc TEXT NOT NULL
+    );
     CREATE INDEX IF NOT EXISTS ix_exercises_workout ON exercises(workout_client_id);
     CREATE INDEX IF NOT EXISTS ix_workouts_date ON workouts(date);
     CREATE INDEX IF NOT EXISTS ix_blocks_workout ON blocks(workout_client_id);

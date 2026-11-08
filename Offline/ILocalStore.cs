@@ -39,6 +39,15 @@ public interface ILocalStore
     Task<int> CountCatalogAsync(string kind);
     Task InvalidateCatalogAsync(string kind);
 
+    /// <summary>
+    /// Hydration state of a mirror snapshot, or null when nothing was ever
+    /// mirrored. InvalidateCatalogAsync clears rows and state together.
+    /// </summary>
+    Task<OfflineMirrorState?> GetMirrorStateAsync(string kind);
+
+    /// <summary>Upserts the hydration state. Call AFTER the chunk it describes was written.</summary>
+    Task SaveMirrorStateAsync(OfflineMirrorState state);
+
     // ── Entity mirrors (workouts / exercises) ─────────────────────────────────
     Task UpsertWorkoutAsync(LocalWorkout workout);
     Task<LocalWorkout?> GetWorkoutAsync(Guid clientId);
