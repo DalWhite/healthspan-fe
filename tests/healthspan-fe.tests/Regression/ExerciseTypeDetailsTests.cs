@@ -353,31 +353,9 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
                   }
                 ]
             """);
-        MockHttp.When("/Exercises/21/kpis")
-            .Respond("application/json", """
-                {
-                  "maxRM": 101.3,
-                  "maxRMDate": "2026-07-20T00:00:00",
-                  "current1RM": 101.3,
-                  "weeklyFrequency": 1
-                }
-            """);
-        MockHttp.When("/Exercises/21/trends?type=RM")
-            .Respond("application/json", """
-                {
-                  "points": [
-                    { "data": 101.3, "time": "2026-07-20T00:00:00" }
-                  ]
-                }
-            """);
-        MockHttp.When("/Exercises/21/trends?type=Volume")
-            .Respond("application/json", """
-                {
-                  "points": [
-                    { "data": 2560, "time": "2026-07-20T00:00:00" }
-                  ]
-                }
-            """);
+        // MockHttp 7.0 matches a query-less When() against ANY query and the first
+        // registered match wins, so the tag-specific responders must be registered
+        // BEFORE the loose ones or they are dead code.
         MockHttp.When("/Exercises/21/kpis?tag=Bilbo")
             .Respond("application/json", """
                 {
@@ -396,6 +374,31 @@ public class ExerciseTypeDetailsTests : BlazorTestBase
                 }
             """);
         MockHttp.When("/Exercises/21/trends?tag=Bilbo&type=Volume")
+            .Respond("application/json", """
+                {
+                  "points": [
+                    { "data": 2560, "time": "2026-07-20T00:00:00" }
+                  ]
+                }
+            """);
+        MockHttp.When("/Exercises/21/kpis")
+            .Respond("application/json", """
+                {
+                  "maxRM": 101.3,
+                  "maxRMDate": "2026-07-20T00:00:00",
+                  "current1RM": 101.3,
+                  "weeklyFrequency": 1
+                }
+            """);
+        MockHttp.When("/Exercises/21/trends?type=RM")
+            .Respond("application/json", """
+                {
+                  "points": [
+                    { "data": 101.3, "time": "2026-07-20T00:00:00" }
+                  ]
+                }
+            """);
+        MockHttp.When("/Exercises/21/trends?type=Volume")
             .Respond("application/json", """
                 {
                   "points": [
