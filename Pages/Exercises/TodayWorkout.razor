@@ -1,5 +1,7 @@
 @page "/training/today"
+@implements IDisposable
 @inject HttpClient Http
+@inject AppStateService AppState
 @inject HealthspanApiClient ApiClient
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -342,7 +344,8 @@
 @code {
     private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
     private GetExerciseTypeResource[] _exerciseTypes = Array.Empty<GetExerciseTypeResource>();
-    private Task<GetExerciseTypeResource[]?>? _exerciseTypesTask;
+    private Task? _exerciseTypesTask;
+    private bool _listensToCatalog;
     private bool _exerciseTypesLoaded;
 
     private readonly List<WorkoutSessionResource> _sessions = [];
@@ -645,18 +648,46 @@
             return;
         }
 
-        _exerciseTypesTask ??= Http.GetFromJsonAsync<GetExerciseTypeResource[]>("/ExerciseTypes");
+        _exerciseTypesTask ??= LoadExerciseTypesAsync();
+        await _exerciseTypesTask;
+    }
+
+    private async Task LoadExerciseTypesAsync()
+    {
         try
         {
-            _exerciseTypes = await _exerciseTypesTask
-                ?? Array.Empty<GetExerciseTypeResource>();
+            // Only the first page gates the form: the picker shows suggestions from
+            // it immediately and the rest of the catalog lands in the background
+            // (t_81a400b3). Parsing all 549KB here kept the session on its skeleton
+            // for ~40s on a cold start.
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            await AppState.GetExerciseTypesAsync();
+            _exerciseTypes = AppState.GetExerciseTypesSnapshot();
+            AppState.ExerciseTypesUpdated += OnExerciseCatalogUpdated;
+            _listensToCatalog = true;
             _exerciseTypesLoaded = true;
+            Console.WriteLine($"HSPERF today-ready={sw.ElapsedMilliseconds}ms rows={_exerciseTypes.Length}");
+            await InvokeAsync(StateHasChanged);
         }
         catch
         {
             // A retry after the failure starts from a clean task.
             _exerciseTypesTask = null;
             throw;
+        }
+    }
+
+    private void OnExerciseCatalogUpdated()
+    {
+        _exerciseTypes = AppState.GetExerciseTypesSnapshot();
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        if (_listensToCatalog)
+        {
+            AppState.ExerciseTypesUpdated -= OnExerciseCatalogUpdated;
         }
     }
 

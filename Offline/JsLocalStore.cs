@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Text;
 using System.Text.Json;
 using Microsoft.JSInterop;
 
@@ -87,21 +89,69 @@ public sealed class JsLocalStore : SqlLocalStoreBase
         return new LocalStoreChanges(result.Changes, result.LastInsertRowId);
     }
 
+    /// <summary>
+    /// The catalog split (parse the response, pull each row out as raw JSON) runs
+    /// inside the SQLite worker: doing it on the main thread cost 1.0-1.6s per
+    /// 160-row page in interpreted WASM, on top of re-serialising every row into
+    /// the statements payload (t_81a400b3).
+    /// </summary>
+    public override async Task SaveCatalogBodyAsync(string kind, string body, string idProperty)
+    {
+        await EnsureOpenAsync();
+        await _js.InvokeVoidAsync(
+            "hsdb.mirrorCatalog", kind, body, idProperty, DateTime.UtcNow.ToString("O"));
+    }
+
     protected override async Task ExecuteBatchAsync(
         IEnumerable<(string Sql, object?[] Args)> statements)
     {
         await EnsureOpenAsync();
-        var payload = JsonSerializer.Serialize(
-            statements.Select(s => new
+
+        // Hand-written JSON instead of JsonSerializer: the reflection-based writer
+        // over anonymous types with object[] binds cost ~2s for a 160-row catalog
+        // page in interpreted WASM, and it ran on the main thread (t_81a400b3).
+        var buffer = new ArrayBufferWriter<byte>(64 * 1024);
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartArray();
+            foreach (var (sql, args) in statements)
             {
-                sql = s.Sql,
-                bind = s.Args.Select(a => a switch
+                writer.WriteStartObject();
+                writer.WriteString("sql", sql);
+                writer.WriteStartArray("bind");
+                foreach (var arg in args)
                 {
-                    null => null,
-                    bool b => b ? 1 : 0,
-                    _ => a
-                }).ToArray()
-            }));
+                    switch (arg)
+                    {
+                        case null:
+                            writer.WriteNullValue();
+                            break;
+                        case bool flag:
+                            writer.WriteNumberValue(flag ? 1 : 0);
+                            break;
+                        case int number:
+                            writer.WriteNumberValue(number);
+                            break;
+                        case long number:
+                            writer.WriteNumberValue(number);
+                            break;
+                        case double number:
+                            writer.WriteNumberValue(number);
+                            break;
+                        default:
+                            writer.WriteStringValue(arg.ToString());
+                            break;
+                    }
+                }
+
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+        }
+
+        var payload = Encoding.UTF8.GetString(buffer.WrittenSpan);
         await _js.InvokeAsync<ChangesResult>("hsdb.tx", payload);
     }
 

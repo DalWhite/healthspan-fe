@@ -67,11 +67,21 @@ public sealed class ResilientLocalStore : ILocalStore
     public Task SaveCatalogAsync(string kind, IEnumerable<(string Id, string Payload)> items)
         => RunAsync(store => store.SaveCatalogAsync(kind, items));
 
+    public Task SaveCatalogBodyAsync(string kind, string body, string idProperty)
+        => RunAsync(store => store.SaveCatalogBodyAsync(kind, body, idProperty));
+
     public Task<List<string>> GetCatalogPayloadsAsync(string kind)
         => RunAsync(store => store.GetCatalogPayloadsAsync(kind));
 
+    public Task<(List<string> Payloads, int Total)> GetCatalogPayloadsPageAsync(
+        string kind, int skip, int take)
+        => RunAsync(store => store.GetCatalogPayloadsPageAsync(kind, skip, take));
+
     public Task<bool> HasCatalogAsync(string kind)
         => RunAsync(store => store.HasCatalogAsync(kind));
+
+    public Task<int> CountCatalogAsync(string kind)
+        => RunAsync(store => store.CountCatalogAsync(kind));
 
     public Task InvalidateCatalogAsync(string kind)
         => RunAsync(store => store.InvalidateCatalogAsync(kind));

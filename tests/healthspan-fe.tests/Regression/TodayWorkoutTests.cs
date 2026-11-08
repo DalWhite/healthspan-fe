@@ -105,16 +105,25 @@ public class TodayWorkoutTests : BlazorTestBase
         });
 
         // Tap 1: pick the exercise. Tap 2: Add exercise. Sets/reps arrive prefilled.
+        // The catalog arrives in chunks (t_81a400b3), so the taps wait for it to
+        // settle: a chunk render landing between tap 1 and tap 2 detaches the
+        // handler the second tap was holding (bUnit crash class of t_a81315a9).
+        var appState = cut.Services.GetRequiredService<AppStateService>();
+        cut.WaitForState(() => appState.ExerciseTypesHydrated);
+
         cut.WaitForAssertion(() =>
             cut.FindAll("button")
                 .Should().Contain(button => button.TextContent.Contains("Bench Press")));
 
-        cut.FindAll("button")
-            .Single(button => button.TextContent.Contains("Bench Press"))
-            .Click();
-        cut.FindAll("button")
-            .Single(button => button.TextContent.Trim() == "Añadir ejercicio")
-            .Click();
+        cut.InvokeAsync(() =>
+        {
+            cut.FindAll("button")
+                .Single(button => button.TextContent.Contains("Bench Press"))
+                .Click();
+            cut.FindAll("button")
+                .Single(button => button.TextContent.Trim() == "Añadir ejercicio")
+                .Click();
+        }).Wait();
 
         cut.WaitForAssertion(() =>
         {

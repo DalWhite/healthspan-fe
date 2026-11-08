@@ -1,4 +1,5 @@
 ﻿@page "/exercises"
+@implements IDisposable
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject TitleService TitleService
@@ -236,11 +237,28 @@ else
             .ToDictionary(m => m.Id!.Value, m => m.Name ?? $"Muscle {m.Id}");
         _muscleGroupOptions = AppState.GetMuscleGroups();
 
-        var allTypes = await AppState.GetExerciseTypesAsync();
-        _exerciseTypeOptions = BuildExerciseTypeOptions(allTypes);
+        // The catalog paints from its first page and keeps hydrating in the
+        // background. Building the filter options once would cap the dialog at the
+        // first page's types and never refresh it during this visit, so rebuild on
+        // every chunk (t_81a400b3).
+        AppState.ExerciseTypesUpdated += OnExerciseTypesUpdated;
+        await AppState.GetExerciseTypesAsync();
+        RebuildExerciseTypeOptions();
 
         await LoadExercisesAsync();
     }
+
+    private void OnExerciseTypesUpdated()
+    {
+        // AppState raises this on the sync context, after a chunk has landed.
+        RebuildExerciseTypeOptions();
+        StateHasChanged();
+    }
+
+    private void RebuildExerciseTypeOptions()
+        => _exerciseTypeOptions = BuildExerciseTypeOptions(AppState.GetExerciseTypesSnapshot());
+
+    public void Dispose() => AppState.ExerciseTypesUpdated -= OnExerciseTypesUpdated;
 
     // ── Data Loading ───────────────────────────────────────────────────────────
 

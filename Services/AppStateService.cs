@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text;
 
 /// <summary>
 /// Singleton-scoped service that caches commonly fetched data
@@ -31,7 +32,14 @@ public class AppStateService
         new() { Id = 20, Slug = "calves", Name = "Calves", Side = "both", MuscleGroup = "Legs", SortOrder = 200 }
     ];
 
-    private List<GetExerciseTypeResource>? _exerciseTypes;
+    private readonly List<GetExerciseTypeResource> _exerciseTypes = new();
+    private readonly Dictionary<int, int> _exerciseTypesById = new();
+    private Task? _exerciseTypesFirstPage;
+    private Task? _catalogHydration;
+    private int _catalogGeneration;
+    // Full-projection rows fetched for the current generation. Kept as a field
+    // so a hydration that drops mid-flight can resume from this offset.
+    private int _catalogHydratedThrough;
     private List<Muscle>? _muscles;
     private string[]? _userRoles;
     public ExerciseLibraryViewState ExerciseLibraryView { get; } = new();
@@ -43,24 +51,219 @@ public class AppStateService
 
     // ── Exercise Types ─────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// First page of the catalog, then the rest in the background. Parsing the
+    /// whole 549KB catalog in WASM costs ~2.5s of main-thread time on a cold
+    /// start, which is what kept the library on its skeleton for 9s (t_81a400b3).
+    /// Callers get a usable list immediately (one screen of cards) and subscribe
+    /// to <see cref="ExerciseTypesUpdated"/> to re-render as the rest arrives.
+    /// </summary>
     public async Task<List<GetExerciseTypeResource>> GetExerciseTypesAsync()
     {
-        if (_exerciseTypes != null) return _exerciseTypes;
-
+        _exerciseTypesFirstPage ??= LoadFirstCatalogPageAsync();
         try
         {
-            _exerciseTypes = await _http.GetFromJsonAsync<List<GetExerciseTypeResource>>("/ExerciseTypes")
-                             ?? new List<GetExerciseTypeResource>();
+            await _exerciseTypesFirstPage;
         }
         catch
         {
-            _exerciseTypes = new List<GetExerciseTypeResource>();
+            // A failed first page must reach the page that owns the picker (it
+            // reports the failure and offers a retry) and that retry must be able
+            // to start over, so the cached task is dropped before rethrowing.
+            _exerciseTypesFirstPage = null;
+            throw;
         }
 
         return _exerciseTypes;
     }
 
-    public void InvalidateExerciseTypes() => _exerciseTypes = null;
+    /// <summary>Copy of the rows that arrived so far (safe to hold across chunks).</summary>
+    public GetExerciseTypeResource[] GetExerciseTypesSnapshot() => _exerciseTypes.ToArray();
+
+    /// <summary>
+    /// The whole catalog, waiting for the background hydration to settle. Only for
+    /// screens that cannot work on one page: the parent-type picker and the
+    /// validation behind it (t_81a400b3).
+    /// </summary>
+    public async Task<GetExerciseTypeResource[]> GetFullExerciseTypesAsync()
+    {
+        await GetExerciseTypesAsync();
+        if (_catalogHydration is null && !ExerciseTypesHydrated && ExerciseTypesTotal > 0)
+        {
+            // A previous hydration dropped mid-flight (e.g. a network blip).
+            // Resume from the offset it left behind instead of leaving the
+            // catalog permanently partial (t_530f9b31).
+            _catalogHydration = HydrateCatalogAsync(_catalogGeneration, ExerciseTypesTotal);
+        }
+
+        if (_catalogHydration is { } hydration)
+        {
+            await hydration;
+        }
+
+        return GetExerciseTypesSnapshot();
+    }
+
+    /// <summary>Total rows the server has, known from the first page.</summary>
+    public int ExerciseTypesTotal { get; private set; }
+
+    public bool ExerciseTypesHydrated { get; private set; }
+
+    /// <summary>Raised on the sync context after each catalog chunk lands.</summary>
+    public event Action? ExerciseTypesUpdated;
+
+    private const int CatalogFirstPageSize = 40;
+    // Chunks stay at first-page size: a 160-row chunk parse+merge+mirror batch cost
+    // the same as the whole first paint and produced multi-second long tasks on the
+    // main thread (t_e001ec28, PR #50 round 2).
+    private const int CatalogChunkSize = 40;
+
+    // Rebuilding the library per 40-row chunk re-renders the grid nonstop while
+    // hydration runs. Subscribers are notified at most once per this interval;
+    // a trailing timer guarantees the last chunk still lands.
+    private const int CatalogNotifyIntervalMs = 500;
+    private DateTimeOffset _lastCatalogNotifyAt = DateTimeOffset.MinValue;
+    private bool _catalogNotifyPending;
+
+    private void NotifyCatalogUpdated(int generation)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var sinceLastMs = (now - _lastCatalogNotifyAt).TotalMilliseconds;
+        if (sinceLastMs >= CatalogNotifyIntervalMs)
+        {
+            _lastCatalogNotifyAt = now;
+            ExerciseTypesUpdated?.Invoke();
+            return;
+        }
+
+        if (_catalogNotifyPending)
+        {
+            return;
+        }
+
+        _catalogNotifyPending = true;
+        _ = NotifyCatalogAfterAsync(generation, (int)(CatalogNotifyIntervalMs - sinceLastMs));
+    }
+
+    private async Task NotifyCatalogAfterAsync(int generation, int delayMs)
+    {
+        await Task.Delay(delayMs);
+        _catalogNotifyPending = false;
+        if (generation != _catalogGeneration)
+        {
+            return;
+        }
+
+        _lastCatalogNotifyAt = DateTimeOffset.UtcNow;
+        ExerciseTypesUpdated?.Invoke();
+    }
+
+    private async Task LoadFirstCatalogPageAsync()
+    {
+        var generation = _catalogGeneration;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var page = await ExerciseCatalogJson.GetPageAsync(_http, 0, CatalogFirstPageSize);
+        if (generation != _catalogGeneration)
+        {
+            return;
+        }
+
+        MergeCatalog(page.Items);
+        ExerciseTypesTotal = page.Total;
+        Console.WriteLine($"HSPERF catalog first page={sw.ElapsedMilliseconds}ms rows={page.Items.Count}/{page.Total}");
+        _catalogHydration ??= HydrateCatalogAsync(generation, page.Total);
+    }
+
+    private async Task HydrateCatalogAsync(int generation, int total)
+    {
+        var completed = false;
+        try
+        {
+            while (_catalogHydratedThrough < total)
+            {
+                // Yield first: the page that opened the library must finish its
+                // render before this chunk claims the main thread, and every chunk
+                // is fetched with the full projection so the description that
+                // search reads is not lost on the way (t_81a400b3).
+                await Task.Yield();
+                var chunkWatch = System.Diagnostics.Stopwatch.StartNew();
+                var page = await ExerciseCatalogJson.GetPageAsync(_http, _catalogHydratedThrough, CatalogChunkSize, full: true);
+                if (generation != _catalogGeneration)
+                {
+                    // Canceled: a newer generation owns the list; its own
+                    // hydration starts from a reset offset.
+                    return;
+                }
+
+                if (page.Items.Count == 0)
+                {
+                    // The server has fewer rows than X-Total-Count claims.
+                    break;
+                }
+
+                MergeCatalog(page.Items);
+                _catalogHydratedThrough += page.Items.Count;
+                Console.WriteLine($"HSPERF catalog chunk at={_catalogHydratedThrough - page.Items.Count} rows={page.Items.Count} ms={chunkWatch.ElapsedMilliseconds} total={total}");
+                NotifyCatalogUpdated(generation);
+            }
+
+            completed = true;
+        }
+        catch
+        {
+            // A partial catalog still lists and searches what arrived. The offset
+            // stays where it is: the next GetFullExerciseTypesAsync restarts the
+            // background run from this chunk, not from zero (t_530f9b31).
+        }
+        finally
+        {
+            if (generation == _catalogGeneration)
+            {
+                ExerciseTypesHydrated = completed;
+                if (!completed)
+                {
+                    // Let a later caller resume; hydration is not marked done.
+                    _catalogHydration = null;
+                }
+
+                NotifyCatalogUpdated(generation);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Rows arrive twice: the paint page is slim, the hydration chunks are full.
+    /// Keep one row per id, replacing the slim copy in place with the full one so
+    /// the first screen keeps its order (t_81a400b3).
+    /// </summary>
+    private void MergeCatalog(IReadOnlyList<GetExerciseTypeResource> items)
+    {
+        foreach (var item in items)
+        {
+            if (_exerciseTypesById.TryGetValue(item.Id, out var index))
+            {
+                _exerciseTypes[index] = item;
+                continue;
+            }
+
+            _exerciseTypesById[item.Id] = _exerciseTypes.Count;
+            _exerciseTypes.Add(item);
+        }
+    }
+
+    public void InvalidateExerciseTypes()
+    {
+        // Bumping the generation makes a hydration that is already in flight drop
+        // its chunks instead of patching a list this call just cleared.
+        _catalogGeneration++;
+        _exerciseTypes.Clear();
+        _exerciseTypesById.Clear();
+        _exerciseTypesFirstPage = null;
+        _catalogHydration = null;
+        _catalogHydratedThrough = 0;
+        ExerciseTypesTotal = 0;
+        ExerciseTypesHydrated = false;
+    }
 
     // ── Muscles ────────────────────────────────────────────────────────────────
 
@@ -136,17 +339,40 @@ public class AppStateService
     {
         if (string.IsNullOrWhiteSpace(query)) return true;
 
-        return (item.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (item.Description?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (item.Tags?.Any(tag =>
-                tag.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                tag.Category.Contains(query, StringComparison.OrdinalIgnoreCase)) ?? false)
-            || (item.Variations?.Any(variation =>
-                (variation.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (variation.Description?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (variation.Tags?.Any(tag =>
-                    tag.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                    tag.Category.Contains(query, StringComparison.OrdinalIgnoreCase)) ?? false)) ?? false);
+        // One cached concatenated haystack per row instead of re-walking
+        // name+description+tags+variations on every keystroke: the library scan
+        // cost a full second per character on 876 rows (t_e001ec28, PR #50 round 2).
+        // MergeCatalog swaps whole instances (never mutates in place), so keying by
+        // reference is safe: a replaced row simply loses its (unreachable) entry.
+        var haystack = SearchHaystackCache.GetValue(item, BuildSearchHaystack);
+        return haystack.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<GetExerciseTypeResource, string> SearchHaystackCache = new();
+
+    private static string BuildSearchHaystack(GetExerciseTypeResource item)
+    {
+        var sb = new StringBuilder();
+        AppendSearchParts(sb, item);
+        foreach (var variation in item.Variations)
+        {
+            AppendSearchParts(sb, variation);
+        }
+        return sb.ToString();
+    }
+
+    private static void AppendSearchParts(StringBuilder sb, GetExerciseTypeResource item)
+    {
+        if (!string.IsNullOrEmpty(item.Name)) sb.Append(item.Name).Append('\n');
+        if (!string.IsNullOrEmpty(item.Description)) sb.Append(item.Description).Append('\n');
+        if (item.Tags is not null)
+        {
+            foreach (var tag in item.Tags)
+            {
+                if (!string.IsNullOrEmpty(tag.Name)) sb.Append(tag.Name).Append('\n');
+                if (!string.IsNullOrEmpty(tag.Category)) sb.Append(tag.Category).Append('\n');
+            }
+        }
     }
 
     public static bool MatchesSearch(GetExerciseResource item, string query)

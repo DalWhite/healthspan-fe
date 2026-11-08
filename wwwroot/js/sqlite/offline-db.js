@@ -123,6 +123,17 @@
             return await callTx(statementsJson);
         },
 
+        // Mirror a whole catalog body: the worker splits the rows and writes them
+        // in one transaction, so the main thread only ships the response string.
+        mirrorCatalog: async function (kind, body, idProperty, cachedAt) {
+            await whenReady();
+            return await new Promise((resolve, reject) => {
+                const id = ++seq;
+                pending.set(id, { resolve, reject });
+                worker.postMessage({ id, method: 'mirrorCatalog', kind, body, idProperty, cachedAt });
+            });
+        },
+
         // Connectivity events are bridged to C#: pass a DotNetObjectReference
         // (preferred) or a global function name as a fallback.
         setConnectivityBridge: function (dotnetRefOrName) {
