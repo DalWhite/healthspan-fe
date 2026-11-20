@@ -64,4 +64,4 @@ ownership and no NDA. Open source under GPL-3.0, an OSI-approved license.
 
 ## License
 
-GPL-3.0 — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
